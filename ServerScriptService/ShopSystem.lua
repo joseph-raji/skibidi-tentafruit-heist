@@ -6,8 +6,9 @@ local Players         = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService    = game:GetService("TweenService")
 
-local BrainrotData = require(ReplicatedStorage.Modules.BrainrotData)
-local GameConfig   = require(ReplicatedStorage.Modules.GameConfig)
+local BrainrotData       = require(ReplicatedStorage.Modules.BrainrotData)
+local GameConfig         = require(ReplicatedStorage.Modules.GameConfig)
+local CharacterBuilders  = require(game:GetService("ServerScriptService"):WaitForChild("CharacterBuilders"))
 
 local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local NotificationEvent    = RemoteEvents:WaitForChild("Notification")
@@ -134,139 +135,9 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	model.Parent = workspace
 
 	-- -----------------------------------------------------------------------
-	-- Helper: weld partB to partA
+	-- Build the humanoid fruit character
 	-- -----------------------------------------------------------------------
-	local function weld(partA, partB)
-		local w = Instance.new("WeldConstraint")
-		w.Part0 = partA
-		w.Part1 = partB
-		w.Parent = partA
-	end
-
-	-- -----------------------------------------------------------------------
-	-- Body (primary part — torso sphere)
-	-- -----------------------------------------------------------------------
-	local body = Instance.new("Part")
-	body.Name       = "Body"
-	body.Shape      = Enum.PartType.Ball
-	body.Material   = Enum.Material.Neon
-	body.BrickColor = brainrotData.color
-	body.Size       = Vector3.new(s, s, s)
-	body.CFrame     = CFrame.new(position)
-	body.Anchored   = true
-	body.CanCollide = true
-	body.CastShadow = true
-	body.Parent     = model
-	model.PrimaryPart = body
-
-	-- -----------------------------------------------------------------------
-	-- Head (slightly smaller sphere, same color, positioned above body)
-	-- -----------------------------------------------------------------------
-	local headSize = s * 0.65
-	local head = Instance.new("Part")
-	head.Name       = "Head"
-	head.Shape      = Enum.PartType.Ball
-	head.Material   = Enum.Material.SmoothPlastic
-	head.BrickColor = brainrotData.color
-	head.Size       = Vector3.new(headSize, headSize, headSize)
-	head.CFrame     = CFrame.new(position + Vector3.new(0, s * 0.82, 0))
-	head.Anchored   = false
-	head.CanCollide = false
-	head.CastShadow = false
-	head.Parent     = model
-	weld(body, head)
-
-	-- -----------------------------------------------------------------------
-	-- Eyes: two white spheres with black dot pupils
-	-- -----------------------------------------------------------------------
-	local eyeSize   = headSize * 0.28
-	local pupilSize = eyeSize * 0.45
-	local eyeOffsetY  = headSize * 0.08
-	local eyeOffsetZ  = headSize * 0.42
-	local eyeOffsetX  = headSize * 0.22
-
-	for _, side in ipairs({ -1, 1 }) do
-		local eye = Instance.new("Part")
-		eye.Name       = "Eye_" .. (side == -1 and "L" or "R")
-		eye.Shape      = Enum.PartType.Ball
-		eye.Material   = Enum.Material.SmoothPlastic
-		eye.BrickColor = BrickColor.new("White")
-		eye.Size       = Vector3.new(eyeSize, eyeSize, eyeSize)
-		eye.CFrame     = CFrame.new(
-			position
-			+ Vector3.new(side * eyeOffsetX, s * 0.82 + eyeOffsetY, eyeOffsetZ)
-		)
-		eye.Anchored   = false
-		eye.CanCollide = false
-		eye.CastShadow = false
-		eye.Parent     = model
-		weld(body, eye)
-
-		local pupil = Instance.new("Part")
-		pupil.Name       = "Pupil_" .. (side == -1 and "L" or "R")
-		pupil.Shape      = Enum.PartType.Ball
-		pupil.Material   = Enum.Material.SmoothPlastic
-		pupil.BrickColor = BrickColor.new("Really black")
-		pupil.Size       = Vector3.new(pupilSize, pupilSize, pupilSize)
-		pupil.CFrame     = CFrame.new(
-			position
-			+ Vector3.new(side * eyeOffsetX, s * 0.82 + eyeOffsetY, eyeOffsetZ + eyeSize * 0.35)
-		)
-		pupil.Anchored   = false
-		pupil.CanCollide = false
-		pupil.CastShadow = false
-		pupil.Parent     = model
-		weld(body, pupil)
-	end
-
-	-- -----------------------------------------------------------------------
-	-- Arms: two thin cylinder stubs on the sides, angled slightly downward
-	-- -----------------------------------------------------------------------
-	local armLength = s * 0.8
-	local armThick  = s * 0.18
-	local armOffsetY = s * 0.05
-
-	for _, side in ipairs({ -1, 1 }) do
-		local arm = Instance.new("Part")
-		arm.Name       = "Arm_" .. (side == -1 and "L" or "R")
-		arm.Shape      = Enum.PartType.Cylinder
-		arm.Material   = Enum.Material.SmoothPlastic
-		arm.BrickColor = brainrotData.color
-		arm.Size       = Vector3.new(armLength, armThick, armThick)
-		-- Cylinders extend along the X axis by default; offset out to the side
-		arm.CFrame     = CFrame.new(
-			position + Vector3.new(side * (s * 0.5 + armLength * 0.5), armOffsetY, 0)
-		) * CFrame.Angles(0, 0, math.rad(side * 20))  -- tilt slightly downward
-		arm.Anchored   = false
-		arm.CanCollide = false
-		arm.CastShadow = false
-		arm.Parent     = model
-		weld(body, arm)
-	end
-
-	-- -----------------------------------------------------------------------
-	-- Leg stubs: two short cylinders below body
-	-- -----------------------------------------------------------------------
-	local legLength = s * 0.55
-	local legThick  = s * 0.2
-	local legOffsetX = s * 0.2
-
-	for _, side in ipairs({ -1, 1 }) do
-		local leg = Instance.new("Part")
-		leg.Name       = "Leg_" .. (side == -1 and "L" or "R")
-		leg.Shape      = Enum.PartType.Cylinder
-		leg.Material   = Enum.Material.SmoothPlastic
-		leg.BrickColor = brainrotData.color
-		leg.Size       = Vector3.new(legThick, legLength, legThick)
-		leg.CFrame     = CFrame.new(
-			position + Vector3.new(side * legOffsetX, -(s * 0.5 + legLength * 0.5), 0)
-		)
-		leg.Anchored   = false
-		leg.CanCollide = false
-		leg.CastShadow = false
-		leg.Parent     = model
-		weld(body, leg)
-	end
+	local body = CharacterBuilders.build(brainrotData.id, position, model, s, brainrotData)
 
 	-- -----------------------------------------------------------------------
 	-- Glow (on body)
@@ -283,7 +154,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	-- Owned items show income/rarity (cost is already paid).
 	-- -----------------------------------------------------------------------
 	local billboard = Instance.new("BillboardGui")
-	billboard.StudsOffset   = Vector3.new(0, s + headSize + 1.2, 0)
+	billboard.StudsOffset   = Vector3.new(0, s * 2.0 + 1.2, 0)
 	billboard.AlwaysOnTop   = false
 	billboard.LightInfluence = 0
 	billboard.Parent        = body
@@ -463,31 +334,32 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		_plateToBrainrot[plate] = body
 		_brainrotToPlate[body]  = plate
 
-		-- ProximityPrompt for reliable collection (Touched is unreliable on CanCollide=false)
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.ObjectText            = brainrotData.name
-		prompt.ActionText            = "Collect $0"
-		prompt.MaxActivationDistance = 8
-		prompt.HoldDuration          = 0
-		prompt.Parent                = plate
-		_platePrompt[plate] = prompt
+		-- Walk over the plate to collect money automatically
+		plate.CanCollide = true
 
-		prompt.Triggered:Connect(function(trigPlayer)
+		local collectDebounce = {}
+		plate.Touched:Connect(function(hit)
+			local character = hit.Parent
+			if not character then return end
+			local trigPlayer = Players:GetPlayerFromCharacter(character)
+			if not trigPlayer then return end
 			if _brainrotOwner[body] ~= trigPlayer then return end
+			if collectDebounce[trigPlayer] then return end
+
 			local money = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
-			if money <= 0 then
-				NotificationEvent:FireClient(trigPlayer, "Nothing to collect yet!", Color3.fromRGB(200, 200, 100))
-				return
-			end
+			if money <= 0 then return end
+
+			collectDebounce[trigPlayer] = true
+			task.delay(1, function() collectDebounce[trigPlayer] = nil end)
+
 			body:SetAttribute("AccumulatedMoney", 0)
 			trigPlayer:SetAttribute("Money", (trigPlayer:GetAttribute("Money") or 0) + money)
-			prompt.ActionText = "Collect $0"
 
 			-- Update label immediately
 			local gui = plate:FindFirstChildWhichIsA("BillboardGui")
 			if gui then
-				local label = gui:FindFirstChildWhichIsA("TextLabel")
-				if label then label.Text = "$0" end
+				local lbl = gui:FindFirstChildWhichIsA("TextLabel")
+				if lbl then lbl.Text = "$0" end
 			end
 
 			-- Flash plate to bright lime green
@@ -548,16 +420,10 @@ RunService.Heartbeat:Connect(function()
 			end
 			-- Dim when empty, bright when has money
 			plate.Color = amt > 0 and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(30, 80, 30)
-			-- Update prompt action text
-			local prompt = _platePrompt[plate]
-			if prompt then
-				prompt.ActionText = "Collect " .. amtText
-			end
 		else
 			-- Brainrot or plate was destroyed, clean up
 			_plateToBrainrot[plate] = nil
 			if body then _brainrotToPlate[body] = nil end
-			_platePrompt[plate] = nil
 		end
 	end
 end)
@@ -836,8 +702,6 @@ function ShopSystem.createShopPads()
 	-- -----------------------------------------------------------------------
 	-- Single spawn loop: 1 brainrot every 2 seconds (weighted random by rarity)
 	-- -----------------------------------------------------------------------
-	local buyDebounce = {}
-
 	task.spawn(function()
 		while true do
 			task.wait(4)
@@ -847,162 +711,10 @@ function ShopSystem.createShopPads()
 				local body = ShopSystem.spawnBrainrot(chosen, spawnPos, nil, _brainrotOwner, nil)
 				if body then
 					conveyorItems[body] = true
-
-					-- ProximityPrompt to buy (hold E for 0.3s)
-					local prompt = Instance.new("ProximityPrompt")
-					prompt.ObjectText            = chosen.name
-					prompt.ActionText            = chosen.cost and ("Buy - $" .. chosen.cost) or "Gacha Only"
-					prompt.MaxActivationDistance = 8
-					prompt.HoldDuration          = 0.3
-					prompt.UIOffset              = Vector2.new(0, 50)
-					prompt.Parent                = body
-
-					prompt.Triggered:Connect(function(player)
-						if not conveyorItems[body] then return end
-						if buyDebounce[player] then return end
-
-						if chosen.cost == nil then
-							NotificationEvent:FireClient(player, chosen.name .. " is GACHA only!", Color3.fromRGB(255, 150, 0))
-							return
-						end
-
-						local slotIndex, dest = BaseSystem.getNextSlot(player, _playerBases)
-						if not slotIndex then
-							NotificationEvent:FireClient(player, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
-							return
-						end
-
-						local money = player:GetAttribute("Money") or 0
-						if money < chosen.cost then
-							NotificationEvent:FireClient(player, "Need $" .. chosen.cost .. "! You have $" .. money, Color3.fromRGB(255, 80, 80))
-							return
-						end
-
-						buyDebounce[player] = true
-						task.delay(2, function() buyDebounce[player] = nil end)
-
-						-- Deduct money and claim the slot immediately
-						player:SetAttribute("Money", money - chosen.cost)
-						conveyorItems[body] = nil
-						prompt:Destroy()
-
-						-- Register ownership before flight so income starts accumulating
-						_brainrotOwner[body] = player
-						body:SetAttribute("IncomePerSecond", chosen.income)
-						body:SetAttribute("BrainrotId", chosen.id)
-						body:SetAttribute("BrainrotName", chosen.name)
-						body:SetAttribute("SlotIndex", slotIndex)
-						body.Anchored = true
-
-						if not _playerCollection[player] then _playerCollection[player] = {} end
-						_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
-
-						CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
-						NotificationEvent:FireClient(player, "Bought " .. chosen.name .. "! +" .. chosen.income .. "$/s", Color3.fromRGB(100, 255, 100))
-
-						-- Animate brainrot walking to its base slot (stays near ground, walking bob)
-						_flyingBodies[body] = true
-						local startPos = body.Position
-						-- dest stores floor surface Y; add size/2 so brainrot rests on floor
-						local endPos   = Vector3.new(dest.X, dest.Y + chosen.size / 2, dest.Z)
-						local duration = 5   -- seconds to walk to base
-						local startT   = tick()
-
-						-- Direction yaw so brainrot faces where it's walking
-						local dx = endPos.X - startPos.X
-						local dz = endPos.Z - startPos.Z
-						local walkYaw = math.atan2(dz, dx)
-
-						task.spawn(function()
-							repeat
-								local elapsed = tick() - startT
-								local alpha = math.min(elapsed / duration, 1)
-								-- linear interpolation along X/Z, gentle Y lerp
-								local wx = startPos.X + (endPos.X - startPos.X) * alpha
-								local wz = startPos.Z + (endPos.Z - startPos.Z) * alpha
-								local wy = startPos.Y + (endPos.Y - startPos.Y) * alpha
-								-- small walking bounce (footstep-like up-down)
-								local bob = math.abs(math.sin(elapsed * 6)) * 0.35
-								body.CFrame = CFrame.new(wx, wy + bob, wz) * CFrame.Angles(0, walkYaw, 0)
-								task.wait()
-							until not body.Parent or (tick() - startT) >= duration
-
-							if not body.Parent then return end
-							body.CFrame = CFrame.new(endPos)
-							body:SetAttribute("BaseY", endPos.Y)  -- fix bobbing to use slot height
-							_flyingBodies[body] = nil
-
-							-- Pressure plate at slot's plate position
-							local baseData = _playerBases[player]
-							local platePos = dest
-							if baseData and baseData.platePositions and slotIndex then
-								platePos = baseData.platePositions[slotIndex]
-							end
-
-							local cplate = Instance.new("Part")
-							cplate.Name       = "CollectPlate_" .. slotIndex
-							cplate.Size       = Vector3.new(4, 0.3, 4)
-							cplate.Material   = Enum.Material.Neon
-							cplate.Color      = Color3.fromRGB(30, 80, 30)
-							cplate.CanCollide = false
-							cplate.Anchored   = true
-							cplate.CFrame     = CFrame.new(platePos)
-							cplate.Parent     = workspace
-
-							local cplateBB = Instance.new("BillboardGui")
-							cplateBB.StudsOffset = Vector3.new(0, 2, 0)
-							cplateBB.Size        = UDim2.new(0.1, 0, 0.1, 0)
-							cplateBB.Parent      = cplate
-							local cplateLabel = Instance.new("TextLabel")
-							cplateLabel.Size                   = UDim2.new(1, 0, 1, 0)
-							cplateLabel.BackgroundTransparency = 1
-							cplateLabel.Text                   = "$0"
-							cplateLabel.TextColor3             = Color3.fromRGB(100, 255, 100)
-							cplateLabel.TextStrokeTransparency = 0.4
-							cplateLabel.TextScaled             = true
-							cplateLabel.Font                   = Enum.Font.GothamBold
-							cplateLabel.Parent                 = cplateBB
-
-							_plateToBrainrot[cplate] = body
-							_brainrotToPlate[body]   = cplate
-
-							local cPrompt = Instance.new("ProximityPrompt")
-							cPrompt.ObjectText            = chosen.name
-							cPrompt.ActionText            = "Collect $0"
-							cPrompt.MaxActivationDistance = 8
-							cPrompt.HoldDuration          = 0
-							cPrompt.Parent                = cplate
-							_platePrompt[cplate] = cPrompt
-
-							cPrompt.Triggered:Connect(function(trigPlayer)
-								if _brainrotOwner[body] ~= trigPlayer then return end
-								local amt = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
-								if amt <= 0 then
-									NotificationEvent:FireClient(trigPlayer, "Nothing to collect yet!", Color3.fromRGB(200, 200, 100))
-									return
-								end
-								body:SetAttribute("AccumulatedMoney", 0)
-								trigPlayer:SetAttribute("Money", (trigPlayer:GetAttribute("Money") or 0) + amt)
-								cPrompt.ActionText = "Collect $0"
-								local gui = cplate:FindFirstChildWhichIsA("BillboardGui")
-								if gui then
-									local lbl = gui:FindFirstChildWhichIsA("TextLabel")
-									if lbl then lbl.Text = "$0" end
-								end
-								TweenService:Create(cplate, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 1, true),
-									{Color = Color3.fromRGB(0, 255, 80), Transparency = 0.4}):Play()
-								NotificationEvent:FireClient(trigPlayer, "+" .. amt .. "$", Color3.fromRGB(100, 255, 100))
-							end)
-
-							body.AncestryChanged:Connect(function()
-								if not body.Parent and cplate.Parent then cplate:Destroy() end
-							end)
-						end)
-					end)  -- end prompt.Triggered
-				end  -- end if body
-			end  -- end if chosen
-		end  -- end while
-	end)  -- end task.spawn
+				end
+			end
+		end
+	end)
 
 	-- -----------------------------------------------------------------------
 	-- GACHA pad — beside the belt

@@ -13,7 +13,8 @@ local BrainrotData = require(ReplicatedStorage:WaitForChild("Modules"):WaitForCh
 
 local RE = ReplicatedStorage:WaitForChild("RemoteEvents")
 local OpenShopEvent  = RE:WaitForChild("OpenShop")
-local SpinGachaEvent = RE:WaitForChild("SpinGacha")
+local SpinGachaEvent   = RE:WaitForChild("SpinGacha")
+local BuyBrainrotEvent = RE:WaitForChild("BuyBrainrot")
 local RebirthEvent   = RE:WaitForChild("Rebirth")
 local NotificationEvent = RE:WaitForChild("Notification")
 
@@ -249,7 +250,7 @@ InfoPage.ZIndex                 = 7
 InfoPage.Parent                 = ContentArea
 
 -- Hint text
-local HintLabel = label(InfoPage, "🏃 Walk to the conveyor belt to buy brainrots!", 13, Color3.fromRGB(140, 220, 140))
+local HintLabel = label(InfoPage, "Buy brainrots below or spin the GACHA!", 13, Color3.fromRGB(140, 220, 140))
 HintLabel.Size     = UDim2.new(1, 0, 0, 22)
 HintLabel.Position = UDim2.new(0, 0, 0, 0)
 HintLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -350,39 +351,28 @@ local function buildBrainrotList()
 
 		-- Name
 		local nameLabel = label(row, entry.name or entry.id, 13, Color3.fromRGB(230, 230, 230), Enum.Font.GothamBold)
-		nameLabel.Size     = UDim2.new(0, 160, 1, 0)
+		nameLabel.Size     = UDim2.new(0, 200, 1, 0)
 		nameLabel.Position = UDim2.new(0, 12, 0, 0)
 		nameLabel.ZIndex   = 10
-
-		-- Income/s
-		local incomeText = entry.income and ("+$" .. entry.income .. "/s") or ""
-		local incomeLabel = label(row, incomeText, 12, Color3.fromRGB(100, 220, 100))
-		incomeLabel.Size     = UDim2.new(0, 90, 1, 0)
-		incomeLabel.Position = UDim2.new(0, 178, 0, 0)
-		incomeLabel.ZIndex   = 10
 
 		-- Cost
 		local costText = isGachaOnly and "GACHA ONLY" or ("$" .. (entry.cost or "?"))
 		local costColor = isGachaOnly and Color3.fromRGB(200, 130, 255) or Color3.fromRGB(255, 210, 80)
 		local costLabel = label(row, costText, 12, costColor, Enum.Font.GothamBold)
 		costLabel.Size     = UDim2.new(0, 100, 1, 0)
-		costLabel.Position = UDim2.new(0, 274, 0, 0)
+		costLabel.Position = UDim2.new(0, 218, 0, 0)
 		costLabel.ZIndex   = 10
 
-		-- Rarity badge
-		local badge = Instance.new("TextLabel")
-		badge.Size             = UDim2.new(0, 78, 0, 20)
-		badge.Position         = UDim2.new(1, -84, 0.5, -10)
-		badge.BackgroundColor3 = rarityColor
-		badge.BackgroundTransparency = 0.6
-		badge.Text             = rarityName
-		badge.TextColor3       = Color3.fromRGB(255, 255, 255)
-		badge.TextSize         = 10
-		badge.Font             = Enum.Font.GothamBold
-		badge.TextXAlignment   = Enum.TextXAlignment.Center
-		badge.ZIndex           = 10
-		badge.Parent           = row
-		corner(badge, 4)
+		-- BUY button (only for purchasable brainrots)
+		if not isGachaOnly then
+			local buyBtn = button(row, "BUY", Color3.fromRGB(40, 140, 60), Color3.fromRGB(255, 255, 255))
+			buyBtn.Size     = UDim2.new(0, 70, 0, 26)
+			buyBtn.Position = UDim2.new(1, -78, 0.5, -13)
+			buyBtn.ZIndex   = 11
+			buyBtn.MouseButton1Click:Connect(function()
+				BuyBrainrotEvent:FireServer(entry.id)
+			end)
+		end
 
 		table.insert(brainrotRows, { row = row, rarity = rarityName })
 	end
