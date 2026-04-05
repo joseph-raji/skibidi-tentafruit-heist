@@ -6,9 +6,17 @@ local Players         = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService    = game:GetService("TweenService")
 
-local BrainrotData       = require(ReplicatedStorage.Modules.BrainrotData)
-local GameConfig         = require(ReplicatedStorage.Modules.GameConfig)
-local CharacterBuilders  = require(game:GetService("ServerScriptService"):WaitForChild("CharacterBuilders"))
+local BrainrotData  = require(ReplicatedStorage.Modules.BrainrotData)
+local GameConfig    = require(ReplicatedStorage.Modules.GameConfig)
+
+local CharacterBuilders
+local ok, err = pcall(function()
+	CharacterBuilders = require(game:GetService("ServerScriptService"):WaitForChild("CharacterBuilders", 5))
+end)
+if not ok then
+	warn("CharacterBuilders failed to load: " .. tostring(err))
+	CharacterBuilders = nil
+end
 
 local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local NotificationEvent    = RemoteEvents:WaitForChild("Notification")
@@ -137,7 +145,25 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	-- -----------------------------------------------------------------------
 	-- Build the humanoid fruit character
 	-- -----------------------------------------------------------------------
-	local body = CharacterBuilders.build(brainrotData.id, position, model, s, brainrotData)
+	local body
+	if CharacterBuilders then
+		body = CharacterBuilders.build(brainrotData.id, position, model, s, brainrotData)
+	end
+	if not body then
+		-- Fallback: simple sphere so the game never crashes
+		body = Instance.new("Part")
+		body.Name       = "Body"
+		body.Shape      = Enum.PartType.Ball
+		body.Material   = Enum.Material.Neon
+		body.BrickColor = brainrotData.color
+		body.Size       = Vector3.new(s, s, s)
+		body.CFrame     = CFrame.new(position)
+		body.Anchored   = true
+		body.CanCollide = true
+		body.CastShadow = true
+		body.Parent     = model
+		model.PrimaryPart = body
+	end
 
 	-- -----------------------------------------------------------------------
 	-- Glow (on body)
