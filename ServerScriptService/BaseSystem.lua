@@ -11,73 +11,40 @@ local BaseSystem = {}
 -- Constants
 -- ============================================================
 
-local BASE_SIZE = 50           -- plot footprint (square)
-local FLOOR_HEIGHT = 1         -- plot ground slab height
+local BASE_SIZE        = 50    -- plot footprint (square)
+local BUILDING_DEPTH   = 34   -- along depth axis (X for left/right houses)
+local BUILDING_WIDTH   = 28   -- along Z axis
+local WALL_HEIGHT      = 10   -- wall height per floor
+local FLOOR_THICKNESS  = 2    -- floor slab thickness
+local ROOF_OVERHANG    = 3    -- roof overhang on each side
+local ROOF_THICKNESS   = 1.5
+local YARD_DEPTH       = 14   -- green area between building front and plot edge toward road
+local FLOOR_HEIGHT_STEP = 12  -- Y distance between each floor's ground level
 
--- Building dimensions
-local BUILDING_W = 30          -- building width (parallel to road-facing axis)
-local BUILDING_D = 20          -- building depth (perpendicular to road)
-local WALL_HEIGHT = 8          -- house wall height
-local WALL_THICKNESS = 1       -- house wall thickness
-local FOUNDATION_HEIGHT = 2    -- concrete foundation slab height
-local FOUNDATION_MARGIN = 1    -- how much foundation extends past walls
-local ROOF_OVERHANG = 3        -- how far roof extends past walls on each side
-local ROOF_THICKNESS = 1.5     -- flat roof thickness
-local ENTRANCE_GAP = 12        -- width of open entrance in front wall
+local WALL_THICKNESS   = 1
+local ENTRANCE_GAP     = 12   -- width of open entrance in front wall
+
+local MAX_FLOORS       = 5
+local SLOTS_PER_FLOOR  = 10   -- 5 left + 5 right
 
 -- Neon red bars on front face
 local NEON_BAR_COUNT = 5
-local NEON_BAR_W = 2
-local NEON_BAR_H = 7
-local NEON_BAR_D = 0.5
+local NEON_BAR_W     = 2
+local NEON_BAR_H     = 7
+local NEON_BAR_D     = 0.5
 
 -- Shield / lock
 local LOCK_SHIELD_DURATION = 15
-local LOCK_COOLDOWN = 30
-
--- Slot grid (brainrot placement inside house)
-local SLOT_COLS = 4
-local SLOT_ROWS = 5
-local SLOT_SPACING_X = 4
-local SLOT_SPACING_Z = 3
-
--- How many slots each level unlocks
-local LEVEL_SLOTS = {
-	[0] = 8,   -- level 0: 8 slots
-	[1] = 12,  -- level 1
-	[2] = 16,  -- level 2
-	[3] = 18,  -- level 3
-	[4] = 20,  -- level 4 (max = 4x5)
-}
+local LOCK_COOLDOWN        = 30
 
 -- ============================================================
 -- Module-level state
 -- ============================================================
 
--- Tracks cooldown per player (UserId → os.clock() when lock was last activated)
 local lockCooldowns = {}
 
-local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
+local remoteEvents   = ReplicatedStorage:WaitForChild("RemoteEvents")
 local evtNotification = remoteEvents:WaitForChild("Notification")
-
--- ============================================================
--- Helper: determine level from RebirthCount attribute
--- ============================================================
-
-local function getLevel(player)
-	local rebirths = player:GetAttribute("RebirthCount") or 0
-	if rebirths >= 8 then
-		return 4
-	elseif rebirths >= 5 then
-		return 3
-	elseif rebirths >= 3 then
-		return 2
-	elseif rebirths >= 1 then
-		return 1
-	else
-		return 0
-	end
-end
 
 -- ============================================================
 -- Helper: create a basic anchored Part
@@ -85,449 +52,243 @@ end
 
 local function makePart(parent, name, size, cframe, color3, transparency, material, canCollide)
 	local part = Instance.new("Part")
-	part.Name = name
-	part.Size = size
-	part.CFrame = cframe
-	part.Color = color3
+	part.Name        = name
+	part.Size        = size
+	part.CFrame      = cframe
+	part.Color       = color3
 	part.Transparency = transparency or 0
-	part.Material = material or Enum.Material.SmoothPlastic
-	part.Anchored = true
-	part.CanCollide = canCollide ~= false
-	part.CastShadow = true
-	part.Parent = parent
+	part.Material    = material or Enum.Material.SmoothPlastic
+	part.Anchored    = true
+	part.CanCollide  = canCollide ~= false
+	part.CastShadow  = true
+	part.Parent      = parent
 	return part
 end
 
 -- ============================================================
--- Helper: determine which direction the house faces based on plot X
--- Returns a unit Vector3 pointing toward the road (front direction).
+-- Helper: getFaceSign
+-- Houses at X<0 face +X (toward road), houses at X>0 face -X
 -- ============================================================
 
-local function getFrontDirection(positionX)
-	if positionX < 0 then
-		return Vector3.new(1, 0, 0)   -- face +X
-	elseif positionX > 0 then
-		return Vector3.new(-1, 0, 0)  -- face -X
+local function getFaceSign(pos)
+	if pos.X < 0 then
+		return 1
+	elseif pos.X > 0 then
+		return -1
 	else
-		return Vector3.new(0, 0, 1)   -- face +Z (default)
+		return 0  -- edge case, face +Z
 	end
 end
 
--- Given a front direction unit vector, return the perpendicular "side" direction
--- (always in the XZ plane, 90° counterclockwise from front).
-local function getSideDirection(front)
-	-- rotate 90° around Y: (x,0,z) -> (z,0,-x)
-	return Vector3.new(front.Z, 0, -front.X)
+-- ============================================================
+-- Pre-compute all 50 slot positions (5 floors x 10 slots)
+-- and their matching pressure plate positions.
+--
+-- Layout per floor:
+--   5 rows, back-to-front, along depth axis: rowOffsets = {-12, -6, 0, 6, 12}
+--   2 sides along Z: leftZ = pos.Z - 9,  rightZ = pos.Z + 9
+--   Slots 1-5:  left side  (rows 1-5, back=1 front=5)
+--   Slots 6-10: right side (rows 1-5)
+--
+-- Pressure plates sit between brainrot and aisle:
+--   Left plate:  Z = pos.Z - 4.5
+--   Right plate: Z = pos.Z + 4.5
+-- ============================================================
+
+local ROW_OFFSETS = {-16, -8, 0, 8, 16}  -- 8-stud spacing prevents visual crowding
+
+local function computeAllSlotPositions(pos)
+	local faceSign = getFaceSign(pos)
+	-- Building center along depth axis is 6 studs inward from plot center
+	local bCX = pos.X + faceSign * (-6)
+
+	local leftZ  = pos.Z - 11   -- pushed further from aisle to avoid brainrot/plate overlap
+	local rightZ = pos.Z + 11
+
+	local leftPlateZ  = pos.Z - 6   -- plate sits in the aisle, clear of the brainrot body
+	local rightPlateZ = pos.Z + 6
+
+	local slotPositions  = {}
+	local platePositions = {}
+
+	for floorIndex = 1, MAX_FLOORS do
+		local floorY = pos.Y + 5 + (floorIndex - 1) * FLOOR_HEIGHT_STEP
+
+		for row = 1, 5 do
+			local rowX = bCX + faceSign * ROW_OFFSETS[row]
+
+			-- Slot on left side (global slot index within this floor: row, left=1..5)
+			local leftSlotGlobal  = (floorIndex - 1) * SLOTS_PER_FLOOR + row
+			-- Slot on right side (right=6..10 within this floor)
+			local rightSlotGlobal = (floorIndex - 1) * SLOTS_PER_FLOOR + 5 + row
+
+			slotPositions[leftSlotGlobal]  = Vector3.new(rowX, floorY, leftZ)
+			slotPositions[rightSlotGlobal] = Vector3.new(rowX, floorY, rightZ)
+
+			platePositions[leftSlotGlobal]  = Vector3.new(rowX, floorY, leftPlateZ)
+			platePositions[rightSlotGlobal] = Vector3.new(rowX, floorY, rightPlateZ)
+		end
+	end
+
+	return slotPositions, platePositions
 end
 
 -- ============================================================
--- Build the house structure
--- Returns the folder containing all house parts.
+-- Build the ground-floor house structure
 -- ============================================================
 
-local function buildHouse(folder, plotCenter, groundY, level)
-	-- groundY is the Y of the top surface of the plot ground.
+local function buildGroundFloor(folder, pos, faceSign)
+	local FOUNDATION_COLOR     = Color3.fromRGB(80,  80,  80)
+	local WALL_COLOR           = Color3.fromRGB(130, 130, 135)
+	local ROOF_COLOR           = Color3.fromRGB(190, 190, 195)
+	local INTERIOR_FLOOR_COLOR = Color3.fromRGB(60,  60,  60)
+	local NEON_RED             = Color3.fromRGB(255, 30,  30)
+	local GRASS_COLOR          = Color3.fromRGB(106, 127, 63)
+	local YARD_COLOR           = Color3.fromRGB(90,  140, 50)
 
-	local front = getFrontDirection(plotCenter.X)
-	local side = getSideDirection(front)
-
-	-- The building sits at the BACK of the plot.
-	-- "back" is opposite of front direction.
-	-- Building center offset from plot center:
-	--   Along front axis: push toward back by (BASE_SIZE/2 - BUILDING_D/2 - some yard gap)
-	--   The yard in front is ~(BASE_SIZE/2 - BUILDING_D) deep, minus a small buffer.
-	local yardDepth = BASE_SIZE / 2 - BUILDING_D  -- ~30/2 = 15 → there is 15 studs of yard
-	-- Building center is at plotCenter - front * (yardDepth/2 + small offset)
-	-- More precisely: building back edge at plotCenter - front*(BASE_SIZE/2 - 1)
-	-- building center at plotCenter - front*(BASE_SIZE/2 - 1 - BUILDING_D/2)
-	local buildingOffset = (BASE_SIZE / 2 - 1 - BUILDING_D / 2)
-	local buildingCenter = Vector3.new(
-		plotCenter.X - front.X * buildingOffset,
-		groundY,
-		plotCenter.Z - front.Z * buildingOffset
-	)
-
-	-- Colors
-	local FOUNDATION_COLOR  = Color3.fromRGB(80,  80,  80)   -- dark grey concrete
-	local WALL_COLOR         = Color3.fromRGB(130, 130, 135)  -- medium stone grey
-	local ROOF_COLOR         = Color3.fromRGB(190, 190, 195)  -- light grey
-	local INTERIOR_FLOOR_COLOR = Color3.fromRGB(60, 60, 60)   -- dark grey floor
-	local NEON_RED           = Color3.fromRGB(255, 30,  30)
-	local GRASS_COLOR        = Color3.fromRGB(106, 127, 63)
-
-	-- ----------------------------------------------------------------
-	-- Yard (grass between plot front edge and building front face)
-	-- ----------------------------------------------------------------
-	local yardLength = BASE_SIZE / 2 - 1 - BUILDING_D   -- studs of yard in front of building
-	-- yard center is between building front face and plot front edge
-	-- building front face Y: buildingCenter + front * (BUILDING_D/2)
-	-- plot front edge: plotCenter + front * (BASE_SIZE/2)
-	local yardCenterOffset = (BASE_SIZE / 2 - 1 - BUILDING_D / 2) - BUILDING_D / 2
-	-- simpler: yard extends from (buildingCenter + front*BUILDING_D/2) to plotCenter + front*(BASE_SIZE/2 - 1)
-	local yardCenterAlongFront = ((BASE_SIZE / 2 - 1) + (BASE_SIZE / 2 - 1 - BUILDING_D)) / 2
-	-- yard center position:
-	local yardCenter = Vector3.new(
-		plotCenter.X + front.X * yardCenterAlongFront / 2,
-		groundY - FLOOR_HEIGHT / 2 + 0.5,
-		plotCenter.Z + front.Z * yardCenterAlongFront / 2
-	)
-	-- Simpler approach: yard spans the full width of the plot, runs from building front to plot front
-	local yardLengthActual = BASE_SIZE / 2 - 1 - (BASE_SIZE / 2 - 1 - BUILDING_D)  -- = BUILDING_D? No.
-	-- Let me compute directly:
-	-- Building front face at: buildingCenter + front*(BUILDING_D/2)  along front axis from plotCenter
-	--   = plotCenter - front*(BASE_SIZE/2 - 1 - BUILDING_D/2) + front*(BUILDING_D/2)
-	--   = plotCenter - front*(BASE_SIZE/2 - 1 - BUILDING_D)
-	-- Plot front edge at: plotCenter + front*(BASE_SIZE/2 - 1)
-	-- Yard length = (BASE_SIZE/2 - 1) + (BASE_SIZE/2 - 1 - BUILDING_D) = BASE_SIZE - 2 - BUILDING_D
-	local trueYardLength = BASE_SIZE - 2 - BUILDING_D
-	-- Yard center along front axis from plotCenter:
-	--   = plotCenter + front * ((BASE_SIZE/2 - 1) - trueYardLength/2)
-	local yardCenterAlongFrontScalar = (BASE_SIZE / 2 - 1) - trueYardLength / 2
-	local yardPartCenter = Vector3.new(
-		plotCenter.X + front.X * yardCenterAlongFrontScalar,
-		groundY + FLOOR_HEIGHT / 2 + 0.05,
-		plotCenter.Z + front.Z * yardCenterAlongFrontScalar
-	)
-	-- yard width = BASE_SIZE (full plot width), yard length = trueYardLength
-	-- size: along side direction = BASE_SIZE, along front direction = trueYardLength
-	local yardSizeX = math.abs(side.X) * BASE_SIZE + math.abs(front.X) * trueYardLength
-	local yardSizeZ = math.abs(side.Z) * BASE_SIZE + math.abs(front.Z) * trueYardLength
+	-- Plot ground slab
 	makePart(
-		folder, "Yard",
-		Vector3.new(yardSizeX, 0.2, yardSizeZ),
-		CFrame.new(yardPartCenter),
-		GRASS_COLOR, 0, Enum.Material.Grass, false
+		folder, "PlotGround",
+		Vector3.new(BASE_SIZE, 1, BASE_SIZE),
+		CFrame.new(pos.X, pos.Y - 0.5, pos.Z),
+		GRASS_COLOR, 0, Enum.Material.Grass, true
 	)
 
-	-- ----------------------------------------------------------------
-	-- Foundation (dark grey concrete)
-	-- ----------------------------------------------------------------
-	local foundW = BUILDING_W + FOUNDATION_MARGIN * 2
-	local foundD = BUILDING_D + FOUNDATION_MARGIN * 2
-	local foundTopY = groundY + FLOOR_HEIGHT / 2 + FOUNDATION_HEIGHT
-	local foundCenterY = groundY + FLOOR_HEIGHT / 2 + FOUNDATION_HEIGHT / 2
-	-- Foundation is centered on buildingCenter (XZ)
-	local foundSizeX = math.abs(side.X) * foundW + math.abs(front.X) * foundD
-	local foundSizeZ = math.abs(side.Z) * foundW + math.abs(front.Z) * foundD
+	-- Building center: bCX is along X (depth axis), pos.Z is the Z center
+	local bCX = pos.X + faceSign * (-6)
+
+	-- Foundation (dark grey SmoothPlastic, covers building footprint, 2 studs tall)
+	-- The foundation sits just above plot ground level
+	local foundBaseY  = pos.Y  -- top of plot ground
+	local foundTopY   = foundBaseY + FLOOR_THICKNESS
+	local foundCenterY = foundBaseY + FLOOR_THICKNESS / 2
 	makePart(
 		folder, "Foundation",
-		Vector3.new(foundSizeX, FOUNDATION_HEIGHT, foundSizeZ),
-		CFrame.new(Vector3.new(buildingCenter.X, foundCenterY, buildingCenter.Z)),
-		FOUNDATION_COLOR, 0, Enum.Material.Concrete, true
+		Vector3.new(BUILDING_DEPTH, FLOOR_THICKNESS, BUILDING_WIDTH),
+		CFrame.new(bCX, foundCenterY, pos.Z),
+		FOUNDATION_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- ----------------------------------------------------------------
-	-- Interior floor (sits on top of foundation, same footprint as building)
-	-- ----------------------------------------------------------------
-	local intFloorSizeX = math.abs(side.X) * BUILDING_W + math.abs(front.X) * BUILDING_D
-	local intFloorSizeZ = math.abs(side.Z) * BUILDING_W + math.abs(front.Z) * BUILDING_D
+	-- Interior floor (dark grey, sits on top of foundation)
 	makePart(
 		folder, "InteriorFloor",
-		Vector3.new(intFloorSizeX, 0.2, intFloorSizeZ),
-		CFrame.new(Vector3.new(buildingCenter.X, foundTopY + 0.1, buildingCenter.Z)),
+		Vector3.new(BUILDING_DEPTH, 0.2, BUILDING_WIDTH),
+		CFrame.new(bCX, foundTopY + 0.1, pos.Z),
 		INTERIOR_FLOOR_COLOR, 0, Enum.Material.SmoothPlastic, false
 	)
 
-	-- ----------------------------------------------------------------
-	-- Walls (8 studs tall, 1 stud thick)
-	-- Wall Y center: foundTopY + WALL_HEIGHT/2
-	-- ----------------------------------------------------------------
-	local wallY = foundTopY + WALL_HEIGHT / 2
-	-- half extents
-	local halfW = BUILDING_W / 2   -- along side direction
-	local halfD = BUILDING_D / 2   -- along front direction
+	-- Walls Y center: foundTopY + WALL_HEIGHT/2
+	local wallY    = foundTopY + WALL_HEIGHT / 2
+	local halfDepth = BUILDING_DEPTH / 2
+	local halfWidth = BUILDING_WIDTH / 2
 
-	-- Back wall (opposite of front, full width)
-	local backWallCenter = Vector3.new(
-		buildingCenter.X - front.X * halfD,
-		wallY,
-		buildingCenter.Z - front.Z * halfD
-	)
-	local backWallSizeX = math.abs(side.X) * BUILDING_W + math.abs(front.X) * WALL_THICKNESS
-	local backWallSizeZ = math.abs(side.Z) * BUILDING_W + math.abs(front.Z) * WALL_THICKNESS
+	-- Back wall (opposite side from road)
+	-- Back is away from road. For faceSign=+1 (house at X<0, faces +X), back is at lower X.
+	-- Back wall center X = bCX - faceSign * halfDepth
+	local backWallX = bCX - faceSign * halfDepth
 	makePart(
 		folder, "WallBack",
-		Vector3.new(backWallSizeX, WALL_HEIGHT, backWallSizeZ),
-		CFrame.new(backWallCenter),
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, BUILDING_WIDTH),
+		CFrame.new(backWallX, wallY, pos.Z),
 		WALL_COLOR, 0, Enum.Material.Concrete, true
 	)
 
-	-- Left side wall (full depth)
-	local leftWallCenter = Vector3.new(
-		buildingCenter.X - side.X * halfW,
-		wallY,
-		buildingCenter.Z - side.Z * halfW
-	)
-	local sideWallSizeX = math.abs(front.X) * BUILDING_D + math.abs(side.X) * WALL_THICKNESS
-	local sideWallSizeZ = math.abs(front.Z) * BUILDING_D + math.abs(side.Z) * WALL_THICKNESS
+	-- Left side wall (full depth, along X axis)
+	-- Left side: Z = pos.Z - halfWidth
 	makePart(
 		folder, "WallLeft",
-		Vector3.new(sideWallSizeX, WALL_HEIGHT, sideWallSizeZ),
-		CFrame.new(leftWallCenter),
+		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(bCX, wallY, pos.Z - halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true
 	)
 
-	-- Right side wall (full depth)
-	local rightWallCenter = Vector3.new(
-		buildingCenter.X + side.X * halfW,
-		wallY,
-		buildingCenter.Z + side.Z * halfW
-	)
+	-- Right side wall
 	makePart(
 		folder, "WallRight",
-		Vector3.new(sideWallSizeX, WALL_HEIGHT, sideWallSizeZ),
-		CFrame.new(rightWallCenter),
+		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(bCX, wallY, pos.Z + halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true
 	)
 
-	-- Front wall: two segments with ENTRANCE_GAP in the center
-	-- Front face is at: buildingCenter + front * halfD
-	local frontFaceOffset = halfD  -- distance from building center to front face along front axis
-	local frontWallBaseX = buildingCenter.X + front.X * frontFaceOffset
-	local frontWallBaseZ = buildingCenter.Z + front.Z * frontFaceOffset
-	local segmentWidth = (BUILDING_W - ENTRANCE_GAP) / 2
+	-- Front wall with entrance gap (12 studs) in center
+	-- Front face X = bCX + faceSign * halfDepth
+	local frontFaceX = bCX + faceSign * halfDepth
+	local segmentWidth = (BUILDING_WIDTH - ENTRANCE_GAP) / 2
 
-	-- Front wall left segment
-	local fwLeftCenter = Vector3.new(
-		frontWallBaseX - side.X * (ENTRANCE_GAP / 2 + segmentWidth / 2),
-		wallY,
-		frontWallBaseZ - side.Z * (ENTRANCE_GAP / 2 + segmentWidth / 2)
-	)
-	local fwSizeX = math.abs(side.X) * segmentWidth + math.abs(front.X) * WALL_THICKNESS
-	local fwSizeZ = math.abs(side.Z) * segmentWidth + math.abs(front.Z) * WALL_THICKNESS
+	-- Left segment (Z < pos.Z - ENTRANCE_GAP/2)
+	local fwLeftZ = pos.Z - ENTRANCE_GAP / 2 - segmentWidth / 2
 	makePart(
 		folder, "WallFrontLeft",
-		Vector3.new(fwSizeX, WALL_HEIGHT, fwSizeZ),
-		CFrame.new(fwLeftCenter),
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
+		CFrame.new(frontFaceX, wallY, fwLeftZ),
 		WALL_COLOR, 0, Enum.Material.Concrete, true
 	)
 
-	-- Front wall right segment
-	local fwRightCenter = Vector3.new(
-		frontWallBaseX + side.X * (ENTRANCE_GAP / 2 + segmentWidth / 2),
-		wallY,
-		frontWallBaseZ + side.Z * (ENTRANCE_GAP / 2 + segmentWidth / 2)
-	)
+	-- Right segment (Z > pos.Z + ENTRANCE_GAP/2)
+	local fwRightZ = pos.Z + ENTRANCE_GAP / 2 + segmentWidth / 2
 	makePart(
 		folder, "WallFrontRight",
-		Vector3.new(fwSizeX, WALL_HEIGHT, fwSizeZ),
-		CFrame.new(fwRightCenter),
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
+		CFrame.new(frontFaceX, wallY, fwRightZ),
 		WALL_COLOR, 0, Enum.Material.Concrete, true
 	)
 
-	-- ----------------------------------------------------------------
-	-- Flat roof (overhangs walls by ROOF_OVERHANG on all sides)
-	-- ----------------------------------------------------------------
-	local roofW = BUILDING_W + ROOF_OVERHANG * 2
-	local roofD = BUILDING_D + ROOF_OVERHANG * 2
+	-- Flat roof (light grey, overhanging by ROOF_OVERHANG, 1.5 studs thick)
+	local roofWidth = BUILDING_WIDTH + ROOF_OVERHANG * 2
+	local roofDepth = BUILDING_DEPTH + ROOF_OVERHANG * 2
 	local roofY = foundTopY + WALL_HEIGHT + ROOF_THICKNESS / 2
-	local roofSizeX = math.abs(side.X) * roofW + math.abs(front.X) * roofD
-	local roofSizeZ = math.abs(side.Z) * roofW + math.abs(front.Z) * roofD
 	makePart(
 		folder, "Roof",
-		Vector3.new(roofSizeX, ROOF_THICKNESS, roofSizeZ),
-		CFrame.new(Vector3.new(buildingCenter.X, roofY, buildingCenter.Z)),
+		Vector3.new(roofDepth, ROOF_THICKNESS, roofWidth),
+		CFrame.new(bCX, roofY, pos.Z),
 		ROOF_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- ----------------------------------------------------------------
-	-- 5 vertical neon red bars on the front face
-	-- Evenly spaced across the front face width (BUILDING_W)
-	-- They sit flush against the front wall, on the exterior side
-	-- ----------------------------------------------------------------
-	local barY = foundTopY + NEON_BAR_H / 2 + (WALL_HEIGHT - NEON_BAR_H) / 2  -- vertically centered on wall
-	local spacing = BUILDING_W / (NEON_BAR_COUNT + 1)
-	-- Bar depth direction is along front axis
-	local barSizeX = math.abs(side.X) * NEON_BAR_W + math.abs(front.X) * NEON_BAR_D
-	local barSizeZ = math.abs(side.Z) * NEON_BAR_W + math.abs(front.Z) * NEON_BAR_D
-
+	-- 5 vertical red neon bars on the front face exterior
+	local barY = foundTopY + WALL_HEIGHT / 2
+	local barSpacing = BUILDING_WIDTH / (NEON_BAR_COUNT + 1)
 	for i = 1, NEON_BAR_COUNT do
-		local sideOffset = -BUILDING_W / 2 + spacing * i
-		local barCenter = Vector3.new(
-			frontWallBaseX + side.X * sideOffset + front.X * (WALL_THICKNESS / 2 + NEON_BAR_D / 2),
-			barY,
-			frontWallBaseZ + side.Z * sideOffset + front.Z * (WALL_THICKNESS / 2 + NEON_BAR_D / 2)
-		)
+		local barZ = pos.Z - halfWidth + barSpacing * i
+		-- Bar sits just outside the front face
+		local barX = frontFaceX + faceSign * (WALL_THICKNESS / 2 + NEON_BAR_D / 2)
 		makePart(
 			folder, "NeonBar" .. i,
-			Vector3.new(barSizeX, NEON_BAR_H, barSizeZ),
-			CFrame.new(barCenter),
+			Vector3.new(NEON_BAR_D, NEON_BAR_H, NEON_BAR_W),
+			CFrame.new(barX, barY, barZ),
 			NEON_RED, 0, Enum.Material.Neon, false
 		)
 	end
 
-	-- ----------------------------------------------------------------
-	-- Level-based visual upgrades
-	-- ----------------------------------------------------------------
-
-	if level >= 1 then
-		-- Gold corner accent posts at building corners
-		local goldColor = Color3.fromRGB(255, 200, 0)
-		local postH = WALL_HEIGHT + FOUNDATION_HEIGHT + 1
-		local postY = foundTopY + postH / 2 - FOUNDATION_HEIGHT
-		local corners = {
-			{ side_sign =  1, front_sign =  1 },
-			{ side_sign = -1, front_sign =  1 },
-			{ side_sign =  1, front_sign = -1 },
-			{ side_sign = -1, front_sign = -1 },
-		}
-		for ci, c in ipairs(corners) do
-			local postCenter = Vector3.new(
-				buildingCenter.X + side.X * c.side_sign * halfW + front.X * c.front_sign * halfD,
-				postY,
-				buildingCenter.Z + side.Z * c.side_sign * halfW + front.Z * c.front_sign * halfD
-			)
-			makePart(
-				folder, "GoldPost" .. ci,
-				Vector3.new(1, postH, 1),
-				CFrame.new(postCenter),
-				goldColor, 0, Enum.Material.Metal, true
-			)
-		end
-	end
-
-	if level >= 2 then
-		-- Neon blue glow strip around roof edge (4 thin strips)
-		local blueNeon = Color3.fromRGB(30, 180, 255)
-		local stripThick = 0.4
-		local stripH = 0.5
-		local stripY = roofY + ROOF_THICKNESS / 2 + stripH / 2
-
-		-- Along side axis, front edge
-		local rfFrontCenter = Vector3.new(
-			buildingCenter.X + front.X * (roofD / 2),
-			stripY,
-			buildingCenter.Z + front.Z * (roofD / 2)
-		)
-		local rfFrontSizeX = math.abs(side.X) * roofW + math.abs(front.X) * stripThick
-		local rfFrontSizeZ = math.abs(side.Z) * roofW + math.abs(front.Z) * stripThick
-		local rfFront = makePart(folder, "RoofGlowFront", Vector3.new(rfFrontSizeX, stripH, rfFrontSizeZ), CFrame.new(rfFrontCenter), blueNeon, 0, Enum.Material.Neon, false)
-
-		local rfBackCenter = Vector3.new(
-			buildingCenter.X - front.X * (roofD / 2),
-			stripY,
-			buildingCenter.Z - front.Z * (roofD / 2)
-		)
-		makePart(folder, "RoofGlowBack", Vector3.new(rfFrontSizeX, stripH, rfFrontSizeZ), CFrame.new(rfBackCenter), blueNeon, 0, Enum.Material.Neon, false)
-
-		local rfLeftCenter = Vector3.new(
-			buildingCenter.X - side.X * (roofW / 2),
-			stripY,
-			buildingCenter.Z - side.Z * (roofW / 2)
-		)
-		local rfSideSizeX = math.abs(front.X) * roofD + math.abs(side.X) * stripThick
-		local rfSideSizeZ = math.abs(front.Z) * roofD + math.abs(side.Z) * stripThick
-		makePart(folder, "RoofGlowLeft", Vector3.new(rfSideSizeX, stripH, rfSideSizeZ), CFrame.new(rfLeftCenter), blueNeon, 0, Enum.Material.Neon, false)
-
-		local rfRightCenter = Vector3.new(
-			buildingCenter.X + side.X * (roofW / 2),
-			stripY,
-			buildingCenter.Z + side.Z * (roofW / 2)
-		)
-		makePart(folder, "RoofGlowRight", Vector3.new(rfSideSizeX, stripH, rfSideSizeZ), CFrame.new(rfRightCenter), blueNeon, 0, Enum.Material.Neon, false)
-	end
-
-	if level >= 3 then
-		-- Purple neon panels on side walls (exterior)
-		local purpleNeon = Color3.fromRGB(180, 0, 255)
-		local panelW = BUILDING_D - 2   -- slightly inset from corners
-		local panelH = WALL_HEIGHT - 2
-		local panelThick = 0.3
-		local panelY = foundTopY + panelH / 2 + 1
-
-		-- Left side panel
-		local leftPanelCenter = Vector3.new(
-			buildingCenter.X - side.X * (halfW + panelThick / 2),
-			panelY,
-			buildingCenter.Z - side.Z * (halfW + panelThick / 2)
-		)
-		local leftPanelSizeX = math.abs(front.X) * panelW + math.abs(side.X) * panelThick
-		local leftPanelSizeZ = math.abs(front.Z) * panelW + math.abs(side.Z) * panelThick
-		makePart(folder, "PurplePanelLeft", Vector3.new(leftPanelSizeX, panelH, leftPanelSizeZ), CFrame.new(leftPanelCenter), purpleNeon, 0.3, Enum.Material.Neon, false)
-
-		-- Right side panel
-		local rightPanelCenter = Vector3.new(
-			buildingCenter.X + side.X * (halfW + panelThick / 2),
-			panelY,
-			buildingCenter.Z + side.Z * (halfW + panelThick / 2)
-		)
-		makePart(folder, "PurplePanelRight", Vector3.new(leftPanelSizeX, panelH, leftPanelSizeZ), CFrame.new(rightPanelCenter), purpleNeon, 0.3, Enum.Material.Neon, false)
-	end
-
-	if level >= 4 then
-		-- Rainbow neon roof trim (replace blue strip with a sequence of colored trim)
-		-- and gold panels on the side walls
-		local rainbowColors = {
-			Color3.fromRGB(255, 0,   0),
-			Color3.fromRGB(255, 165, 0),
-			Color3.fromRGB(255, 255, 0),
-			Color3.fromRGB(0,   255, 0),
-			Color3.fromRGB(0,   180, 255),
-			Color3.fromRGB(128, 0,   255),
-		}
-		local segCount = #rainbowColors
-		-- Replace the blue glow strips with rainbow by adding extra thin colored bands
-		local stripY = roofY + ROOF_THICKNESS / 2 + 0.5 + 0.3  -- slightly above level 2 strip
-		local bandH = 0.25
-		local bandThick = 0.35
-
-		for ci, col in ipairs(rainbowColors) do
-			-- Distribute colors along the perimeter (simplified: one color per segment along front edge)
-			local segOffset = -roofW / 2 + (ci - 0.5) * (roofW / segCount)
-			local bandSizeX = math.abs(side.X) * (roofW / segCount) + math.abs(front.X) * bandThick
-			local bandSizeZ = math.abs(side.Z) * (roofW / segCount) + math.abs(front.Z) * bandThick
-			local bandCenter = Vector3.new(
-				buildingCenter.X + front.X * (roofD / 2) + side.X * segOffset,
-				stripY,
-				buildingCenter.Z + front.Z * (roofD / 2) + side.Z * segOffset
-			)
-			makePart(folder, "RainbowTrim" .. ci, Vector3.new(bandSizeX, bandH, bandSizeZ), CFrame.new(bandCenter), col, 0, Enum.Material.Neon, false)
-		end
-
-		-- Gold panels on sides (overrides / supplements purple panels)
-		local goldColor = Color3.fromRGB(255, 215, 0)
-		local panelW = BUILDING_D - 2
-		local panelH = WALL_HEIGHT - 2
-		local panelThick = 0.35
-		local panelY = foundTopY + panelH / 2 + 1
-
-		local leftGoldCenter = Vector3.new(
-			buildingCenter.X - side.X * (halfW + panelThick / 2 + 0.1),
-			panelY,
-			buildingCenter.Z - side.Z * (halfW + panelThick / 2 + 0.1)
-		)
-		local gpSizeX = math.abs(front.X) * panelW + math.abs(side.X) * panelThick
-		local gpSizeZ = math.abs(front.Z) * panelW + math.abs(side.Z) * panelThick
-		makePart(folder, "GoldPanelLeft", Vector3.new(gpSizeX, panelH, gpSizeZ), CFrame.new(leftGoldCenter), goldColor, 0, Enum.Material.Metal, false)
-
-		local rightGoldCenter = Vector3.new(
-			buildingCenter.X + side.X * (halfW + panelThick / 2 + 0.1),
-			panelY,
-			buildingCenter.Z + side.Z * (halfW + panelThick / 2 + 0.1)
-		)
-		makePart(folder, "GoldPanelRight", Vector3.new(gpSizeX, panelH, gpSizeZ), CFrame.new(rightGoldCenter), goldColor, 0, Enum.Material.Metal, false)
-	end
-
-	return buildingCenter, foundTopY, front, side
+	-- Green yard slab in front of building (between front face and plot edge toward road)
+	-- Plot front edge at X = pos.X + faceSign * (BASE_SIZE / 2)
+	-- Building front face at X = frontFaceX
+	-- Yard spans from frontFaceX to plotFrontEdge along X, full building width along Z
+	local plotFrontEdgeX = pos.X + faceSign * (BASE_SIZE / 2)
+	local yardLengthX = math.abs(plotFrontEdgeX - frontFaceX)
+	local yardCenterX = (plotFrontEdgeX + frontFaceX) / 2
+	makePart(
+		folder, "Yard",
+		Vector3.new(yardLengthX, 0.2, BUILDING_WIDTH),
+		CFrame.new(yardCenterX, foundBaseY + 0.1, pos.Z),
+		YARD_COLOR, 0, Enum.Material.Grass, false
+	)
 end
 
 -- ============================================================
--- Build the name sign near road edge
+-- Build the name sign post at front edge of plot
 -- ============================================================
 
-local function buildSign(folder, plotCenter, groundY, front, playerName)
-	-- Sign post at front edge of the plot
+local function buildSign(folder, pos, faceSign, playerName)
 	local halfBase = BASE_SIZE / 2
-	local postX = plotCenter.X + front.X * (halfBase - 1)
-	local postZ = plotCenter.Z + front.Z * (halfBase - 1)
-	local postBaseY = groundY + FLOOR_HEIGHT / 2
-	local postH = 5
-	local postY = postBaseY + postH / 2
+	local postX    = pos.X + faceSign * (halfBase - 1)
+	local postH    = 5
+	local postBaseY = pos.Y
+	local postCenterY = postBaseY + postH / 2
 
-	local post = makePart(
+	makePart(
 		folder, "SignPost",
 		Vector3.new(0.4, postH, 0.4),
-		CFrame.new(Vector3.new(postX, postY, postZ)),
+		CFrame.new(postX, postCenterY, pos.Z),
 		Color3.fromRGB(30, 30, 30), 0, Enum.Material.Metal, true
 	)
 
@@ -535,70 +296,145 @@ local function buildSign(folder, plotCenter, groundY, front, playerName)
 	local signBoard = makePart(
 		folder, "SignBoard",
 		Vector3.new(7, 2, 0.4),
-		CFrame.new(Vector3.new(postX, boardY, postZ)),
+		CFrame.new(postX, boardY, pos.Z),
 		Color3.fromRGB(20, 20, 20), 0, Enum.Material.SmoothPlastic, false
 	)
 
-	-- SurfaceGui on sign board face toward road
 	local surfaceGui = Instance.new("SurfaceGui")
-	surfaceGui.Face = Enum.NormalId.Front
+	surfaceGui.Face       = Enum.NormalId.Front
 	surfaceGui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
 	surfaceGui.CanvasSize = Vector2.new(350, 100)
-	surfaceGui.Parent = signBoard
+	surfaceGui.Parent     = signBoard
 
 	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.fromScale(1, 1)
+	nameLabel.Size                  = UDim2.fromScale(1, 1)
 	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text = playerName
-	nameLabel.TextScaled = true
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameLabel.Text                  = playerName
+	nameLabel.TextScaled            = true
+	nameLabel.Font                  = Enum.Font.GothamBold
+	nameLabel.TextColor3            = Color3.fromRGB(255, 255, 255)
 	nameLabel.TextStrokeTransparency = 0.3
-	nameLabel.Parent = surfaceGui
+	nameLabel.Parent                = surfaceGui
 end
 
 -- ============================================================
--- Compute slot grid positions inside the house
+-- Build an upper floor platform + railings + ramp
+-- floorNum is 1-indexed (2 = second floor, etc.)
 -- ============================================================
 
-local function computeSlotPositions(buildingCenter, foundTopY, front, side, maxSlots)
-	local slots = {}
-	-- Grid starts at interior, centered on building, slightly offset toward back
-	-- Slot Y is just above interior floor
-	local slotY = foundTopY + 1.5
+local function buildUpperFloor(folder, pos, faceSign, floorNum)
+	local PLATFORM_COLOR  = Color3.fromRGB(70, 70, 75)
+	local RAILING_COLOR   = Color3.fromRGB(100, 100, 105)
+	local RAMP_COLOR      = Color3.fromRGB(90, 90, 95)
 
-	-- Total grid extents
-	local totalW = (SLOT_COLS - 1) * SLOT_SPACING_X
-	local totalD = (SLOT_ROWS - 1) * SLOT_SPACING_Z
+	local bCX = pos.X + faceSign * (-6)
 
-	-- Offset from building center: push slightly toward back (away from entrance)
-	local backOffset = 2  -- studs toward back from building center
-	local gridCenterX = buildingCenter.X - front.X * backOffset
-	local gridCenterZ = buildingCenter.Z - front.Z * backOffset
+	-- Y of this floor's ground surface (floorNum=2 means first upper floor)
+	local floorGroundY = pos.Y + (floorNum - 1) * FLOOR_HEIGHT_STEP
 
-	local count = 0
-	for row = 0, SLOT_ROWS - 1 do
-		for col = 0, SLOT_COLS - 1 do
-			count = count + 1
-			if count > maxSlots then
-				break
-			end
-			local sideOff = -totalW / 2 + col * SLOT_SPACING_X
-			local frontOff = -totalD / 2 + row * SLOT_SPACING_Z
+	-- Platform slab (same X/Z footprint as ground floor building interior)
+	-- Slab is FLOOR_THICKNESS thick, its top surface is floorGroundY
+	local slabCenterY = floorGroundY - FLOOR_THICKNESS / 2
+	makePart(
+		folder, "FloorSlab" .. floorNum,
+		Vector3.new(BUILDING_DEPTH, FLOOR_THICKNESS, BUILDING_WIDTH),
+		CFrame.new(bCX, slabCenterY, pos.Z),
+		PLATFORM_COLOR, 0, Enum.Material.SmoothPlastic, true
+	)
 
-			local slotPos = Vector3.new(
-				gridCenterX + side.X * sideOff + front.X * frontOff,
-				slotY,
-				gridCenterZ + side.Z * sideOff + front.Z * frontOff
-			)
-			slots[count] = slotPos
-		end
-		if count > maxSlots then
-			break
-		end
+	-- Railings on all sides except the front entrance gap
+	local railH     = 3
+	local railThick = 0.5
+	local railY     = floorGroundY + railH / 2
+	local halfDepth = BUILDING_DEPTH / 2
+	local halfWidth = BUILDING_WIDTH / 2
+
+	-- Back railing
+	local backRailX = bCX - faceSign * halfDepth
+	makePart(
+		folder, "RailBack" .. floorNum,
+		Vector3.new(railThick, railH, BUILDING_WIDTH),
+		CFrame.new(backRailX, railY, pos.Z),
+		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
+	)
+
+	-- Left railing (full depth along X)
+	makePart(
+		folder, "RailLeft" .. floorNum,
+		Vector3.new(BUILDING_DEPTH, railH, railThick),
+		CFrame.new(bCX, railY, pos.Z - halfWidth),
+		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
+	)
+
+	-- Right railing
+	makePart(
+		folder, "RailRight" .. floorNum,
+		Vector3.new(BUILDING_DEPTH, railH, railThick),
+		CFrame.new(bCX, railY, pos.Z + halfWidth),
+		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
+	)
+
+	-- Front railing: two segments with entrance gap
+	local frontFaceX   = bCX + faceSign * halfDepth
+	local segmentWidth = (BUILDING_WIDTH - ENTRANCE_GAP) / 2
+
+	local fwLeftZ  = pos.Z - ENTRANCE_GAP / 2 - segmentWidth / 2
+	local fwRightZ = pos.Z + ENTRANCE_GAP / 2 + segmentWidth / 2
+	makePart(
+		folder, "RailFrontLeft" .. floorNum,
+		Vector3.new(railThick, railH, segmentWidth),
+		CFrame.new(frontFaceX, railY, fwLeftZ),
+		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
+	)
+	makePart(
+		folder, "RailFrontRight" .. floorNum,
+		Vector3.new(railThick, railH, segmentWidth),
+		CFrame.new(frontFaceX, railY, fwRightZ),
+		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
+	)
+
+	-- Ramp/wedge going from previous floor to this floor, placed at the back of the aisle
+	-- Ramp sits between the back wall and the aisle along depth axis.
+	-- Previous floor ground Y:
+	local prevFloorY = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
+	-- Ramp height = FLOOR_HEIGHT_STEP, ramp depth = 6 studs (1 row spacing)
+	local rampHeight = FLOOR_HEIGHT_STEP
+	local rampDepth  = 6
+	local rampWidth  = ENTRANCE_GAP  -- span the aisle width
+	-- Ramp center Y: midpoint between prevFloorY and floorGroundY
+	local rampCenterY = (prevFloorY + floorGroundY) / 2
+	-- Place ramp at the back of the building along depth axis (back row area)
+	local rampX = bCX - faceSign * (halfDepth - rampDepth / 2)
+
+	-- Use a wedge part oriented so it slopes upward from front to back
+	local ramp = Instance.new("WedgePart")
+	ramp.Name      = "Ramp" .. floorNum
+	ramp.Size      = Vector3.new(rampDepth, rampHeight, rampWidth)
+	ramp.Anchored  = true
+	ramp.CanCollide = true
+	ramp.Color     = RAMP_COLOR
+	ramp.Material  = Enum.Material.SmoothPlastic
+	ramp.CastShadow = true
+
+	-- Orient the wedge so the slope goes upward in the direction toward the back of the building.
+	-- A default WedgePart slopes upward from -Z toward +Z in its local space.
+	-- We want the slope to go upward from the front toward the back (away from road).
+	-- faceSign=+1: back is at -X relative to bCX, so we rotate to align slope with -X world direction.
+	-- faceSign=-1: back is at +X, slope should go toward +X.
+	-- CFrame: position at rampX, rampCenterY, pos.Z, then rotate to align wedge slope with depth axis.
+	local slopeAngle
+	if faceSign >= 0 then
+		-- slope rises toward -X (back): rotate around Z by 90 deg, then around Y
+		-- WedgePart default: top face tilts from front (+Z) to back (-Z).
+		-- We need it to tilt from front (+X, toward road) to back (-X).
+		-- Rotate -90 deg around Y so +Z of wedge aligns with -X world.
+		slopeAngle = math.pi / 2
+	else
+		slopeAngle = -math.pi / 2
 	end
 
-	return slots
+	ramp.CFrame = CFrame.new(rampX, rampCenterY, pos.Z) * CFrame.Angles(0, slopeAngle, 0)
+	ramp.Parent = folder
 end
 
 -- ============================================================
@@ -606,50 +442,33 @@ end
 -- ============================================================
 
 function BaseSystem.createBase(player, position, playerBases)
-	local level = getLevel(player)
-	local maxSlots = LEVEL_SLOTS[level] or LEVEL_SLOTS[0]
-
 	local folder = Instance.new("Folder")
-	folder.Name = player.Name .. "_Base"
+	folder.Name   = player.Name .. "_Base"
 	folder.Parent = workspace
 
-	-- Plot ground (grass-coloured base slab)
-	local groundY = position.Y
-	local plotGround = makePart(
-		folder, "PlotGround",
-		Vector3.new(BASE_SIZE, FLOOR_HEIGHT, BASE_SIZE),
-		CFrame.new(Vector3.new(position.X, groundY, position.Z)),
-		Color3.fromRGB(100, 160, 60), 0, Enum.Material.Grass, true
-	)
+	local faceSign = getFaceSign(position)
 
-	-- Determine facing direction
-	local front = getFrontDirection(position.X)
-	local side = getSideDirection(front)
+	-- Build ground floor
+	buildGroundFloor(folder, position, faceSign)
 
-	-- Build the house, get building center and foundTopY back
-	local buildingCenter, foundTopY, retFront, retSide = buildHouse(folder, position, groundY, level)
+	-- Build name sign
+	buildSign(folder, position, faceSign, player.Name)
 
-	-- Build the name sign near road edge
-	buildSign(folder, position, groundY, front, player.Name)
+	-- Pre-compute all 50 slot and plate positions
+	local slotPositions, platePositions = computeAllSlotPositions(position)
 
-	-- Compute slot positions
-	local slotPositions = computeSlotPositions(buildingCenter, foundTopY, front, side, maxSlots)
-	local slotGrid = {}
-	for i = 1, maxSlots do
-		slotGrid[i] = false  -- false = free, true = occupied
-	end
-
-	-- Register in playerBases
+	-- Initialise state
 	playerBases[player] = {
-		folder = folder,
-		position = position,
-		buildingCenter = buildingCenter,
-		lockShield = nil,
-		isLocked = false,
-		level = level,
-		slotPositions = slotPositions,
-		slotGrid = slotGrid,
-		maxSlots = maxSlots,
+		folder         = folder,
+		position       = position,
+		faceSign       = faceSign,
+		lockShield     = nil,
+		isLocked       = false,
+		slotPositions  = slotPositions,
+		platePositions = platePositions,
+		unlockedFloors = 1,
+		slotGrid       = {},     -- true = occupied, nil/false = free
+		maxSlots       = 10,     -- floor 1 gives 10 slots
 	}
 
 	return folder
@@ -657,7 +476,8 @@ end
 
 -- ============================================================
 -- Public: getNextSlot
--- Returns Vector3 of next free slot, or nil if full
+-- Scan slotGrid[1..maxSlots] for first nil/false.
+-- Returns slotIndex, slotPosition (Vector3), or nil if full.
 -- ============================================================
 
 function BaseSystem.getNextSlot(player, playerBases)
@@ -669,7 +489,7 @@ function BaseSystem.getNextSlot(player, playerBases)
 	for i = 1, baseData.maxSlots do
 		if not baseData.slotGrid[i] then
 			baseData.slotGrid[i] = true
-			return baseData.slotPositions[i], i
+			return i, baseData.slotPositions[i]
 		end
 	end
 
@@ -685,13 +505,39 @@ function BaseSystem.releaseSlot(player, playerBases, slotIndex)
 	if not baseData then
 		return
 	end
-	if slotIndex and baseData.slotGrid[slotIndex] ~= nil then
+	if slotIndex then
 		baseData.slotGrid[slotIndex] = false
 	end
 end
 
 -- ============================================================
--- Public: lockBase  (existing logic preserved)
+-- Public: unlockNextFloor
+-- Build the next floor and update maxSlots.
+-- Returns true if a new floor was unlocked, false if already at max.
+-- ============================================================
+
+function BaseSystem.unlockNextFloor(player, playerBases)
+	local baseData = playerBases[player]
+	if not baseData then
+		return false
+	end
+
+	if baseData.unlockedFloors >= MAX_FLOORS then
+		return false
+	end
+
+	baseData.unlockedFloors = baseData.unlockedFloors + 1
+	local floorNum = baseData.unlockedFloors  -- e.g. 2 for first upper floor
+
+	buildUpperFloor(baseData.folder, baseData.position, baseData.faceSign, floorNum)
+
+	baseData.maxSlots = baseData.maxSlots + SLOTS_PER_FLOOR
+
+	return true
+end
+
+-- ============================================================
+-- Public: lockBase
 -- ============================================================
 
 function BaseSystem.lockBase(player, playerBases)
@@ -700,8 +546,7 @@ function BaseSystem.lockBase(player, playerBases)
 		return
 	end
 
-	-- Cooldown check
-	local now = os.clock()
+	local now      = os.clock()
 	local lastLock = lockCooldowns[player.UserId]
 	if lastLock and (now - lastLock) < LOCK_COOLDOWN then
 		local remaining = math.ceil(LOCK_COOLDOWN - (now - lastLock))
@@ -709,7 +554,6 @@ function BaseSystem.lockBase(player, playerBases)
 		return
 	end
 
-	-- Already locked
 	if baseData.isLocked then
 		evtNotification:FireClient(player, "Your base is already locked!", Color3.fromRGB(255, 200, 50))
 		return
@@ -717,57 +561,54 @@ function BaseSystem.lockBase(player, playerBases)
 
 	lockCooldowns[player.UserId] = now
 
-	-- Create hexagonal shield ring: 6 rectangular panels arranged in a circle
-	local basePos = baseData.position
+	local basePos     = baseData.position
 	local shieldFolder = Instance.new("Folder")
-	shieldFolder.Name = "LockShield"
+	shieldFolder.Name   = "LockShield"
 	shieldFolder.Parent = workspace
 
 	local panelCount = 6
-	local panelY = basePos.Y + FLOOR_HEIGHT / 2 + 4
-	local radius = BASE_SIZE / 2 + 1
+	local panelY     = basePos.Y + 4
+	local radius     = BASE_SIZE / 2 + 1
 
 	for i = 1, panelCount do
-		local angle = (2 * math.pi / panelCount) * (i - 1)
+		local angle  = (2 * math.pi / panelCount) * (i - 1)
 		local panelX = basePos.X + radius * math.cos(angle)
 		local panelZ = basePos.Z + radius * math.sin(angle)
 
 		local panel = Instance.new("Part")
-		panel.Name = "ShieldPanel" .. i
-		panel.Size = Vector3.new(BASE_SIZE + 2, 8, 1)
-		panel.CFrame = CFrame.new(panelX, panelY, panelZ) * CFrame.Angles(0, angle + math.pi / 2, 0)
-		panel.Anchored = true
-		panel.CanCollide = false
-		panel.Color = Color3.fromRGB(0, 255, 255)
-		panel.Material = Enum.Material.Neon
+		panel.Name        = "ShieldPanel" .. i
+		panel.Size        = Vector3.new(BASE_SIZE + 2, 8, 1)
+		panel.CFrame      = CFrame.new(panelX, panelY, panelZ) * CFrame.Angles(0, angle + math.pi / 2, 0)
+		panel.Anchored    = true
+		panel.CanCollide  = false
+		panel.Color       = Color3.fromRGB(0, 255, 255)
+		panel.Material    = Enum.Material.Neon
 		panel.Transparency = 0.5
-		panel.CastShadow = false
-		panel.Parent = shieldFolder
+		panel.CastShadow  = false
+		panel.Parent      = shieldFolder
 	end
 
-	-- Central glow point
 	local glowCenter = Instance.new("Part")
-	glowCenter.Name = "ShieldGlow"
-	glowCenter.Size = Vector3.new(0.1, 0.1, 0.1)
-	glowCenter.CFrame = CFrame.new(basePos.X, panelY, basePos.Z)
-	glowCenter.Anchored = true
-	glowCenter.CanCollide = false
+	glowCenter.Name        = "ShieldGlow"
+	glowCenter.Size        = Vector3.new(0.1, 0.1, 0.1)
+	glowCenter.CFrame      = CFrame.new(basePos.X, panelY, basePos.Z)
+	glowCenter.Anchored    = true
+	glowCenter.CanCollide  = false
 	glowCenter.Transparency = 1
-	glowCenter.Parent = shieldFolder
+	glowCenter.Parent      = shieldFolder
 
 	local shieldLight = Instance.new("PointLight")
 	shieldLight.Brightness = 2
-	shieldLight.Range = BASE_SIZE + 10
-	shieldLight.Color = Color3.fromRGB(0, 255, 255)
-	shieldLight.Parent = glowCenter
+	shieldLight.Range      = BASE_SIZE + 10
+	shieldLight.Color      = Color3.fromRGB(0, 255, 255)
+	shieldLight.Parent     = glowCenter
 
 	baseData.lockShield = shieldFolder
-	baseData.isLocked = true
+	baseData.isLocked   = true
 	player:SetAttribute("BaseIsLocked", true)
 
 	evtNotification:FireClient(player, "Base locked for " .. LOCK_SHIELD_DURATION .. " seconds!", Color3.fromRGB(0, 220, 255))
 
-	-- Auto-unlock after duration
 	task.delay(LOCK_SHIELD_DURATION, function()
 		if baseData.lockShield == shieldFolder then
 			BaseSystem.unlockBase(player, playerBases)
@@ -776,7 +617,7 @@ function BaseSystem.lockBase(player, playerBases)
 end
 
 -- ============================================================
--- Public: unlockBase  (existing logic preserved)
+-- Public: unlockBase
 -- ============================================================
 
 function BaseSystem.unlockBase(player, playerBases)
@@ -789,12 +630,12 @@ function BaseSystem.unlockBase(player, playerBases)
 		baseData.lockShield:Destroy()
 	end
 	baseData.lockShield = nil
-	baseData.isLocked = false
+	baseData.isLocked   = false
 	player:SetAttribute("BaseIsLocked", false)
 end
 
 -- ============================================================
--- Public: isInBase  (existing logic preserved)
+-- Public: isInBase
 -- ============================================================
 
 function BaseSystem.isInBase(position, baseData)
@@ -802,7 +643,7 @@ function BaseSystem.isInBase(position, baseData)
 		return false
 	end
 
-	local basePos = baseData.position
+	local basePos  = baseData.position
 	local halfBound = BASE_SIZE / 2
 
 	local insideX = math.abs(position.X - basePos.X) < halfBound
@@ -812,7 +653,7 @@ function BaseSystem.isInBase(position, baseData)
 end
 
 -- ============================================================
--- Public: teleportToBase  (existing logic preserved)
+-- Public: teleportToBase
 -- ============================================================
 
 function BaseSystem.teleportToBase(player, position)
@@ -827,21 +668,20 @@ function BaseSystem.teleportToBase(player, position)
 			return
 		end
 
-		-- Teleport ring effect
 		local ring = Instance.new("Part")
-		ring.Shape = Enum.PartType.Cylinder
-		ring.Size = Vector3.new(0.3, 8, 8)
-		ring.CFrame = CFrame.new(position + Vector3.new(0, 1, 0)) * CFrame.Angles(0, 0, math.pi / 2)
-		ring.Anchored = true
+		ring.Shape     = Enum.PartType.Cylinder
+		ring.Size      = Vector3.new(0.3, 8, 8)
+		ring.CFrame    = CFrame.new(position + Vector3.new(0, 1, 0)) * CFrame.Angles(0, 0, math.pi / 2)
+		ring.Anchored  = true
 		ring.CanCollide = false
-		ring.Color = Color3.fromRGB(0, 255, 255)
-		ring.Material = Enum.Material.Neon
-		ring.Parent = workspace
+		ring.Color     = Color3.fromRGB(0, 255, 255)
+		ring.Material  = Enum.Material.Neon
+		ring.Parent    = workspace
 
 		task.spawn(function()
 			for i = 1, 10 do
 				task.wait(0.05)
-				ring.Size = ring.Size + Vector3.new(0, 2, 2)
+				ring.Size        = ring.Size + Vector3.new(0, 2, 2)
 				ring.Transparency = i / 10
 			end
 			ring:Destroy()

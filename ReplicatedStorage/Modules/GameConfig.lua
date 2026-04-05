@@ -35,9 +35,6 @@ return {
 	-- Money a new player starts with.
 	STARTER_MONEY = 50,
 
-	-- Maximum number of brainrots a player can own on their base.
-	MAX_BRAINROTS_PER_BASE = 20,
-
 	-- Seconds between each income tick.
 	INCOME_TICK = 1,
 
@@ -47,9 +44,25 @@ return {
 	-- Z position of the items shop in the world (center road, offset along Z).
 	ITEMS_SHOP_Z = 0,
 
-	-- Number of conveyor belt slots available at each rebirth tier.
-	-- Indices correspond to rebirth ranges: 0-1, 2-3, 4-5, 6-7, 8+
-	LEVEL_SLOTS = {5, 8, 12, 16, 20},
+	-- Number of brainrot slots on each side of the aisle per floor
+	FLOOR_SLOT_SIDE_COUNT = 5,   -- 5 left + 5 right = 10 per floor
+
+	-- Max number of house floors a player can unlock
+	MAX_FLOORS = 5,
+
+	-- How many rebirths are needed to unlock each floor (floor index = position in array)
+	-- Floor 1 is always unlocked. Floor 2 needs 1 rebirth, etc.
+	FLOOR_UNLOCK_REBIRTHS = {0, 1, 2, 4, 6},
+
+	-- Height in studs between floor levels (ceiling clearance + floor thickness)
+	FLOOR_HEIGHT_STEP = 12,
+
+	-- Building dimensions inside the house plot
+	BUILDING_DEPTH = 34,   -- along the axis facing the road (X for left/right houses)
+	BUILDING_WIDTH = 28,   -- along the Z axis
+
+	-- Yard depth (space between building front and plot edge facing road)
+	YARD_DEPTH = 14,
 
 	-- Eight player house plots arranged in two rows of four facing each other
 	-- across a central road. Left row at X=-75, right row at X=+75.

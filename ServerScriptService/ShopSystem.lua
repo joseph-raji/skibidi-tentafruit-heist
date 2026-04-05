@@ -2,7 +2,9 @@
 -- ModuleScript: Shop, gacha rolls, and brainrot spawning for Skibidi Tentafruit Heist
 
 local RunService      = game:GetService("RunService")
+local Players         = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService    = game:GetService("TweenService")
 
 local BrainrotData = require(ReplicatedStorage.Modules.BrainrotData)
 local GameConfig   = require(ReplicatedStorage.Modules.GameConfig)
@@ -22,27 +24,16 @@ local _brainrotOwner    = {}
 local _playerCollection = {}
 local _carrying         = {}
 
--- Maps player -> array of booleans (true = occupied) for each grid slot
-local _baseSlots = {}
+-- BaseSystem reference (set via ShopSystem.setBaseSystem)
+local BaseSystem = nil
+function ShopSystem.setBaseSystem(bs) BaseSystem = bs end
+
+-- Pressure plate tracking tables
+local _plateToBrainrot = {}   -- plate Part → body Part
+local _brainrotToPlate = {}   -- body Part → plate Part
+local _plateDebounce   = {}   -- plate Part → bool
 
 local GACHA_COST = 150
-
--- =========================================================================
--- Grid slot constants
--- 4 columns x 5 rows = 20 slots per base
--- =========================================================================
-
-local GRID_COLS         = 4
-local GRID_ROWS         = 5
-local GRID_SPACING_X    = 6   -- studs between columns
-local GRID_SPACING_Z    = 6   -- studs between rows
-local GRID_INTERIOR_OFFSET = 10  -- how far into the house interior the grid starts
-local GRID_Y_OFFSET     = 4   -- elevate brainrots off the floor
-
--- Column offsets relative to interior anchor X
-local COL_OFFSETS = { -9, -3, 3, 9 }
--- Row offsets relative to base Z
-local ROW_OFFSETS = { -12, -6, 0, 6, 12 }
 
 -- =========================================================================
 -- Rarity colors for UI labels
@@ -69,60 +60,6 @@ local function isBeingCarried(brainrotPart)
 	return false
 end
 
--- Returns the Vector3 world position for a given slot index (1-based).
--- Slot layout: slot = (row - 1) * GRID_COLS + col
-local function slotIndexToPosition(player, slotIndex)
-	local baseInfo = _playerBases[player]
-	if not baseInfo then
-		return Vector3.new(0, 5, 0)
-	end
-	local basePos = baseInfo.position
-
-	local col = ((slotIndex - 1) % GRID_COLS) + 1
-	local row = math.floor((slotIndex - 1) / GRID_COLS) + 1
-
-	-- Interior anchor: push deeper into the house depending on which side the
-	-- base is on.  For X < 0 the interior is further negative; for X >= 0 it
-	-- is further positive.
-	local interiorX
-	if basePos.X < 0 then
-		interiorX = basePos.X - GRID_INTERIOR_OFFSET
-	else
-		interiorX = basePos.X + GRID_INTERIOR_OFFSET
-	end
-
-	local x = interiorX + COL_OFFSETS[col]
-	local z = basePos.Z + ROW_OFFSETS[row]
-	local y = basePos.Y + GRID_Y_OFFSET
-
-	return Vector3.new(x, y, z)
-end
-
--- Returns (position: Vector3, slotIndex: number) for the next free slot, or
--- a centre-fallback position with slotIndex = -1 when all slots are full.
-local function getNextSlotPosition(player)
-	if not _baseSlots[player] then
-		_baseSlots[player] = {}
-	end
-
-	local slots = _baseSlots[player]
-	local totalSlots = GRID_COLS * GRID_ROWS  -- 20
-
-	for i = 1, totalSlots do
-		if not slots[i] then
-			slots[i] = true  -- mark occupied
-			return slotIndexToPosition(player, i), i
-		end
-	end
-
-	-- All slots full — return centre of base as fallback
-	local baseInfo = _playerBases[player]
-	local fallback = baseInfo
-		and Vector3.new(baseInfo.position.X, baseInfo.position.Y + GRID_Y_OFFSET, baseInfo.position.Z)
-		or Vector3.new(0, 5, 0)
-	return fallback, -1
-end
-
 -- =========================================================================
 -- Public: releaseSlot
 -- Frees the slot for a player when a brainrot is removed or stolen.
@@ -130,8 +67,9 @@ end
 
 function ShopSystem.releaseSlot(player, slotIndex)
 	if slotIndex == nil or slotIndex < 1 then return end
-	if _baseSlots[player] then
-		_baseSlots[player][slotIndex] = nil
+	local baseData = _playerBases[player]
+	if baseData and baseData.slotGrid then
+		baseData.slotGrid[slotIndex] = false
 	end
 end
 
@@ -161,6 +99,20 @@ local function countPlayerBrainrots(player, brainrotOwner)
 		end
 	end
 	return count
+end
+
+-- =========================================================================
+-- Public: removePlate
+-- Cleans up the pressure plate associated with a brainrot body.
+-- =========================================================================
+
+function ShopSystem.removePlate(body)
+	local plate = _brainrotToPlate[body]
+	if plate and plate.Parent then
+		plate:Destroy()
+	end
+	_brainrotToPlate[body] = nil
+	_plateToBrainrot[plate] = nil
 end
 
 -- =========================================================================
@@ -424,7 +376,6 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	-- -----------------------------------------------------------------------
 	-- Register ownership on the body (PrimaryPart)
 	-- -----------------------------------------------------------------------
-	-- Register ownership (nil for conveyor shop items)
 	if owner then
 		brainrotOwner[body] = owner
 		body:SetAttribute("IncomePerSecond", brainrotData.income)
@@ -494,6 +445,79 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 				plaque:Destroy()
 			end
 		end)
+
+		-- -----------------------------------------------------------------------
+		-- Pressure plate — flat pad at the slot's plate position
+		-- -----------------------------------------------------------------------
+		local platePos = position  -- fallback to spawn position
+		if _playerBases[owner] and _playerBases[owner].platePositions and slotIndex then
+			platePos = _playerBases[owner].platePositions[slotIndex]
+		end
+
+		local plate = Instance.new("Part")
+		plate.Name        = "CollectPlate_" .. (slotIndex or 0)
+		plate.Size        = Vector3.new(4, 0.3, 4)
+		plate.Material    = Enum.Material.Neon
+		plate.Color       = Color3.fromRGB(30, 80, 30)
+		plate.CanCollide  = false
+		plate.Anchored    = true
+		plate.CFrame      = CFrame.new(platePos)
+		plate.Parent      = workspace
+
+		-- BillboardGui showing accumulated money
+		local plateBB = Instance.new("BillboardGui")
+		plateBB.StudsOffset = Vector3.new(0, 2, 0)
+		plateBB.Size        = UDim2.new(0.1, 0, 0.1, 0)
+		plateBB.AlwaysOnTop = false
+		plateBB.Parent      = plate
+
+		local plateLabel = Instance.new("TextLabel")
+		plateLabel.Size                   = UDim2.new(1, 0, 1, 0)
+		plateLabel.BackgroundTransparency = 1
+		plateLabel.Text                   = "$0"
+		plateLabel.TextColor3             = Color3.fromRGB(100, 255, 100)
+		plateLabel.TextStrokeTransparency = 0.4
+		plateLabel.TextScaled             = true
+		plateLabel.Font                   = Enum.Font.GothamBold
+		plateLabel.Parent                 = plateBB
+
+		-- Link plate and body
+		_plateToBrainrot[plate] = body
+		_brainrotToPlate[body]  = plate
+
+		-- Collect money on touch
+		plate.Touched:Connect(function(hit)
+			local player = Players:GetPlayerFromCharacter(hit.Parent)
+			if not player then return end
+			if _brainrotOwner[body] ~= player then return end
+			if _plateDebounce[plate] then return end
+
+			_plateDebounce[plate] = true
+			task.delay(0.3, function() _plateDebounce[plate] = nil end)
+
+			local money = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
+			if money <= 0 then return end
+
+			body:SetAttribute("AccumulatedMoney", 0)
+			player:SetAttribute("Money", (player:GetAttribute("Money") or 0) + money)
+
+			-- Update label immediately
+			local gui = plate:FindFirstChildWhichIsA("BillboardGui")
+			if gui then
+				local label = gui:FindFirstChildWhichIsA("TextLabel")
+				if label then label.Text = "$0" end
+			end
+
+			-- Flash plate to bright lime green
+			local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 1, true)
+			local flashTween = TweenService:Create(plate, tweenInfo, {
+				Color = Color3.fromRGB(0, 255, 80),
+				Transparency = 0.4,
+			})
+			flashTween:Play()
+
+			NotificationEvent:FireClient(player, "+" .. money .. "$", Color3.fromRGB(100, 255, 100))
+		end)
 	end
 
 	-- -----------------------------------------------------------------------
@@ -524,6 +548,35 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 end
 
 -- =========================================================================
+-- RunService: update plate BillboardGui text (throttled to ~1 second)
+-- =========================================================================
+
+local lastPlateUpdate = 0
+RunService.Heartbeat:Connect(function()
+	local now = tick()
+	if now - lastPlateUpdate < 1 then return end
+	lastPlateUpdate = now
+	for plate, body in pairs(_plateToBrainrot) do
+		if plate.Parent and body.Parent then
+			local amt = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
+			local gui = plate:FindFirstChildWhichIsA("BillboardGui")
+			if gui then
+				local label = gui:FindFirstChildWhichIsA("TextLabel")
+				if label then
+					label.Text = "$" .. amt
+					-- Dim when empty, bright when has money
+					plate.Color = amt > 0 and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(30, 80, 30)
+				end
+			end
+		else
+			-- Brainrot or plate was destroyed, clean up
+			_plateToBrainrot[plate] = nil
+			if body then _brainrotToPlate[body] = nil end
+		end
+	end
+end)
+
+-- =========================================================================
 -- Public: buyBrainrot
 -- =========================================================================
 
@@ -546,19 +599,17 @@ function ShopSystem.buyBrainrot(player, brainrotId, playerBases, brainrotOwner, 
 	end
 
 	-- Check slot limit before spending money
-	local maxSlots = player:GetAttribute("MaxSlots") or 5
-	local currentCount = countPlayerBrainrots(player, brainrotOwner)
-	if currentCount >= maxSlots then
-		NotificationEvent:FireClient(player, "Base full! Upgrade by rebirthing", Color3.fromRGB(255, 150, 0))
+	local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
+	if not slotIndex then
+		NotificationEvent:FireClient(player, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
 		return false
 	end
 
 	-- Deduct money
 	player:SetAttribute("Money", currentMoney - data.cost)
 
-	-- Claim a grid slot and spawn there
-	local spawnPos, slotIndex = getNextSlotPosition(player)
-	ShopSystem.spawnBrainrot(data, spawnPos, player, brainrotOwner, slotIndex)
+	-- Spawn at the slot position
+	ShopSystem.spawnBrainrot(data, slotPos, player, brainrotOwner, slotIndex)
 
 	-- Update collection
 	if not playerCollection[player] then
@@ -585,10 +636,9 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 	end
 
 	-- Check slot limit before spending money
-	local maxSlots = player:GetAttribute("MaxSlots") or 5
-	local currentCount = countPlayerBrainrots(player, brainrotOwner)
-	if currentCount >= maxSlots then
-		NotificationEvent:FireClient(player, "Base full! Upgrade by rebirthing", Color3.fromRGB(255, 150, 0))
+	local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
+	if not slotIndex then
+		NotificationEvent:FireClient(player, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
 		return nil
 	end
 
@@ -598,9 +648,8 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 	-- Roll
 	local result = BrainrotData.gachaRoll()
 
-	-- Claim a grid slot and spawn there
-	local spawnPos, slotIndex = getNextSlotPosition(player)
-	ShopSystem.spawnBrainrot(result, spawnPos, player, brainrotOwner, slotIndex)
+	-- Spawn at the slot position
+	ShopSystem.spawnBrainrot(result, slotPos, player, brainrotOwner, slotIndex)
 
 	-- Update collection
 	if not playerCollection[player] then
@@ -627,11 +676,11 @@ end
 
 -- How often each rarity tier appears on the belt (seconds between spawns)
 local CONVEYOR_INTERVALS = {
-	Common    = 4,
-	Uncommon  = 10,
-	Rare      = 22,
-	Epic      = 50,
-	Legendary = 120,
+	Common    = 12,
+	Uncommon  = 28,
+	Rare      = 60,
+	Epic      = 130,
+	Legendary = 300,
 }
 
 local BELT_LENGTH  = 80   -- studs long
@@ -811,8 +860,18 @@ function ShopSystem.createShopPads()
 	local rarityOrder = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
 	local buyDebounce = {}
 
+	-- Each rarity gets its own Z lane so brainrots never overlap on the belt
+	local RARITY_LANE_Z = {
+		Common    = -3,
+		Uncommon  = -1.5,
+		Rare      =  0,
+		Epic      =  1.5,
+		Legendary =  3,
+	}
+
 	for idx, rarity in ipairs(rarityOrder) do
 		local interval = CONVEYOR_INTERVALS[rarity]
+		local laneZ    = RARITY_LANE_Z[rarity] or 0
 		task.spawn(function()
 			task.wait(idx * 1.5) -- stagger initial spawns
 			while true do
@@ -823,7 +882,7 @@ function ShopSystem.createShopPads()
 					local spawnPos = Vector3.new(
 						BELT_START_X,
 						BELT_Y + chosen.size / 2 + 0.3,
-						0
+						laneZ
 					)
 
 					-- Spawn visual without ownership (nil owner = no plaque, no steal events)
@@ -852,12 +911,11 @@ function ShopSystem.createShopPads()
 							end
 
 							-- Check slot limit before allowing purchase
-							local maxSlots = player:GetAttribute("MaxSlots") or 5
-							local currentCount = countPlayerBrainrots(player, _brainrotOwner)
-							if currentCount >= maxSlots then
+							local slotIndex, dest = BaseSystem.getNextSlot(player, _playerBases)
+							if not slotIndex then
 								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
 								RE:WaitForChild("Notification"):FireClient(player,
-									"Base full! Upgrade by rebirthing", Color3.fromRGB(255, 150, 0))
+									"Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
 								return
 							end
 
@@ -877,9 +935,7 @@ function ShopSystem.createShopPads()
 							conveyorItems[body] = nil
 							prompt:Destroy()
 
-							-- Claim a grid slot and move the purchased brainrot there
-							local dest, slotIndex = getNextSlotPosition(player)
-
+							-- Move the purchased brainrot to the claimed slot
 							body.Anchored = true
 							body.CFrame = CFrame.new(dest)
 							_brainrotOwner[body] = player

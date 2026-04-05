@@ -160,6 +160,8 @@ ProgressionSystem.init(playerBases, brainrotOwner, playerCollection)
 ItemsSystem.init(playerBases, carrying)
 
 ProgressionSystem.setShopSystem(ShopSystem)
+ShopSystem.setBaseSystem(BaseSystem)
+ProgressionSystem.setBaseSystem(BaseSystem)
 
 -- ============================================================
 -- 7. Build shop and rebirth structures

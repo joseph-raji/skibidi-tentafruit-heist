@@ -30,6 +30,13 @@ function ProgressionSystem.setShopSystem(ss)
 	ShopSystem = ss
 end
 
+-- BaseSystem reference injected by Main
+local BaseSystem = nil
+
+function ProgressionSystem.setBaseSystem(bs)
+	BaseSystem = bs
+end
+
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local evtNotification = remoteEvents:WaitForChild("Notification")
 local evtRebirthComplete = remoteEvents:WaitForChild("RebirthComplete")
@@ -68,22 +75,11 @@ function ProgressionSystem.getRebirthInfo(player)
 	}
 end
 
--- Sets the MaxSlots attribute on the player based on their rebirth count
+-- Sets the MaxSlots attribute on the player based on baseData.maxSlots
 function ProgressionSystem.updateMaxSlots(player)
-	local rebirths = player:GetAttribute("RebirthCount") or 0
-	local slots
-	if rebirths >= 8 then
-		slots = LEVEL_SLOTS[5]
-	elseif rebirths >= 6 then
-		slots = LEVEL_SLOTS[4]
-	elseif rebirths >= 4 then
-		slots = LEVEL_SLOTS[3]
-	elseif rebirths >= 2 then
-		slots = LEVEL_SLOTS[2]
-	else
-		slots = LEVEL_SLOTS[1]
-	end
-	player:SetAttribute("MaxSlots", slots)
+	local baseData = _playerBases and _playerBases[player]
+	local maxSlots = baseData and (baseData.maxSlots or 10) or 10
+	player:SetAttribute("MaxSlots", maxSlots)
 end
 
 function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCollection)
@@ -134,6 +130,26 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	local newMultiplier = 1 + (newRebirthCount * 0.5)
 	player:SetAttribute("MoneyMultiplier", newMultiplier)
 
+	-- Unlock floors based on rebirth count
+	local currentRebirthCount = player:GetAttribute("RebirthCount") or 0
+	local FLOOR_UNLOCK = {0, 1, 2, 4, 6}  -- same as GameConfig
+	local targetFloors = 1
+	for i = #FLOOR_UNLOCK, 1, -1 do
+		if currentRebirthCount >= FLOOR_UNLOCK[i] then
+			targetFloors = i
+			break
+		end
+	end
+
+	local baseData = _playerBases[player]
+	if baseData and BaseSystem then
+		local currentFloors = baseData.unlockedFloors or 1
+		while currentFloors < targetFloors do
+			BaseSystem.unlockNextFloor(player, _playerBases)
+			currentFloors = baseData.unlockedFloors or 1
+		end
+	end
+
 	-- Update MaxSlots for the new rebirth tier
 	ProgressionSystem.updateMaxSlots(player)
 
@@ -141,9 +157,9 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	if ShopSystem then
 		local commons = ShopSystem.getBrainrotsByRarity("Common")
 		if commons and #commons > 0 then
-			local baseData = playerBases[player]
-			if baseData then
-				local basePos = baseData.position
+			local baseDataForSpawn = playerBases[player]
+			if baseDataForSpawn then
+				local basePos = baseDataForSpawn.position
 				local spawnPos = Vector3.new(basePos.X, basePos.Y + 3, basePos.Z)
 				ShopSystem.spawnBrainrot(commons[1], spawnPos, player, brainrotOwner)
 			end
@@ -161,36 +177,17 @@ end
 
 function ProgressionSystem.startIncomeLoop(playerBases, brainrotOwner)
 	task.spawn(function()
-		local tickCount = 0
 		while true do
 			task.wait(INCOME_INTERVAL)
-			tickCount = tickCount + 1
-
-			-- Accumulate income per owner in a temporary table to batch SetAttribute calls
-			local incomeMap = {}
 
 			for brainrotPart, owner in pairs(brainrotOwner) do
 				if brainrotPart and brainrotPart.Parent and owner and owner.Parent then
 					local income = brainrotPart:GetAttribute("IncomePerSecond") or 0
 					if income > 0 then
 						local mult = owner:GetAttribute("MoneyMultiplier") or 1
-						incomeMap[owner] = (incomeMap[owner] or 0) + (income * mult)
+						local accum = brainrotPart:GetAttribute("AccumulatedMoney") or 0
+						brainrotPart:SetAttribute("AccumulatedMoney", accum + income * mult)
 					end
-				end
-			end
-
-			for owner, totalIncome in pairs(incomeMap) do
-				ProgressionSystem.addMoney(owner, totalIncome)
-			end
-
-			-- Every 10 seconds, notify each player of their income rate
-			if tickCount % 10 == 0 then
-				for player, earned in pairs(incomeMap) do
-					evtNotification:FireClient(
-						player,
-						"💰 +$" .. math.floor(earned) .. " earned (earning $" .. math.floor(earned) .. "/s total)",
-						Color3.fromRGB(100, 220, 100)
-					)
 				end
 			end
 		end
