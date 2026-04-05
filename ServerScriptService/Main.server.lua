@@ -8,23 +8,7 @@ local ReplicatedStorage  = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 -- ============================================================
--- 1. Shared data modules (ReplicatedStorage)
--- ============================================================
-local Modules       = ReplicatedStorage:WaitForChild("Modules")
-local BrainrotData  = require(Modules:WaitForChild("BrainrotData"))
-local GameConfig    = require(Modules:WaitForChild("GameConfig"))
-
--- ============================================================
--- 2. Server system modules (ServerScriptService)
--- ============================================================
-local StealSystem       = require(ServerScriptService:WaitForChild("StealSystem"))
-local BaseSystem        = require(ServerScriptService:WaitForChild("BaseSystem"))
-local ShopSystem        = require(ServerScriptService:WaitForChild("ShopSystem"))
-local CombatSystem      = require(ServerScriptService:WaitForChild("CombatSystem"))
-local ProgressionSystem = require(ServerScriptService:WaitForChild("ProgressionSystem"))
-
--- ============================================================
--- 3. RemoteEvents folder + all events
+-- 1. RemoteEvents FIRST — modules WaitForChild these at load time
 -- ============================================================
 local RemoteEvents = Instance.new("Folder")
 RemoteEvents.Name = "RemoteEvents"
@@ -52,9 +36,25 @@ for _, name in ipairs(eventNames) do
 	e.Parent = RemoteEvents
 end
 
--- Convenience references to frequently-fired events
+-- Convenience references
 local CollectionUpdated = RemoteEvents:WaitForChild("CollectionUpdated")
 local Notification      = RemoteEvents:WaitForChild("Notification")
+
+-- ============================================================
+-- 2. Shared data modules (ReplicatedStorage)
+-- ============================================================
+local Modules       = ReplicatedStorage:WaitForChild("Modules")
+local BrainrotData  = require(Modules:WaitForChild("BrainrotData"))
+local GameConfig    = require(Modules:WaitForChild("GameConfig"))
+
+-- ============================================================
+-- 3. Server system modules (ServerScriptService)
+-- ============================================================
+local StealSystem       = require(ServerScriptService:WaitForChild("StealSystem"))
+local BaseSystem        = require(ServerScriptService:WaitForChild("BaseSystem"))
+local ShopSystem        = require(ServerScriptService:WaitForChild("ShopSystem"))
+local CombatSystem      = require(ServerScriptService:WaitForChild("CombatSystem"))
+local ProgressionSystem = require(ServerScriptService:WaitForChild("ProgressionSystem"))
 
 -- ============================================================
 -- 4. Shared state tables
@@ -136,6 +136,16 @@ end)
 RemoteEvents.LockBase.OnServerEvent:Connect(function(player)
 	if not player then return end
 	BaseSystem.lockBase(player, playerBases)
+end)
+
+-- Open shop UI on the requesting client
+RemoteEvents.OpenShop.OnServerEvent:Connect(function(player)
+	RemoteEvents.OpenShop:FireClient(player)
+end)
+
+-- Open pokédex UI on the requesting client
+RemoteEvents.OpenPokedex.OnServerEvent:Connect(function(player)
+	RemoteEvents.OpenPokedex:FireClient(player)
 end)
 
 -- ============================================================

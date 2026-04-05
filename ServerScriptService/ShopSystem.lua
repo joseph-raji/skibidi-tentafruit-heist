@@ -108,7 +108,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 	body.BrickColor = brainrotData.color
 	body.Size       = Vector3.new(s, s, s)
 	body.CFrame     = CFrame.new(position)
-	body.Anchored   = false
+	body.Anchored   = true
 	body.CanCollide = true
 	body.CastShadow = true
 	body.Parent     = model
