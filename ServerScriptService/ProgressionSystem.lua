@@ -30,6 +30,12 @@ function ProgressionSystem.setShopSystem(ss)
 	ShopSystem = ss
 end
 
+-- Carrying table injected by Main so rebirth pad can detect carried brainrots
+local _carrying = nil
+function ProgressionSystem.setCarrying(t)
+	_carrying = t
+end
+
 -- BaseSystem reference injected by Main
 local BaseSystem = nil
 
@@ -234,12 +240,12 @@ function ProgressionSystem.setupRebirthPad(playerBases)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = Color3.fromRGB(255, 220, 50)
 	label.TextStrokeTransparency = 0
-	label.Text = "REBIRTH\n$8,000 to reset + multiplier boost"
+	label.Text = "REBIRTH MACHINE\nCarry a brainrot here to sacrifice it!"
 	label.Font = Enum.Font.GothamBold
 	label.TextScaled = true
 	label.Parent = billboard
 
-	-- Touch detection with 3-second debounce
+	-- Touch detection: player must carry a brainrot to sacrifice for rebirth
 	pad.Touched:Connect(function(hit)
 		local character = hit.Parent
 		if not character then return end
@@ -250,9 +256,29 @@ function ProgressionSystem.setupRebirthPad(playerBases)
 		local userId = player.UserId
 		if rebirthDebounce[userId] then return end
 
+		-- Check player is carrying a brainrot
+		local brainrot = _carrying and _carrying[player]
+		if not brainrot then
+			evtNotification:FireClient(player, "Carry a brainrot here to sacrifice it for REBIRTH!", Color3.fromRGB(255, 220, 50))
+			return
+		end
+
 		rebirthDebounce[userId] = true
 		task.delay(REBIRTH_PAD_DEBOUNCE_TIME, function()
 			rebirthDebounce[userId] = nil
+		end)
+
+		-- Sacrifice the brainrot
+		_carrying[player] = nil
+		player:SetAttribute("IsCarrying", false)
+		player:SetAttribute("CarryingBrainrotName", "")
+		_brainrotOwner[brainrot] = nil
+		brainrot.Anchored = true
+		task.delay(0.3, function()
+			if brainrot and brainrot.Parent then
+				local m = brainrot.Parent
+				if m and m:IsA("Model") then m:Destroy() else brainrot:Destroy() end
+			end
 		end)
 
 		ProgressionSystem.rebirth(player, _playerBases, _brainrotOwner, _playerCollection)

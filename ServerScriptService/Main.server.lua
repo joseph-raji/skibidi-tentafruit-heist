@@ -161,6 +161,7 @@ ProgressionSystem.init(playerBases, brainrotOwner, playerCollection)
 ItemsSystem.init(playerBases, carrying)
 
 ProgressionSystem.setShopSystem(ShopSystem)
+ProgressionSystem.setCarrying(carrying)
 ShopSystem.setBaseSystem(BaseSystem)
 ShopSystem.setStealSystem(StealSystem)
 ProgressionSystem.setBaseSystem(BaseSystem)
@@ -292,6 +293,9 @@ local function onPlayerAdded(player)
 
 	-- Claim the base slot (destroys the empty placeholder, builds the real base)
 	BaseSystem.claimBase(player, pos, playerBases)
+
+	-- Wire placement prompts on the empty slot plates for this base
+	ShopSystem.initBasePlates(player)
 
 	-- Initialize collection
 	playerCollection[player] = {}

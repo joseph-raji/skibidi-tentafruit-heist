@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StealSystem = {}
 
 local BASE_SIZE = 44
-local CARRY_OFFSET = Vector3.new(0, 5.5, 0)
+local CARRY_OFFSET = Vector3.new(0, 7, 0)
 
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local evtBrainrotStolen = remoteEvents:WaitForChild("BrainrotStolen")
@@ -286,7 +286,10 @@ function StealSystem.onHeartbeat(playerBases, brainrotOwner, carrying, playerCol
 		local insideZ = math.abs(rootPos.Z - basePos.Z) < halfBound
 
 		if insideX and insideZ then
-			StealSystem.claimBrainrot(player, playerBases, brainrotOwner, carrying, playerCollection)
+			-- Only auto-claim stolen brainrots; own brainrots require the player to press E on a slot plate
+			if brainrotOwner[brainrot] ~= player then
+				StealSystem.claimBrainrot(player, playerBases, brainrotOwner, carrying, playerCollection)
+			end
 		end
 	end
 end

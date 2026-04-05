@@ -75,6 +75,118 @@ local function isBeingCarried(brainrotPart)
 end
 
 -- =========================================================================
+-- Internal: add a "Place here" ProximityPrompt to an empty slot plate
+-- =========================================================================
+
+local function addPlacementPrompt(emptyPlate, owner, slotIndex)
+	local old = emptyPlate:FindFirstChildOfClass("ProximityPrompt")
+	if old then old:Destroy() end
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.ActionText            = "Place here"
+	prompt.ObjectText            = "Slot " .. slotIndex
+	prompt.HoldDuration          = 0
+	prompt.MaxActivationDistance = 6
+	prompt.Parent                = emptyPlate
+	prompt.Triggered:Connect(function(trigPlayer)
+		if trigPlayer ~= owner then return end
+		ShopSystem.placeCarriedBrainrot(trigPlayer, slotIndex)
+	end)
+end
+
+-- =========================================================================
+-- Public: initBasePlates
+-- Wire placement prompts on all existing empty slot plates for a player.
+-- Call from Main.server.lua right after BaseSystem.claimBase.
+-- =========================================================================
+
+function ShopSystem.initBasePlates(player)
+	local baseData = _playerBases[player]
+	if not baseData or not baseData.emptyPlates then return end
+	for slotIndex, ep in pairs(baseData.emptyPlates) do
+		if ep and ep.Parent then
+			addPlacementPrompt(ep, player, slotIndex)
+		end
+	end
+end
+
+-- =========================================================================
+-- Public: placeCarriedBrainrot
+-- Moves the player's currently-carried brainrot to a target slot.
+-- =========================================================================
+
+function ShopSystem.placeCarriedBrainrot(player, slotIndex)
+	local brainrot = _carrying[player]
+	if not brainrot then return end
+	if _brainrotOwner[brainrot] ~= player then return end
+
+	local baseData = _playerBases[player]
+	if not baseData then return end
+
+	if baseData.slotGrid[slotIndex] then
+		NotificationEvent:FireClient(player, "That slot is already occupied!", Color3.fromRGB(255, 80, 80))
+		return
+	end
+
+	local slotPos = baseData.slotPositions and baseData.slotPositions[slotIndex]
+	if not slotPos then return end
+
+	-- Read all attributes before destroying the model
+	local bId    = brainrot:GetAttribute("BrainrotId") or ""
+	local bName  = brainrot:GetAttribute("BrainrotName") or "Brainrot"
+	local income = brainrot:GetAttribute("IncomePerSecond") or 1
+	local oldSlot = brainrot:GetAttribute("SlotIndex")
+
+	-- Clear carrying state
+	_carrying[player] = nil
+	player:SetAttribute("IsCarrying", false)
+	player:SetAttribute("CarryingBrainrotName", "")
+
+	-- Free old slot and remove its collect plate
+	if oldSlot then
+		ShopSystem.removePlate(brainrot)
+		baseData.slotGrid[oldSlot] = false
+		-- Recreate empty plate for old slot with placement prompt
+		local oldPlatePos = baseData.platePositions and baseData.platePositions[oldSlot]
+		if oldPlatePos and baseData.folder and baseData.folder.Parent then
+			if not baseData.emptyPlates then baseData.emptyPlates = {} end
+			local ep = Instance.new("Part")
+			ep.Name         = "EmptySlotPlate_" .. oldSlot
+			ep.Size         = Vector3.new(4, 0.3, 4)
+			ep.Material     = Enum.Material.Neon
+			ep.Color        = Color3.fromRGB(50, 50, 55)
+			ep.Transparency = 0.4
+			ep.CanCollide   = false
+			ep.Anchored     = true
+			ep.CFrame       = CFrame.new(oldPlatePos)
+			ep.Parent       = baseData.folder
+			baseData.emptyPlates[oldSlot] = ep
+			addPlacementPrompt(ep, player, oldSlot)
+		end
+	end
+
+	-- Destroy old model
+	_brainrotOwner[brainrot] = nil
+	local m = brainrot.Parent
+	if m and m:IsA("Model") then m:Destroy() elseif brainrot and brainrot.Parent then brainrot:Destroy() end
+
+	-- Resolve brainrot data (fallback for fused/ad-hoc brainrots)
+	local brainrotData = BrainrotData.getById(bId)
+	if not brainrotData then
+		brainrotData = {
+			id = bId, name = bName, income = income,
+			rarity = "Legendary", size = 2, cost = nil,
+			color = BrickColor.new("Bright yellow"),
+			glowColor = Color3.fromRGB(255, 220, 0),
+		}
+	end
+
+	-- Spawn at new slot position
+	local dest = Vector3.new(slotPos.X, slotPos.Y + brainrotData.size / 2, slotPos.Z)
+	ShopSystem.spawnBrainrot(brainrotData, dest, player, _brainrotOwner, slotIndex)
+	NotificationEvent:FireClient(player, bName .. " moved to slot " .. slotIndex .. "!", Color3.fromRGB(200, 200, 255))
+end
+
+-- =========================================================================
 -- Public: releaseSlot
 -- Frees the slot for a player when a brainrot is removed or stolen.
 -- =========================================================================
@@ -101,6 +213,8 @@ function ShopSystem.releaseSlot(player, slotIndex)
 		ep.CFrame       = CFrame.new(platePos)
 		ep.Parent       = baseData.folder
 		baseData.emptyPlates[slotIndex] = ep
+		-- Wire placement prompt so owner can press E here
+		addPlacementPrompt(ep, player, slotIndex)
 	end
 end
 
@@ -454,28 +568,62 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 					NotificationEvent:FireClient(buyer, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
 					return
 				end
-				-- Deduct money and disable prompt so nobody else buys this one
+				-- Deduct money; disable prompt so only one person buys this instance
 				buyer:SetAttribute("Money", money - brainrotData.cost)
-				prompt.Enabled = false
-				-- Mark as flying so the conveyor loop stops moving it
+				prompt:Destroy()
+				-- Mark as flying so conveyor stops moving it
 				_flyingBodies[body] = true
-				-- Fly to slot
+				-- Assign temp ownership so others can steal it mid-flight
+				_brainrotOwner[body] = buyer
+				body:SetAttribute("IncomePerSecond", brainrotData.income)
+				body:SetAttribute("BrainrotId",      brainrotData.id)
+				body:SetAttribute("BrainrotName",    brainrotData.name)
+				if StealSystem then
+					StealSystem.setupBrainrotTouchEvents(body, buyer, _playerBases, _brainrotOwner, _carrying, _playerCollection)
+				end
+
+				-- Heartbeat-based flight so it can be intercepted
+				local FLIGHT_SPEED = 18  -- studs / second
 				local dest = Vector3.new(slotPos.X, slotPos.Y + brainrotData.size / 2, slotPos.Z)
-				local tween = TweenService:Create(body, TweenInfo.new(1.8, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {CFrame = CFrame.new(dest)})
-				tween.Completed:Connect(function()
-					_flyingBodies[body] = nil
-					if buyer and buyer.Parent then
-						ShopSystem.spawnBrainrot(brainrotData, dest, buyer, _brainrotOwner, slotIndex)
-						if not _playerCollection[buyer] then _playerCollection[buyer] = {} end
-						_playerCollection[buyer][brainrotData.id] = (_playerCollection[buyer][brainrotData.id] or 0) + 1
-						CollectionUpdatedEvent:FireClient(buyer, _playerCollection[buyer])
-						NotificationEvent:FireClient(buyer, "You got " .. brainrotData.name .. "!", Color3.fromRGB(100, 255, 100))
+				local conn
+				conn = RunService.Heartbeat:Connect(function(dt)
+					if not body or not body.Parent then
+						conn:Disconnect(); _flyingBodies[body] = nil
+						ShopSystem.releaseSlot(buyer, slotIndex)
+						return
 					end
-					-- Destroy the old flying model
-					local m = body.Parent
-					if m and m:IsA("Model") then m:Destroy() elseif body and body.Parent then body:Destroy() end
+					-- If intercepted (another player is now carrying it), stop flight
+					if isBeingCarried(body) then
+						conn:Disconnect(); _flyingBodies[body] = nil
+						ShopSystem.releaseSlot(buyer, slotIndex)
+						return
+					end
+					-- If ownership changed (stolen during flight without carrying), stop
+					if _brainrotOwner[body] ~= buyer then
+						conn:Disconnect(); _flyingBodies[body] = nil
+						ShopSystem.releaseSlot(buyer, slotIndex)
+						return
+					end
+					local dir = dest - body.Position
+					local dist = dir.Magnitude
+					if dist < 1 then
+						-- Arrived
+						conn:Disconnect(); _flyingBodies[body] = nil
+						body.CFrame = CFrame.new(dest); body.Anchored = true
+						if buyer and buyer.Parent then
+							ShopSystem.spawnBrainrot(brainrotData, dest, buyer, _brainrotOwner, slotIndex)
+							if not _playerCollection[buyer] then _playerCollection[buyer] = {} end
+							_playerCollection[buyer][brainrotData.id] = (_playerCollection[buyer][brainrotData.id] or 0) + 1
+							CollectionUpdatedEvent:FireClient(buyer, _playerCollection[buyer])
+							NotificationEvent:FireClient(buyer, "You received " .. brainrotData.name .. "!", Color3.fromRGB(100, 255, 100))
+						end
+						local m = body.Parent
+						if m and m:IsA("Model") then m:Destroy() elseif body and body.Parent then body:Destroy() end
+						return
+					end
+					local step = math.min(FLIGHT_SPEED * dt, dist)
+					body.CFrame = CFrame.new(body.Position + dir.Unit * step) * CFrame.Angles(0, tick() * 2, 0)
 				end)
-				tween:Play()
 			end)
 		end
 	end
@@ -896,7 +1044,7 @@ function ShopSystem.createFusionMachine()
 	fusionPad.Name      = "FusionPad"
 	fusionPad.Anchored  = true
 	fusionPad.Size      = Vector3.new(12, 0.5, 12)
-	fusionPad.Position  = Vector3.new(0, padY, -20)
+	fusionPad.Position  = Vector3.new(50, padY, 0)
 	fusionPad.Material  = Enum.Material.Neon
 	fusionPad.Parent    = workspace
 
@@ -954,7 +1102,7 @@ function ShopSystem.createFusionMachine()
 			player:SetAttribute("IsCarrying", false)
 			player:SetAttribute("CarryingBrainrotName", "")
 			brainrot.Anchored = true
-			brainrot.CFrame = CFrame.new(0, padY + 5, -20)
+			brainrot.CFrame = CFrame.new(50, padY + 5, 0)
 			_brainrotOwner[brainrot] = player
 			fusionQueue[player] = { part = brainrot, income = income, name = name, id = bId }
 			NotificationEvent:FireClient(player, "Brainrot 1 loaded! Bring a second one to fuse.", Color3.fromRGB(100, 200, 255))
