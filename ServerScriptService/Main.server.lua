@@ -83,7 +83,7 @@ baseplate.Parent      = workspace
 -- 6. Initialize all systems
 -- ============================================================
 StealSystem.init(playerBases, brainrotOwner, carrying, playerCollection)
-BaseSystem.init(playerBases)
+-- BaseSystem has no init function
 ShopSystem.init(playerBases, brainrotOwner, playerCollection)
 ShopSystem.setCarrying(carrying)
 CombatSystem.init(carrying, playerBases, brainrotOwner)
@@ -93,7 +93,7 @@ ProgressionSystem.init(playerBases, brainrotOwner, playerCollection)
 -- 7. Build shop and rebirth structures
 -- ============================================================
 ShopSystem.createShopPads()
-ProgressionSystem.setupRebirthPad()
+ProgressionSystem.setupRebirthPad(playerBases)
 
 -- ============================================================
 -- 8. Create the bat tool (shared template, cloned per player)
@@ -103,7 +103,7 @@ local batTool = CombatSystem.createBatTool()
 -- ============================================================
 -- 9. Start game loops
 -- ============================================================
-ProgressionSystem.startIncomeLoop(brainrotOwner)
+ProgressionSystem.startIncomeLoop(playerBases, brainrotOwner)
 
 -- Heartbeat: move carried brainrots above carrier's head and detect claims
 RunService.Heartbeat:Connect(function()
