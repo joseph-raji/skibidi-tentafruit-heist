@@ -155,13 +155,14 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 
 	-- Spawn a proper starter brainrot via ShopSystem if available
 	if ShopSystem then
-		local commons = ShopSystem.getBrainrotsByRarity("Common")
+		local BrainrotData = require(game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("BrainrotData"))
+		local commons = BrainrotData.getByRarity("Common")
 		if commons and #commons > 0 then
-			local baseDataForSpawn = playerBases[player]
+			local baseDataForSpawn = _playerBases[player]
 			if baseDataForSpawn then
-				local basePos = baseDataForSpawn.position
-				local spawnPos = Vector3.new(basePos.X, basePos.Y + 3, basePos.Z)
-				ShopSystem.spawnBrainrot(commons[1], spawnPos, player, brainrotOwner)
+				local slotIndex, slotPos = BaseSystem and BaseSystem.getNextSlot(player, _playerBases)
+				local spawnPos = slotPos or Vector3.new(baseDataForSpawn.position.X, baseDataForSpawn.position.Y + 5, baseDataForSpawn.position.Z)
+				ShopSystem.spawnBrainrot(commons[1], spawnPos, player, brainrotOwner, slotIndex)
 			end
 		end
 	end
