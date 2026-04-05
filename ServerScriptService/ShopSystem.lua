@@ -278,11 +278,59 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 	-- -----------------------------------------------------------------------
 	-- Register ownership on the body (PrimaryPart)
 	-- -----------------------------------------------------------------------
-	brainrotOwner[body] = owner
+	-- Register ownership (nil for conveyor shop items)
+	if owner then
+		brainrotOwner[body] = owner
+	end
 
 	-- -----------------------------------------------------------------------
-	-- Bobbing and spinning animation — moves the entire model via body CFrame
-	-- (all other parts follow through WeldConstraints)
+	-- Income plaque — small sign planted at spawn position (only for owned brainrots)
+	-- -----------------------------------------------------------------------
+	if owner then
+		local plaque = Instance.new("Part")
+		plaque.Name       = "IncomePlaque"
+		plaque.Size       = Vector3.new(2.5, 1.2, 0.1)
+		plaque.Position   = Vector3.new(position.X, position.Y - s * 0.3, position.Z + s * 0.9)
+		plaque.Anchored   = true
+		plaque.CanCollide = false
+		plaque.BrickColor = BrickColor.new("Really black")
+		plaque.Material   = Enum.Material.SmoothPlastic
+		plaque.Parent     = workspace
+
+		local sg = Instance.new("SurfaceGui")
+		sg.Face   = Enum.NormalId.Front
+		sg.Parent = plaque
+
+		local incomeText = Instance.new("TextLabel")
+		incomeText.Size                  = UDim2.new(1, 0, 0.55, 0)
+		incomeText.Position              = UDim2.new(0, 0, 0, 0)
+		incomeText.BackgroundTransparency = 1
+		incomeText.Text                  = "$" .. brainrotData.income .. "/s"
+		incomeText.TextScaled            = true
+		incomeText.Font                  = Enum.Font.GothamBold
+		incomeText.TextColor3            = Color3.fromRGB(100, 255, 100)
+		incomeText.Parent                = sg
+
+		local rarityText = Instance.new("TextLabel")
+		rarityText.Size                  = UDim2.new(1, 0, 0.45, 0)
+		rarityText.Position              = UDim2.new(0, 0, 0.55, 0)
+		rarityText.BackgroundTransparency = 1
+		rarityText.Text                  = brainrotData.rarity
+		rarityText.TextScaled            = true
+		rarityText.Font                  = Enum.Font.Gotham
+		rarityText.TextColor3            = RARITY_COLOR[brainrotData.rarity] or Color3.fromRGB(255,255,255)
+		rarityText.Parent                = sg
+
+		-- Destroy plaque when brainrot is destroyed
+		body.AncestryChanged:Connect(function()
+			if not body.Parent then
+				plaque:Destroy()
+			end
+		end)
+	end
+
+	-- -----------------------------------------------------------------------
+	-- Bobbing and spinning animation
 	-- -----------------------------------------------------------------------
 	local baseY      = position.Y
 	local timeOffset = math.random() * math.pi * 2
@@ -305,7 +353,6 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 		) * CFrame.Angles(0, angle, 0)
 	end)
 
-	-- Return the body (PrimaryPart) so the rest of the codebase works unchanged
 	return body
 end
 
@@ -392,190 +439,295 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 end
 
 -- =========================================================================
--- Public: createShopPads
+-- Public: createShopPads  (now a conveyor belt shop)
 -- =========================================================================
 
+-- How often each rarity tier appears on the belt (seconds between spawns)
+local CONVEYOR_INTERVALS = {
+	Common    = 4,
+	Uncommon  = 10,
+	Rare      = 22,
+	Epic      = 50,
+	Legendary = 120,
+}
+
+local BELT_LENGTH  = 80   -- studs long
+local BELT_WIDTH   = 8    -- studs wide
+local BELT_SPEED   = 7    -- studs per second
+local BELT_Y       = 0.5  -- height
+local BELT_START_X = -BELT_LENGTH / 2
+local BELT_END_X   =  BELT_LENGTH / 2
+
 function ShopSystem.createShopPads()
-	-- Collect all brainrots that have a direct cost
-	local buyable = {}
-	for _, entry in ipairs(BrainrotData.list) do
-		if entry.cost ~= nil then
-			table.insert(buyable, entry)
-		end
+
+	-- -----------------------------------------------------------------------
+	-- Carpet / belt base
+	-- -----------------------------------------------------------------------
+	local belt = Instance.new("Part")
+	belt.Name        = "ShopBelt"
+	belt.Anchored    = true
+	belt.Size        = Vector3.new(BELT_LENGTH, 0.6, BELT_WIDTH)
+	belt.Position    = Vector3.new(0, BELT_Y, 0)
+	belt.BrickColor  = BrickColor.new("Bright red")
+	belt.Material    = Enum.Material.Fabric
+	belt.TopSurface  = Enum.SurfaceType.Smooth
+	belt.Parent      = workspace
+
+	-- Belt stripes (decorative arrows showing direction)
+	for i = -3, 3 do
+		local stripe = Instance.new("Part")
+		stripe.Anchored   = true
+		stripe.Size       = Vector3.new(2, 0.05, BELT_WIDTH - 1)
+		stripe.Position   = Vector3.new(i * 10, BELT_Y + 0.32, 0)
+		stripe.BrickColor = BrickColor.new("Bright orange")
+		stripe.Material   = Enum.Material.Neon
+		stripe.CanCollide = false
+		stripe.Parent     = workspace
 	end
 
-	-- Shop floor
-	local shopCenter = Vector3.new(0, 0, 0)
+	-- SHOP sign above belt start
+	local signPost = Instance.new("Part")
+	signPost.Anchored   = true
+	signPost.Size       = Vector3.new(0.3, 8, 0.3)
+	signPost.Position   = Vector3.new(BELT_START_X - 2, BELT_Y + 4, 0)
+	signPost.BrickColor = BrickColor.new("Dark orange")
+	signPost.Material   = Enum.Material.SmoothPlastic
+	signPost.CanCollide = false
+	signPost.Parent     = workspace
 
-	local floor = Instance.new("Part")
-	floor.Name      = "ShopFloor"
-	floor.Anchored  = true
-	floor.Size      = Vector3.new(70, 1, 70)
-	floor.Position  = Vector3.new(shopCenter.X, shopCenter.Y, shopCenter.Z)
-	floor.BrickColor = BrickColor.new("Deep orange")
-	floor.Material  = Enum.Material.SmoothPlastic
-	floor.TopSurface = Enum.SurfaceType.Smooth
-	floor.Parent    = workspace
+	local signBoard = Instance.new("Part")
+	signBoard.Anchored   = true
+	signBoard.Size       = Vector3.new(12, 4, 0.3)
+	signBoard.Position   = Vector3.new(BELT_START_X + 4, BELT_Y + 9, 0)
+	signBoard.BrickColor = BrickColor.new("Really black")
+	signBoard.Material   = Enum.Material.SmoothPlastic
+	signBoard.CanCollide = false
+	signBoard.Parent     = workspace
 
-	-- "SHOP" overhead label
-	local shopBillboard = Instance.new("BillboardGui")
-	shopBillboard.Size        = UDim2.new(0, 300, 0, 80)
-	shopBillboard.StudsOffset = Vector3.new(0, 8, 0)
-	shopBillboard.AlwaysOnTop = false
-	shopBillboard.Parent      = floor
+	local signGui = Instance.new("SurfaceGui")
+	signGui.Face   = Enum.NormalId.Front
+	signGui.Parent = signBoard
+	local signLabel = Instance.new("TextLabel")
+	signLabel.Size                   = UDim2.new(1, 0, 1, 0)
+	signLabel.BackgroundTransparency = 1
+	signLabel.Text                   = "🛒  BRAINROT SHOP\nTouch one to buy!"
+	signLabel.TextScaled             = true
+	signLabel.Font                   = Enum.Font.GothamBold
+	signLabel.TextColor3             = Color3.fromRGB(255, 220, 50)
+	signLabel.Parent                 = signGui
 
-	local shopLabel = Instance.new("TextLabel")
-	shopLabel.Size            = UDim2.new(1, 0, 1, 0)
-	shopLabel.BackgroundTransparency = 1
-	shopLabel.Text            = "SHOP"
-	shopLabel.TextColor3      = Color3.fromRGB(255, 255, 255)
-	shopLabel.TextStrokeTransparency = 0
-	shopLabel.TextScaled      = true
-	shopLabel.Font            = Enum.Font.GothamBold
-	shopLabel.Parent          = shopBillboard
+	-- -----------------------------------------------------------------------
+	-- Active conveyor brainrots (body part → true)
+	-- -----------------------------------------------------------------------
+	local conveyorItems = {}
 
-	-- Grid layout for buyable pads
-	local PAD_SPACING = 10
-	local count = #buyable
-	local cols = math.ceil(math.sqrt(count))
-	local rows = math.ceil(count / cols)
+	-- Move all conveyor brainrots each frame
+	RunService.Heartbeat:Connect(function(dt)
+		for body, _ in pairs(conveyorItems) do
+			if not body or not body.Parent then
+				conveyorItems[body] = nil
+				continue
+			end
+			local newX = body.Position.X + BELT_SPEED * dt
+			body.CFrame = CFrame.new(newX, body.Position.Y, body.Position.Z)
+				* CFrame.Angles(0, tick() * 0.8, 0)
+			if newX >= BELT_END_X then
+				-- Reached end of belt: destroy the whole model
+				local model = body.Parent
+				conveyorItems[body] = nil
+				if model and model:IsA("Model") then
+					model:Destroy()
+				elseif body.Parent then
+					body:Destroy()
+				end
+			end
+		end
+	end)
 
-	local gridWidth  = (cols - 1) * PAD_SPACING
-	local gridDepth  = (rows - 1) * PAD_SPACING
-	local startX     = shopCenter.X - gridWidth / 2
-	local startZ     = shopCenter.Z - gridDepth / 2 - 10  -- shifted back from gacha pad
+	-- -----------------------------------------------------------------------
+	-- Spawn loops — one per rarity tier, staggered so they don't all arrive
+	-- at the same time
+	-- -----------------------------------------------------------------------
+	local rarityOrder = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
+	local buyDebounce = {}
 
-	local padY = shopCenter.Y + 0.75
+	for idx, rarity in ipairs(rarityOrder) do
+		local interval = CONVEYOR_INTERVALS[rarity]
+		task.spawn(function()
+			task.wait(idx * 1.5) -- stagger initial spawns
+			while true do
+				-- Pick a random brainrot of this rarity
+				local options = BrainrotData.getByRarity(rarity)
+				if options and #options > 0 then
+					local chosen = options[math.random(1, #options)]
+					local spawnPos = Vector3.new(
+						BELT_START_X,
+						BELT_Y + chosen.size / 2 + 0.3,
+						0
+					)
 
-	-- Debounce table for pad touches
-	local debounce = {}
+					-- Spawn visual without ownership (nil owner = no plaque, no steal events)
+					local body = ShopSystem.spawnBrainrot(chosen, spawnPos, nil, _brainrotOwner)
+					if body then
+						conveyorItems[body] = true
 
-	for i, entry in ipairs(buyable) do
-		local col = (i - 1) % cols
-		local row = math.floor((i - 1) / cols)
+						-- Buy on touch
+						body.Touched:Connect(function(hit)
+							local character = hit.Parent
+							local player = game.Players:GetPlayerFromCharacter(character)
+							if not player then return end
+							if buyDebounce[player] then return end
+							if not conveyorItems[body] then return end -- already bought
 
-		local padX = startX + col * PAD_SPACING
-		local padZ = startZ + row * PAD_SPACING
+							local price = chosen.cost
+							if price == nil then
+								-- Gacha-only: inform player
+								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
+								RE:WaitForChild("Notification"):FireClient(
+									player,
+									chosen.name .. " is GACHA only! Spin the gacha wheel.",
+									Color3.fromRGB(255, 150, 0)
+								)
+								return
+							end
 
-		local pad = Instance.new("Part")
-		pad.Name      = "BuyPad_" .. entry.id
-		pad.Anchored  = true
-		pad.Size      = Vector3.new(8, 0.5, 8)
-		pad.Position  = Vector3.new(padX, padY, padZ)
-		pad.BrickColor = entry.color
-		pad.Material  = Enum.Material.SmoothPlastic
-		pad.TopSurface = Enum.SurfaceType.Smooth
-		pad.Parent    = workspace
+							local money = player:GetAttribute("Money") or 0
+							if money < price then
+								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
+								RE:WaitForChild("Notification"):FireClient(
+									player,
+									"Need $" .. price .. " to buy " .. chosen.name .. "!",
+									Color3.fromRGB(255, 80, 80)
+								)
+								return
+							end
 
-		-- Pad label
-		local padBillboard = Instance.new("BillboardGui")
-		padBillboard.Size        = UDim2.new(0, 160, 0, 70)
-		padBillboard.StudsOffset = Vector3.new(0, 3, 0)
-		padBillboard.AlwaysOnTop = false
-		padBillboard.Parent      = pad
+							-- Purchase
+							buyDebounce[player] = true
+							task.delay(1.5, function() buyDebounce[player] = nil end)
 
-		local padNameLabel = Instance.new("TextLabel")
-		padNameLabel.Size            = UDim2.new(1, 0, 0.5, 0)
-		padNameLabel.Position        = UDim2.new(0, 0, 0, 0)
-		padNameLabel.BackgroundTransparency = 1
-		padNameLabel.Text            = entry.name
-		padNameLabel.TextColor3      = Color3.fromRGB(255, 255, 255)
-		padNameLabel.TextStrokeTransparency = 0.3
-		padNameLabel.TextScaled      = true
-		padNameLabel.Font            = Enum.Font.GothamBold
-		padNameLabel.Parent          = padBillboard
+							player:SetAttribute("Money", money - price)
+							conveyorItems[body] = nil
 
-		local padCostLabel = Instance.new("TextLabel")
-		padCostLabel.Size            = UDim2.new(1, 0, 0.5, 0)
-		padCostLabel.Position        = UDim2.new(0, 0, 0.5, 0)
-		padCostLabel.BackgroundTransparency = 1
-		padCostLabel.Text            = "$" .. entry.cost
-		padCostLabel.TextColor3      = Color3.fromRGB(255, 230, 80)
-		padCostLabel.TextStrokeTransparency = 0.3
-		padCostLabel.TextScaled      = true
-		padCostLabel.Font            = Enum.Font.Gotham
-		padCostLabel.Parent          = padBillboard
+							-- Move to buyer's base
+							local baseInfo = _playerBases[player]
+							local dest = baseInfo
+								and Vector3.new(
+									baseInfo.position.X + math.random(-12, 12),
+									baseInfo.position.Y + chosen.size / 2 + 1,
+									baseInfo.position.Z + math.random(-12, 12)
+								)
+								or Vector3.new(0, 5, 0)
 
-		-- Touch connection with 1s debounce
-		local entryId = entry.id
-		pad.Touched:Connect(function(hit)
-			local character = hit.Parent
-			local player = game.Players:GetPlayerFromCharacter(character)
-			if not player then return end
-			if debounce[player] then return end
+							-- Remove from conveyor, place in base
+							body.Anchored = true
+							body.CFrame = CFrame.new(dest)
+							_brainrotOwner[body] = player
 
-			debounce[player] = true
-			ShopSystem.buyBrainrot(player, entryId, _playerBases, _brainrotOwner, _playerCollection)
-			task.delay(1, function()
-				debounce[player] = nil
-			end)
+							-- Update collection
+							if not _playerCollection[player] then _playerCollection[player] = {} end
+							_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
+
+							local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
+							RE:WaitForChild("CollectionUpdated"):FireClient(player, _playerCollection[player])
+							RE:WaitForChild("Notification"):FireClient(
+								player,
+								"You bought " .. chosen.name .. "!",
+								RARITY_COLOR[chosen.rarity] or Color3.fromRGB(100, 255, 100)
+							)
+
+							-- Spawn income plaque at destination
+							local plaque = Instance.new("Part")
+							plaque.Size       = Vector3.new(2.5, 1.2, 0.1)
+							plaque.Position   = Vector3.new(dest.X, dest.Y - chosen.size * 0.3, dest.Z + chosen.size * 0.9)
+							plaque.Anchored   = true
+							plaque.CanCollide = false
+							plaque.BrickColor = BrickColor.new("Really black")
+							plaque.Material   = Enum.Material.SmoothPlastic
+							plaque.Parent     = workspace
+							local sg = Instance.new("SurfaceGui")
+							sg.Face = Enum.NormalId.Front
+							sg.Parent = plaque
+							local t1 = Instance.new("TextLabel")
+							t1.Size = UDim2.new(1,0,0.55,0)
+							t1.BackgroundTransparency = 1
+							t1.Text = "$" .. chosen.income .. "/s"
+							t1.TextScaled = true
+							t1.Font = Enum.Font.GothamBold
+							t1.TextColor3 = Color3.fromRGB(100, 255, 100)
+							t1.Parent = sg
+							local t2 = Instance.new("TextLabel")
+							t2.Size = UDim2.new(1,0,0.45,0)
+							t2.Position = UDim2.new(0,0,0.55,0)
+							t2.BackgroundTransparency = 1
+							t2.Text = chosen.rarity
+							t2.TextScaled = true
+							t2.Font = Enum.Font.Gotham
+							t2.TextColor3 = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255,255,255)
+							t2.Parent = sg
+							body.AncestryChanged:Connect(function()
+								if not body.Parent then plaque:Destroy() end
+							end)
+						end)
+					end
+				end
+
+				-- Wait with slight randomness so spawns feel organic
+				task.wait(interval * (0.8 + math.random() * 0.4))
+			end
 		end)
 	end
 
 	-- -----------------------------------------------------------------------
-	-- GACHA pad (rainbow cycling, front of shop)
+	-- GACHA pad — beside the belt
 	-- -----------------------------------------------------------------------
-
+	local padY = BELT_Y + 0.25
 	local gachaPad = Instance.new("Part")
 	gachaPad.Name      = "GachaPad"
 	gachaPad.Anchored  = true
 	gachaPad.Size      = Vector3.new(12, 0.5, 12)
-	gachaPad.Position  = Vector3.new(0, padY, 20)
+	gachaPad.Position  = Vector3.new(0, padY, 18)
 	gachaPad.BrickColor = BrickColor.new("Hot pink")
 	gachaPad.Material  = Enum.Material.Neon
-	gachaPad.TopSurface = Enum.SurfaceType.Smooth
 	gachaPad.Parent    = workspace
 
-	-- Rainbow glow light
 	local gachaLight = Instance.new("PointLight")
 	gachaLight.Brightness = 3
 	gachaLight.Range      = 20
 	gachaLight.Color      = Color3.fromRGB(255, 0, 128)
 	gachaLight.Parent     = gachaPad
 
-	-- Rainbow color cycling via Heartbeat
 	RunService.Heartbeat:Connect(function()
 		if not gachaPad or not gachaPad.Parent then return end
-		local t        = tick() * 0.8
-		local hue      = t % 1
-		local r        = math.abs(math.sin(hue * math.pi))
-		local g        = math.abs(math.sin((hue + 0.333) * math.pi))
-		local b        = math.abs(math.sin((hue + 0.666) * math.pi))
-		local c        = Color3.new(r, g, b)
-		gachaPad.Color = c
+		local h   = (tick() * 0.5) % 1
+		local c   = Color3.fromHSV(h, 1, 1)
+		gachaPad.Color   = c
 		gachaLight.Color = c
 	end)
 
-	-- GACHA billboard
-	local gachaBillboard = Instance.new("BillboardGui")
-	gachaBillboard.Size        = UDim2.new(0, 220, 0, 90)
-	gachaBillboard.StudsOffset = Vector3.new(0, 5, 0)
-	gachaBillboard.AlwaysOnTop = false
-	gachaBillboard.Parent      = gachaPad
+	local gachaBB = Instance.new("BillboardGui")
+	gachaBB.Size        = UDim2.new(0, 240, 0, 90)
+	gachaBB.StudsOffset = Vector3.new(0, 6, 0)
+	gachaBB.Parent      = gachaPad
+	local gachaLbl = Instance.new("TextLabel")
+	gachaLbl.Size                   = UDim2.new(1, 0, 1, 0)
+	gachaLbl.BackgroundTransparency = 1
+	gachaLbl.Text                   = "🎰 GACHA SPIN\n$150 — any rarity!"
+	gachaLbl.TextColor3             = Color3.fromRGB(255, 255, 255)
+	gachaLbl.TextStrokeTransparency = 0
+	gachaLbl.TextScaled             = true
+	gachaLbl.Font                   = Enum.Font.GothamBold
+	gachaLbl.Parent                 = gachaBB
 
-	local gachaLabel = Instance.new("TextLabel")
-	gachaLabel.Size            = UDim2.new(1, 0, 1, 0)
-	gachaLabel.BackgroundTransparency = 1
-	gachaLabel.Text            = "🎰 GACHA SPIN\n$150 per roll"
-	gachaLabel.TextColor3      = Color3.fromRGB(255, 255, 255)
-	gachaLabel.TextStrokeTransparency = 0
-	gachaLabel.TextScaled      = true
-	gachaLabel.Font            = Enum.Font.GothamBold
-	gachaLabel.Parent          = gachaBillboard
-
-	-- GACHA touch with debounce
 	local gachaDebounce = {}
 	gachaPad.Touched:Connect(function(hit)
 		local character = hit.Parent
 		local player = game.Players:GetPlayerFromCharacter(character)
 		if not player then return end
 		if gachaDebounce[player] then return end
-
 		gachaDebounce[player] = true
+		task.delay(1, function() gachaDebounce[player] = nil end)
 		ShopSystem.spinGacha(player, _playerBases, _brainrotOwner, _playerCollection)
-		task.delay(1, function()
-			gachaDebounce[player] = nil
-		end)
 	end)
 end
 
