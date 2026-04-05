@@ -28,6 +28,9 @@
       },
       "DataStore": {
         "$path": "ServerScriptService/DataStore.lua"
+      },
+      "CharacterBuilders": {
+        "$path": "ServerScriptService/CharacterBuilders.lua"
       }
     },
 

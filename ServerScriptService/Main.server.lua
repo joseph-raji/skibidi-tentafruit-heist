@@ -235,7 +235,7 @@ end)
 -- 11. Player lifecycle
 -- ============================================================
 
-Players.PlayerAdded:Connect(function(player)
+local function onPlayerAdded(player)
 	-- Default attributes
 	player:SetAttribute("Money",               GameConfig.STARTER_MONEY)
 	player:SetAttribute("RebirthCount",         0)
@@ -346,7 +346,14 @@ Players.PlayerAdded:Connect(function(player)
 			)
 		end
 	end
-end)
+end
+
+-- Connect for future players and also handle any already-present players
+-- (in Play Solo / Studio the local player may exist before this script fires)
+Players.PlayerAdded:Connect(onPlayerAdded)
+for _, player in ipairs(Players:GetPlayers()) do
+	task.spawn(onPlayerAdded, player)
+end
 
 Players.PlayerRemoving:Connect(function(player)
 	-- Save player data before cleanup
