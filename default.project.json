@@ -1,0 +1,54 @@
+{
+  "name": "SkibidiTentafruitHeist",
+  "tree": {
+    "$className": "DataModel",
+
+    "ServerScriptService": {
+      "$className": "ServerScriptService",
+      "Main": {
+        "$path": "ServerScriptService/Main.server.lua"
+      },
+      "StealSystem": {
+        "$path": "ServerScriptService/StealSystem.lua"
+      },
+      "BaseSystem": {
+        "$path": "ServerScriptService/BaseSystem.lua"
+      },
+      "ShopSystem": {
+        "$path": "ServerScriptService/ShopSystem.lua"
+      },
+      "CombatSystem": {
+        "$path": "ServerScriptService/CombatSystem.lua"
+      },
+      "ProgressionSystem": {
+        "$path": "ServerScriptService/ProgressionSystem.lua"
+      }
+    },
+
+    "ReplicatedStorage": {
+      "$className": "ReplicatedStorage",
+      "Modules": {
+        "$className": "Folder",
+        "BrainrotData": {
+          "$path": "ReplicatedStorage/Modules/BrainrotData.lua"
+        },
+        "GameConfig": {
+          "$path": "ReplicatedStorage/Modules/GameConfig.lua"
+        }
+      }
+    },
+
+    "StarterGui": {
+      "$className": "StarterGui",
+      "HUD": {
+        "$path": "StarterGui/HUD.client.lua"
+      },
+      "ShopUI": {
+        "$path": "StarterGui/ShopUI.client.lua"
+      },
+      "Pokedex": {
+        "$path": "StarterGui/Pokedex.client.lua"
+      }
+    }
+  }
+}
