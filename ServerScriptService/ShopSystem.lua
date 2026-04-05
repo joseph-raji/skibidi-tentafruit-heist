@@ -520,7 +520,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 
 		body.CFrame = CFrame.new(
 			body.Position.X,
-			baseY + bobY,
+			(body:GetAttribute("BaseY") or baseY) + bobY,
 			body.Position.Z
 		) * CFrame.Angles(0, angle, 0)
 	end)
@@ -594,8 +594,9 @@ function ShopSystem.buyBrainrot(player, brainrotId, playerBases, brainrotOwner, 
 	-- Deduct money
 	player:SetAttribute("Money", currentMoney - data.cost)
 
-	-- Spawn at the slot position
-	ShopSystem.spawnBrainrot(data, slotPos, player, brainrotOwner, slotIndex)
+	-- Spawn at slot surface + half brainrot height so it rests on the floor
+	local spawnPos = Vector3.new(slotPos.X, slotPos.Y + data.size / 2, slotPos.Z)
+	ShopSystem.spawnBrainrot(data, spawnPos, player, brainrotOwner, slotIndex)
 
 	-- Update collection
 	if not playerCollection[player] then
@@ -634,8 +635,9 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 	-- Roll
 	local result = BrainrotData.gachaRoll()
 
-	-- Spawn at the slot position
-	ShopSystem.spawnBrainrot(result, slotPos, player, brainrotOwner, slotIndex)
+	-- Spawn at slot surface + half brainrot height so it rests on the floor
+	local spawnPos = Vector3.new(slotPos.X, slotPos.Y + result.size / 2, slotPos.Z)
+	ShopSystem.spawnBrainrot(result, spawnPos, player, brainrotOwner, slotIndex)
 
 	-- Update collection
 	if not playerCollection[player] then
@@ -838,7 +840,7 @@ function ShopSystem.createShopPads()
 
 	task.spawn(function()
 		while true do
-			task.wait(2)
+			task.wait(4)
 			local chosen = BrainrotData.gachaRoll()
 			if chosen then
 				local spawnPos = Vector3.new(BELT_START_X, BELT_Y + chosen.size / 2 + 0.3, 0)
@@ -901,7 +903,8 @@ function ShopSystem.createShopPads()
 						-- Animate brainrot walking to its base slot (stays near ground, walking bob)
 						_flyingBodies[body] = true
 						local startPos = body.Position
-						local endPos   = dest
+						-- dest stores floor surface Y; add size/2 so brainrot rests on floor
+						local endPos   = Vector3.new(dest.X, dest.Y + chosen.size / 2, dest.Z)
 						local duration = 5   -- seconds to walk to base
 						local startT   = tick()
 
@@ -926,6 +929,7 @@ function ShopSystem.createShopPads()
 
 							if not body.Parent then return end
 							body.CFrame = CFrame.new(endPos)
+							body:SetAttribute("BaseY", endPos.Y)  -- fix bobbing to use slot height
 							_flyingBodies[body] = nil
 
 							-- Pressure plate at slot's plate position

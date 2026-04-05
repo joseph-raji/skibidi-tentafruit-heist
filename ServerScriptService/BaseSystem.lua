@@ -112,18 +112,17 @@ local function computeAllSlotPositions(pos)
 	local platePositions = {}
 
 	for floorIndex = 1, MAX_FLOORS do
-		local floorY = pos.Y + 5 + (floorIndex - 1) * FLOOR_HEIGHT_STEP
-
-		-- Plates sit on the walkable floor surface, not floating at brainrot height.
-		-- Floor 1 interior surface is pos.Y + 2.2 (foundation + interior floor slab).
-		-- Upper floors surface is pos.Y + (floorIndex-1) * FLOOR_HEIGHT_STEP.
+		-- Floor 1 interior surface: pos.Y + 2.2 (foundation 2 + interior slab 0.2).
+		-- Upper floors surface: pos.Y + (floorIndex-1) * FLOOR_HEIGHT_STEP.
+		-- slotPositions store the floor SURFACE Y — callers must add brainrotData.size/2
+		-- to get the correct body-centre spawn position.
 		local floorSurfaceY
 		if floorIndex == 1 then
 			floorSurfaceY = pos.Y + 2.2
 		else
 			floorSurfaceY = pos.Y + (floorIndex - 1) * FLOOR_HEIGHT_STEP
 		end
-		local plateY = floorSurfaceY + 0.15  -- half of plate thickness (0.3)
+		local plateY = floorSurfaceY + 0.15  -- plate sits flush with floor
 
 		for row = 1, 5 do
 			local rowX = bCX + faceSign * ROW_OFFSETS[row]
@@ -131,8 +130,8 @@ local function computeAllSlotPositions(pos)
 			local leftSlotGlobal  = (floorIndex - 1) * SLOTS_PER_FLOOR + row
 			local rightSlotGlobal = (floorIndex - 1) * SLOTS_PER_FLOOR + 5 + row
 
-			slotPositions[leftSlotGlobal]  = Vector3.new(rowX, floorY, leftZ)
-			slotPositions[rightSlotGlobal] = Vector3.new(rowX, floorY, rightZ)
+			slotPositions[leftSlotGlobal]  = Vector3.new(rowX, floorSurfaceY, leftZ)
+			slotPositions[rightSlotGlobal] = Vector3.new(rowX, floorSurfaceY, rightZ)
 
 			platePositions[leftSlotGlobal]  = Vector3.new(rowX, plateY, leftPlateZ)
 			platePositions[rightSlotGlobal] = Vector3.new(rowX, plateY, rightPlateZ)
@@ -444,6 +443,47 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 
 	ramp.CFrame = CFrame.new(rampX, rampCenterY, pos.Z) * CFrame.Angles(0, slopeAngle, 0)
 	ramp.Parent = folder
+end
+
+-- ============================================================
+-- Public: createBase
+-- ============================================================
+
+-- ============================================================
+-- Empty-base visual placeholders (shown before any player claims a slot)
+-- ============================================================
+
+local emptyBaseFolders = {}  -- "X_Z" key → Folder
+
+function BaseSystem.buildEmptyBase(position)
+	local key = position.X .. "_" .. position.Z
+	if emptyBaseFolders[key] then return end  -- already built
+
+	local faceSign = getFaceSign(position)
+	local folder = Instance.new("Folder")
+	folder.Name   = "EmptyBase_" .. key
+	folder.Parent = workspace
+
+	buildGroundFloor(folder, position, faceSign)
+	buildSign(folder, position, faceSign, "Available")
+
+	emptyBaseFolders[key] = folder
+end
+
+function BaseSystem.claimBase(player, position, playerBases)
+	-- Destroy the empty placeholder for this slot, then create the real base
+	local key = position.X .. "_" .. position.Z
+	local emptyFolder = emptyBaseFolders[key]
+	if emptyFolder and emptyFolder.Parent then
+		emptyFolder:Destroy()
+	end
+	emptyBaseFolders[key] = nil
+	return BaseSystem.createBase(player, position, playerBases)
+end
+
+function BaseSystem.releaseBase(position)
+	-- Called when a player leaves — rebuild the empty placeholder
+	BaseSystem.buildEmptyBase(position)
 end
 
 -- ============================================================

@@ -164,19 +164,26 @@ ShopSystem.setBaseSystem(BaseSystem)
 ProgressionSystem.setBaseSystem(BaseSystem)
 
 -- ============================================================
--- 7. Build shop and rebirth structures
+-- 7. Pre-build all 8 empty base plots so they are visible before players join
+-- ============================================================
+for _, pos in ipairs(GameConfig.BASE_POSITIONS) do
+	BaseSystem.buildEmptyBase(pos)
+end
+
+-- ============================================================
+-- 8. Build shop and rebirth structures
 -- ============================================================
 ShopSystem.createShopPads()
 ProgressionSystem.setupRebirthPad(playerBases)
 ItemsSystem.createItemsShop()
 
 -- ============================================================
--- 8. Create the bat tool (shared template, cloned per player)
+-- 9. Create the bat tool (shared template, cloned per player)
 -- ============================================================
 local batTool = CombatSystem.createBatTool()
 
 -- ============================================================
--- 9. Start game loops
+-- 10. Start game loops
 -- ============================================================
 ProgressionSystem.startIncomeLoop(playerBases, brainrotOwner)
 DataStore.setupAutoSave(brainrotOwner)
@@ -274,8 +281,8 @@ Players.PlayerAdded:Connect(function(player)
 	local posIndex = ((baseIndex - 1) % #GameConfig.BASE_POSITIONS) + 1
 	local pos = GameConfig.BASE_POSITIONS[posIndex]
 
-	-- Create the base plot
-	BaseSystem.createBase(player, pos, playerBases)
+	-- Claim the base slot (destroys the empty placeholder, builds the real base)
+	BaseSystem.claimBase(player, pos, playerBases)
 
 	-- Initialize collection
 	playerCollection[player] = {}
@@ -311,7 +318,8 @@ Players.PlayerAdded:Connect(function(player)
 			local brainrotDef = BrainrotDataModule.getById(brainrotId)
 			if brainrotDef then
 				local slotIndex, slotPos = BaseSystem.getNextSlot(player, playerBases)
-				local spawnPos = slotPos or Vector3.new(pos.X, pos.Y + 5, pos.Z)
+				local fallbackY = pos.Y + 2.2 + brainrotDef.size / 2
+				local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + brainrotDef.size / 2, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
 				ShopSystem.spawnBrainrot(brainrotDef, spawnPos, player, brainrotOwner, slotIndex)
 				playerCollection[player][brainrotId] = (playerCollection[player][brainrotId] or 0) + 1
 			end
@@ -324,7 +332,8 @@ Players.PlayerAdded:Connect(function(player)
 		if commons and #commons > 0 then
 			local starterBrainrot = commons[1]
 			local slotIndex, slotPos = BaseSystem.getNextSlot(player, playerBases)
-			local spawnPos = slotPos or Vector3.new(pos.X, pos.Y + 5, pos.Z)
+			local fallbackY = pos.Y + 2.2 + starterBrainrot.size / 2
+			local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + starterBrainrot.size / 2, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
 			ShopSystem.spawnBrainrot(starterBrainrot, spawnPos, player, brainrotOwner, slotIndex)
 
 			playerCollection[player][starterBrainrot.id] = 1
@@ -362,13 +371,16 @@ Players.PlayerRemoving:Connect(function(player)
 		end
 	end
 
-	-- Destroy the player's base
+	-- Destroy the player's base and rebuild the empty placeholder
 	if playerBases[player] then
-		local folder = playerBases[player].folder
+		local basePos = playerBases[player].position
+		local folder  = playerBases[player].folder
 		if folder and folder.Parent then
 			folder:Destroy()
 		end
 		playerBases[player] = nil
+		-- Show the slot as available again
+		BaseSystem.releaseBase(basePos)
 	end
 	-- Reset base-related attributes to defaults
 	player:SetAttribute("BaseIsLocked", false)

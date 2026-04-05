@@ -161,8 +161,10 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 			local baseDataForSpawn = _playerBases[player]
 			if baseDataForSpawn then
 				local slotIndex, slotPos = BaseSystem and BaseSystem.getNextSlot(player, _playerBases)
-				local spawnPos = slotPos or Vector3.new(baseDataForSpawn.position.X, baseDataForSpawn.position.Y + 5, baseDataForSpawn.position.Z)
-				ShopSystem.spawnBrainrot(commons[1], spawnPos, player, brainrotOwner, slotIndex)
+				local starter = commons[1]
+				local fallback = Vector3.new(baseDataForSpawn.position.X, baseDataForSpawn.position.Y + 2.2 + starter.size / 2, baseDataForSpawn.position.Z)
+				local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + starter.size / 2, slotPos.Z) or fallback
+				ShopSystem.spawnBrainrot(starter, spawnPos, player, brainrotOwner, slotIndex)
 			end
 		end
 	end
