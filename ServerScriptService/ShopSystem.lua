@@ -79,32 +79,168 @@ end
 -- =========================================================================
 
 function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
-	local part = Instance.new("Part")
-	part.Name      = brainrotData.id
-	part.Shape     = Enum.PartType.Ball
-	part.Material  = Enum.Material.Neon
-	part.BrickColor = brainrotData.color
-	part.Size      = Vector3.new(brainrotData.size, brainrotData.size, brainrotData.size)
-	part.Position  = position
-	part.Anchored  = false
-	part.CanCollide = true
-	part.CastShadow = true
-	part.Parent    = workspace
+	local s = brainrotData.size  -- base size unit
 
-	-- Glow
+	-- -----------------------------------------------------------------------
+	-- Model container
+	-- -----------------------------------------------------------------------
+	local model = Instance.new("Model")
+	model.Name = "BrainrotChar_" .. brainrotData.name
+	model.Parent = workspace
+
+	-- -----------------------------------------------------------------------
+	-- Helper: weld partB to partA
+	-- -----------------------------------------------------------------------
+	local function weld(partA, partB)
+		local w = Instance.new("WeldConstraint")
+		w.Part0 = partA
+		w.Part1 = partB
+		w.Parent = partA
+	end
+
+	-- -----------------------------------------------------------------------
+	-- Body (primary part — torso sphere)
+	-- -----------------------------------------------------------------------
+	local body = Instance.new("Part")
+	body.Name       = "Body"
+	body.Shape      = Enum.PartType.Ball
+	body.Material   = Enum.Material.Neon
+	body.BrickColor = brainrotData.color
+	body.Size       = Vector3.new(s, s, s)
+	body.CFrame     = CFrame.new(position)
+	body.Anchored   = false
+	body.CanCollide = true
+	body.CastShadow = true
+	body.Parent     = model
+	model.PrimaryPart = body
+
+	-- -----------------------------------------------------------------------
+	-- Head (slightly smaller sphere, same color, positioned above body)
+	-- -----------------------------------------------------------------------
+	local headSize = s * 0.65
+	local head = Instance.new("Part")
+	head.Name       = "Head"
+	head.Shape      = Enum.PartType.Ball
+	head.Material   = Enum.Material.SmoothPlastic
+	head.BrickColor = brainrotData.color
+	head.Size       = Vector3.new(headSize, headSize, headSize)
+	head.CFrame     = CFrame.new(position + Vector3.new(0, s * 0.82, 0))
+	head.Anchored   = false
+	head.CanCollide = false
+	head.CastShadow = false
+	head.Parent     = model
+	weld(body, head)
+
+	-- -----------------------------------------------------------------------
+	-- Eyes: two white spheres with black dot pupils
+	-- -----------------------------------------------------------------------
+	local eyeSize   = headSize * 0.28
+	local pupilSize = eyeSize * 0.45
+	local eyeOffsetY  = headSize * 0.08
+	local eyeOffsetZ  = headSize * 0.42
+	local eyeOffsetX  = headSize * 0.22
+
+	for _, side in ipairs({ -1, 1 }) do
+		local eye = Instance.new("Part")
+		eye.Name       = "Eye_" .. (side == -1 and "L" or "R")
+		eye.Shape      = Enum.PartType.Ball
+		eye.Material   = Enum.Material.SmoothPlastic
+		eye.BrickColor = BrickColor.new("White")
+		eye.Size       = Vector3.new(eyeSize, eyeSize, eyeSize)
+		eye.CFrame     = CFrame.new(
+			position
+			+ Vector3.new(side * eyeOffsetX, s * 0.82 + eyeOffsetY, eyeOffsetZ)
+		)
+		eye.Anchored   = false
+		eye.CanCollide = false
+		eye.CastShadow = false
+		eye.Parent     = model
+		weld(body, eye)
+
+		local pupil = Instance.new("Part")
+		pupil.Name       = "Pupil_" .. (side == -1 and "L" or "R")
+		pupil.Shape      = Enum.PartType.Ball
+		pupil.Material   = Enum.Material.SmoothPlastic
+		pupil.BrickColor = BrickColor.new("Really black")
+		pupil.Size       = Vector3.new(pupilSize, pupilSize, pupilSize)
+		pupil.CFrame     = CFrame.new(
+			position
+			+ Vector3.new(side * eyeOffsetX, s * 0.82 + eyeOffsetY, eyeOffsetZ + eyeSize * 0.35)
+		)
+		pupil.Anchored   = false
+		pupil.CanCollide = false
+		pupil.CastShadow = false
+		pupil.Parent     = model
+		weld(body, pupil)
+	end
+
+	-- -----------------------------------------------------------------------
+	-- Arms: two thin cylinder stubs on the sides, angled slightly downward
+	-- -----------------------------------------------------------------------
+	local armLength = s * 0.8
+	local armThick  = s * 0.18
+	local armOffsetY = s * 0.05
+
+	for _, side in ipairs({ -1, 1 }) do
+		local arm = Instance.new("Part")
+		arm.Name       = "Arm_" .. (side == -1 and "L" or "R")
+		arm.Shape      = Enum.PartType.Cylinder
+		arm.Material   = Enum.Material.SmoothPlastic
+		arm.BrickColor = brainrotData.color
+		arm.Size       = Vector3.new(armLength, armThick, armThick)
+		-- Cylinders extend along the X axis by default; offset out to the side
+		arm.CFrame     = CFrame.new(
+			position + Vector3.new(side * (s * 0.5 + armLength * 0.5), armOffsetY, 0)
+		) * CFrame.Angles(0, 0, math.rad(side * 20))  -- tilt slightly downward
+		arm.Anchored   = false
+		arm.CanCollide = false
+		arm.CastShadow = false
+		arm.Parent     = model
+		weld(body, arm)
+	end
+
+	-- -----------------------------------------------------------------------
+	-- Leg stubs: two short cylinders below body
+	-- -----------------------------------------------------------------------
+	local legLength = s * 0.55
+	local legThick  = s * 0.2
+	local legOffsetX = s * 0.2
+
+	for _, side in ipairs({ -1, 1 }) do
+		local leg = Instance.new("Part")
+		leg.Name       = "Leg_" .. (side == -1 and "L" or "R")
+		leg.Shape      = Enum.PartType.Cylinder
+		leg.Material   = Enum.Material.SmoothPlastic
+		leg.BrickColor = brainrotData.color
+		leg.Size       = Vector3.new(legThick, legLength, legThick)
+		leg.CFrame     = CFrame.new(
+			position + Vector3.new(side * legOffsetX, -(s * 0.5 + legLength * 0.5), 0)
+		)
+		leg.Anchored   = false
+		leg.CanCollide = false
+		leg.CastShadow = false
+		leg.Parent     = model
+		weld(body, leg)
+	end
+
+	-- -----------------------------------------------------------------------
+	-- Glow (on body)
+	-- -----------------------------------------------------------------------
 	local light = Instance.new("PointLight")
 	light.Brightness = 2
 	light.Range      = 12
 	light.Color      = brainrotData.glowColor
-	light.Parent     = part
+	light.Parent     = body
 
-	-- Billboard GUI
+	-- -----------------------------------------------------------------------
+	-- Billboard GUI (on body)
+	-- -----------------------------------------------------------------------
 	local billboard = Instance.new("BillboardGui")
 	billboard.Size          = UDim2.new(0, 160, 0, 70)
-	billboard.StudsOffset   = Vector3.new(0, brainrotData.size + 1, 0)
+	billboard.StudsOffset   = Vector3.new(0, s + headSize + 1.2, 0)
 	billboard.AlwaysOnTop   = false
 	billboard.LightInfluence = 0
-	billboard.Parent        = part
+	billboard.Parent        = body
 
 	local nameLabel = Instance.new("TextLabel")
 	nameLabel.Size            = UDim2.new(1, 0, 0.45, 0)
@@ -139,32 +275,38 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 	rarityLabel.Font            = Enum.Font.GothamBold
 	rarityLabel.Parent          = billboard
 
-	-- Register ownership
-	brainrotOwner[part] = owner
+	-- -----------------------------------------------------------------------
+	-- Register ownership on the body (PrimaryPart)
+	-- -----------------------------------------------------------------------
+	brainrotOwner[body] = owner
 
-	-- Bobbing and spinning animation
-	local baseY    = position.Y
+	-- -----------------------------------------------------------------------
+	-- Bobbing and spinning animation — moves the entire model via body CFrame
+	-- (all other parts follow through WeldConstraints)
+	-- -----------------------------------------------------------------------
+	local baseY      = position.Y
 	local timeOffset = math.random() * math.pi * 2
-	local BOB_AMP   = 0.4
-	local BOB_SPEED = 2
+	local BOB_AMP    = 0.4
+	local BOB_SPEED  = 2
 	local SPIN_SPEED = 0.6
 
 	RunService.Heartbeat:Connect(function(dt)
-		if not part or not part.Parent then return end
-		if isBeingCarried(part) then return end
+		if not body or not body.Parent then return end
+		if isBeingCarried(body) then return end
 
-		local t = tick() + timeOffset
+		local t     = tick() + timeOffset
 		local bobY  = math.sin(t * BOB_SPEED) * BOB_AMP
 		local angle = (tick() * SPIN_SPEED) % (2 * math.pi)
 
-		part.CFrame = CFrame.new(
-			part.Position.X,
+		body.CFrame = CFrame.new(
+			body.Position.X,
 			baseY + bobY,
-			part.Position.Z
+			body.Position.Z
 		) * CFrame.Angles(0, angle, 0)
 	end)
 
-	return part
+	-- Return the body (PrimaryPart) so the rest of the codebase works unchanged
+	return body
 end
 
 -- =========================================================================
