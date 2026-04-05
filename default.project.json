@@ -25,6 +25,9 @@
       },
       "ItemsSystem": {
         "$path": "ServerScriptService/ItemsSystem.lua"
+      },
+      "DataStore": {
+        "$path": "ServerScriptService/DataStore.lua"
       }
     },
 

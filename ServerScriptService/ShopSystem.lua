@@ -22,7 +22,27 @@ local _brainrotOwner    = {}
 local _playerCollection = {}
 local _carrying         = {}
 
+-- Maps player -> array of booleans (true = occupied) for each grid slot
+local _baseSlots = {}
+
 local GACHA_COST = 150
+
+-- =========================================================================
+-- Grid slot constants
+-- 4 columns x 5 rows = 20 slots per base
+-- =========================================================================
+
+local GRID_COLS         = 4
+local GRID_ROWS         = 5
+local GRID_SPACING_X    = 6   -- studs between columns
+local GRID_SPACING_Z    = 6   -- studs between rows
+local GRID_INTERIOR_OFFSET = 10  -- how far into the house interior the grid starts
+local GRID_Y_OFFSET     = 4   -- elevate brainrots off the floor
+
+-- Column offsets relative to interior anchor X
+local COL_OFFSETS = { -9, -3, 3, 9 }
+-- Row offsets relative to base Z
+local ROW_OFFSETS = { -12, -6, 0, 6, 12 }
 
 -- =========================================================================
 -- Rarity colors for UI labels
@@ -49,15 +69,70 @@ local function isBeingCarried(brainrotPart)
 	return false
 end
 
-local function randomBasePosition(player)
+-- Returns the Vector3 world position for a given slot index (1-based).
+-- Slot layout: slot = (row - 1) * GRID_COLS + col
+local function slotIndexToPosition(player, slotIndex)
 	local baseInfo = _playerBases[player]
 	if not baseInfo then
 		return Vector3.new(0, 5, 0)
 	end
 	local basePos = baseInfo.position
-	local offsetX = math.random(-20, 20)
-	local offsetZ = math.random(-20, 20)
-	return Vector3.new(basePos.X + offsetX, basePos.Y + 5, basePos.Z + offsetZ)
+
+	local col = ((slotIndex - 1) % GRID_COLS) + 1
+	local row = math.floor((slotIndex - 1) / GRID_COLS) + 1
+
+	-- Interior anchor: push deeper into the house depending on which side the
+	-- base is on.  For X < 0 the interior is further negative; for X >= 0 it
+	-- is further positive.
+	local interiorX
+	if basePos.X < 0 then
+		interiorX = basePos.X - GRID_INTERIOR_OFFSET
+	else
+		interiorX = basePos.X + GRID_INTERIOR_OFFSET
+	end
+
+	local x = interiorX + COL_OFFSETS[col]
+	local z = basePos.Z + ROW_OFFSETS[row]
+	local y = basePos.Y + GRID_Y_OFFSET
+
+	return Vector3.new(x, y, z)
+end
+
+-- Returns (position: Vector3, slotIndex: number) for the next free slot, or
+-- a centre-fallback position with slotIndex = -1 when all slots are full.
+local function getNextSlotPosition(player)
+	if not _baseSlots[player] then
+		_baseSlots[player] = {}
+	end
+
+	local slots = _baseSlots[player]
+	local totalSlots = GRID_COLS * GRID_ROWS  -- 20
+
+	for i = 1, totalSlots do
+		if not slots[i] then
+			slots[i] = true  -- mark occupied
+			return slotIndexToPosition(player, i), i
+		end
+	end
+
+	-- All slots full — return centre of base as fallback
+	local baseInfo = _playerBases[player]
+	local fallback = baseInfo
+		and Vector3.new(baseInfo.position.X, baseInfo.position.Y + GRID_Y_OFFSET, baseInfo.position.Z)
+		or Vector3.new(0, 5, 0)
+	return fallback, -1
+end
+
+-- =========================================================================
+-- Public: releaseSlot
+-- Frees the slot for a player when a brainrot is removed or stolen.
+-- =========================================================================
+
+function ShopSystem.releaseSlot(player, slotIndex)
+	if slotIndex == nil or slotIndex < 1 then return end
+	if _baseSlots[player] then
+		_baseSlots[player][slotIndex] = nil
+	end
 end
 
 -- =========================================================================
@@ -75,10 +150,24 @@ function ShopSystem.setCarrying(carryingTable)
 end
 
 -- =========================================================================
+-- Internal: count brainrots currently owned by a player
+-- =========================================================================
+
+local function countPlayerBrainrots(player, brainrotOwner)
+	local count = 0
+	for _, owner in pairs(brainrotOwner) do
+		if owner == player then
+			count = count + 1
+		end
+	end
+	return count
+end
+
+-- =========================================================================
 -- Public: spawnBrainrot
 -- =========================================================================
 
-function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
+function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, slotIndex)
 	local s = brainrotData.size  -- base size unit
 
 	-- -----------------------------------------------------------------------
@@ -341,6 +430,10 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 		body:SetAttribute("IncomePerSecond", brainrotData.income)
 		body:SetAttribute("BrainrotId", brainrotData.id)
 		body:SetAttribute("BrainrotName", brainrotData.name)
+		-- Store the slot index so it can be freed when this brainrot is removed
+		if slotIndex then
+			body:SetAttribute("SlotIndex", slotIndex)
+		end
 	end
 
 	-- -----------------------------------------------------------------------
@@ -452,12 +545,20 @@ function ShopSystem.buyBrainrot(player, brainrotId, playerBases, brainrotOwner, 
 		return false
 	end
 
+	-- Check slot limit before spending money
+	local maxSlots = player:GetAttribute("MaxSlots") or 5
+	local currentCount = countPlayerBrainrots(player, brainrotOwner)
+	if currentCount >= maxSlots then
+		NotificationEvent:FireClient(player, "Base full! Upgrade by rebirthing", Color3.fromRGB(255, 150, 0))
+		return false
+	end
+
 	-- Deduct money
 	player:SetAttribute("Money", currentMoney - data.cost)
 
-	-- Spawn at player's base
-	local spawnPos = randomBasePosition(player)
-	ShopSystem.spawnBrainrot(data, spawnPos, player, brainrotOwner)
+	-- Claim a grid slot and spawn there
+	local spawnPos, slotIndex = getNextSlotPosition(player)
+	ShopSystem.spawnBrainrot(data, spawnPos, player, brainrotOwner, slotIndex)
 
 	-- Update collection
 	if not playerCollection[player] then
@@ -483,15 +584,23 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 		return nil
 	end
 
+	-- Check slot limit before spending money
+	local maxSlots = player:GetAttribute("MaxSlots") or 5
+	local currentCount = countPlayerBrainrots(player, brainrotOwner)
+	if currentCount >= maxSlots then
+		NotificationEvent:FireClient(player, "Base full! Upgrade by rebirthing", Color3.fromRGB(255, 150, 0))
+		return nil
+	end
+
 	-- Deduct cost
 	player:SetAttribute("Money", currentMoney - GACHA_COST)
 
 	-- Roll
 	local result = BrainrotData.gachaRoll()
 
-	-- Spawn at player's base
-	local spawnPos = randomBasePosition(player)
-	ShopSystem.spawnBrainrot(result, spawnPos, player, brainrotOwner)
+	-- Claim a grid slot and spawn there
+	local spawnPos, slotIndex = getNextSlotPosition(player)
+	ShopSystem.spawnBrainrot(result, spawnPos, player, brainrotOwner, slotIndex)
 
 	-- Update collection
 	if not playerCollection[player] then
@@ -718,7 +827,7 @@ function ShopSystem.createShopPads()
 					)
 
 					-- Spawn visual without ownership (nil owner = no plaque, no steal events)
-					local body = ShopSystem.spawnBrainrot(chosen, spawnPos, nil, _brainrotOwner)
+					local body = ShopSystem.spawnBrainrot(chosen, spawnPos, nil, _brainrotOwner, nil)
 					if body then
 						conveyorItems[body] = true
 
@@ -742,6 +851,16 @@ function ShopSystem.createShopPads()
 								return
 							end
 
+							-- Check slot limit before allowing purchase
+							local maxSlots = player:GetAttribute("MaxSlots") or 5
+							local currentCount = countPlayerBrainrots(player, _brainrotOwner)
+							if currentCount >= maxSlots then
+								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
+								RE:WaitForChild("Notification"):FireClient(player,
+									"Base full! Upgrade by rebirthing", Color3.fromRGB(255, 150, 0))
+								return
+							end
+
 							local money = player:GetAttribute("Money") or 0
 							if money < chosen.cost then
 								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
@@ -758,14 +877,8 @@ function ShopSystem.createShopPads()
 							conveyorItems[body] = nil
 							prompt:Destroy()
 
-							-- Move to base
-							local baseInfo = _playerBases[player]
-							local dest = baseInfo
-								and Vector3.new(
-									baseInfo.position.X + math.random(-12, 12),
-									baseInfo.position.Y + chosen.size / 2 + 1,
-									baseInfo.position.Z + math.random(-12, 12))
-								or Vector3.new(0, 5, 0)
+							-- Claim a grid slot and move the purchased brainrot there
+							local dest, slotIndex = getNextSlotPosition(player)
 
 							body.Anchored = true
 							body.CFrame = CFrame.new(dest)
@@ -773,6 +886,7 @@ function ShopSystem.createShopPads()
 							body:SetAttribute("IncomePerSecond", chosen.income)
 							body:SetAttribute("BrainrotId", chosen.id)
 							body:SetAttribute("BrainrotName", chosen.name)
+							body:SetAttribute("SlotIndex", slotIndex)
 
 							if not _playerCollection[player] then _playerCollection[player] = {} end
 							_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1

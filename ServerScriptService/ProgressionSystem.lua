@@ -8,7 +8,7 @@ local Workspace = game:GetService("Workspace")
 local ProgressionSystem = {}
 
 -- Config
-local REBIRTH_COST = 10000
+local REBIRTH_COST = 8000
 local REBIRTH_MULTIPLIER = 1.5
 local MAX_REBIRTHS = 10
 local INCOME_INTERVAL = 1
@@ -19,10 +19,16 @@ local REBIRTH_PAD_DEBOUNCE_TIME = 3
 --   body:SetAttribute("IncomePerSecond", brainrotData.income)
 -- on every spawned brainrot body part for income to be credited.
 
--- Starter brainrot spawned after a rebirth (Common tier)
-local STARTER_BRAINROT_NAME = "Skibidi Toilet"
-local STARTER_BRAINROT_COLOR = Color3.fromRGB(100, 200, 255)
-local STARTER_BRAINROT_INCOME = 5
+-- MaxSlots granted per rebirth tier
+-- Tiers: [0-1, 2-3, 4-5, 6-7, 8+]
+local LEVEL_SLOTS = {5, 8, 12, 16, 20}
+
+-- ShopSystem reference injected by Main
+local ShopSystem = nil
+
+function ProgressionSystem.setShopSystem(ss)
+	ShopSystem = ss
+end
 
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local evtNotification = remoteEvents:WaitForChild("Notification")
@@ -62,67 +68,22 @@ function ProgressionSystem.getRebirthInfo(player)
 	}
 end
 
--- Spawns a starter brainrot inside the player's base after rebirth
-local function spawnStarterBrainrot(player, playerBases, brainrotOwner, playerCollection)
-	local baseData = playerBases[player]
-	if not baseData then
-		return
+-- Sets the MaxSlots attribute on the player based on their rebirth count
+function ProgressionSystem.updateMaxSlots(player)
+	local rebirths = player:GetAttribute("RebirthCount") or 0
+	local slots
+	if rebirths >= 8 then
+		slots = LEVEL_SLOTS[5]
+	elseif rebirths >= 6 then
+		slots = LEVEL_SLOTS[4]
+	elseif rebirths >= 4 then
+		slots = LEVEL_SLOTS[3]
+	elseif rebirths >= 2 then
+		slots = LEVEL_SLOTS[2]
+	else
+		slots = LEVEL_SLOTS[1]
 	end
-
-	local basePos = baseData.position
-	local spawnPos = Vector3.new(basePos.X, basePos.Y + 3, basePos.Z)
-
-	local part = Instance.new("Part")
-	part.Name = STARTER_BRAINROT_NAME
-	part.Size = Vector3.new(4, 4, 4)
-	part.Color = STARTER_BRAINROT_COLOR
-	part.Material = Enum.Material.Neon
-	part.Shape = Enum.PartType.Ball
-	part.Anchored = true
-	part.CFrame = CFrame.new(spawnPos)
-
-	-- Set income attribute so the income loop picks this part up
-	part:SetAttribute("IncomePerSecond", STARTER_BRAINROT_INCOME)
-
-	part.Parent = Workspace
-
-	-- Register ownership
-	brainrotOwner[part] = player
-
-	-- Register in collection
-	if not playerCollection[player] then
-		playerCollection[player] = {}
-	end
-	playerCollection[player][STARTER_BRAINROT_NAME] = (playerCollection[player][STARTER_BRAINROT_NAME] or 0) + 1
-
-	-- Billboard showing name and income rate
-	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.new(0, 160, 0, 55)
-	billboard.StudsOffset = Vector3.new(0, 3, 0)
-	billboard.AlwaysOnTop = false
-	billboard.Parent = part
-
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.new(1, 0, 0.55, 0)
-	nameLabel.Position = UDim2.new(0, 0, 0, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextStrokeTransparency = 0
-	nameLabel.Text = STARTER_BRAINROT_NAME
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.TextScaled = true
-	nameLabel.Parent = billboard
-
-	local incomeLabel = Instance.new("TextLabel")
-	incomeLabel.Size = UDim2.new(1, 0, 0.45, 0)
-	incomeLabel.Position = UDim2.new(0, 0, 0.55, 0)
-	incomeLabel.BackgroundTransparency = 1
-	incomeLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-	incomeLabel.TextStrokeTransparency = 0
-	incomeLabel.Text = "$" .. STARTER_BRAINROT_INCOME .. "/s"
-	incomeLabel.Font = Enum.Font.Gotham
-	incomeLabel.TextScaled = true
-	incomeLabel.Parent = billboard
+	player:SetAttribute("MaxSlots", slots)
 end
 
 function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCollection)
@@ -173,8 +134,21 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	local newMultiplier = 1 + (newRebirthCount * 0.5)
 	player:SetAttribute("MoneyMultiplier", newMultiplier)
 
-	-- Spawn starter brainrot in their base
-	spawnStarterBrainrot(player, playerBases, brainrotOwner, playerCollection)
+	-- Update MaxSlots for the new rebirth tier
+	ProgressionSystem.updateMaxSlots(player)
+
+	-- Spawn a proper starter brainrot via ShopSystem if available
+	if ShopSystem then
+		local commons = ShopSystem.getBrainrotsByRarity("Common")
+		if commons and #commons > 0 then
+			local baseData = playerBases[player]
+			if baseData then
+				local basePos = baseData.position
+				local spawnPos = Vector3.new(basePos.X, basePos.Y + 3, basePos.Z)
+				ShopSystem.spawnBrainrot(commons[1], spawnPos, player, brainrotOwner)
+			end
+		end
+	end
 
 	-- Fire events
 	evtRebirthComplete:FireClient(player, newMultiplier)
@@ -276,7 +250,7 @@ function ProgressionSystem.setupRebirthPad(playerBases)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = Color3.fromRGB(255, 220, 50)
 	label.TextStrokeTransparency = 0
-	label.Text = "REBIRTH\n$10,000 to reset + multiplier boost"
+	label.Text = "REBIRTH\n$8,000 to reset + multiplier boost"
 	label.Font = Enum.Font.GothamBold
 	label.TextScaled = true
 	label.Parent = billboard

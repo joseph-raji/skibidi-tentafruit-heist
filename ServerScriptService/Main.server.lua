@@ -56,6 +56,7 @@ local ShopSystem        = require(ServerScriptService:WaitForChild("ShopSystem")
 local CombatSystem      = require(ServerScriptService:WaitForChild("CombatSystem"))
 local ProgressionSystem = require(ServerScriptService:WaitForChild("ProgressionSystem"))
 local ItemsSystem       = require(ServerScriptService:WaitForChild("ItemsSystem"))
+local DataStore         = require(ServerScriptService:WaitForChild("DataStore"))
 
 -- ============================================================
 -- 4. Shared state tables
@@ -70,69 +71,44 @@ local baseIndex        = 0
 -- 5. Build the map
 -- ============================================================
 
--- Large baseplate (tropical ground)
+-- Green grass baseplate (300 x 280)
 local baseplate = Instance.new("Part")
 baseplate.Name       = "Baseplate"
-baseplate.Size       = Vector3.new(700, 1, 700)
+baseplate.Size       = Vector3.new(300, 1, 280)
 baseplate.Position   = Vector3.new(0, -1, 0)
 baseplate.Anchored   = true
-baseplate.BrickColor = BrickColor.new("Sand green")
+baseplate.BrickColor = BrickColor.new("Bright green")
 baseplate.Material   = Enum.Material.Grass
 baseplate.Parent     = workspace
 
--- Central island platform (raised slightly, where the shop is)
-local islandCenter = Instance.new("Part")
-islandCenter.Size        = Vector3.new(160, 2, 160)
-islandCenter.Position    = Vector3.new(0, 0, 0)
-islandCenter.Anchored    = true
-islandCenter.BrickColor  = BrickColor.new("Bright orange")
-islandCenter.Material    = Enum.Material.SmoothPlastic
-islandCenter.TopSurface  = Enum.SurfaceType.Smooth
-islandCenter.Parent      = workspace
+-- Central dirt road running down the Z axis (20 studs wide, X=-10 to X=10)
+local road = Instance.new("Part")
+road.Name       = "CentralRoad"
+road.Size       = Vector3.new(20, 0.5, 280)
+road.Position   = Vector3.new(0, -0.25, 0)
+road.Anchored   = true
+road.BrickColor = BrickColor.new("Brown")
+road.Material   = Enum.Material.SmoothPlastic
+road.Parent     = workspace
 
--- Paths connecting center to each base position (one per base)
-local BASE_POSITIONS = GameConfig.BASE_POSITIONS
-for _, pos in ipairs(BASE_POSITIONS) do
-	local dir      = Vector3.new(pos.X, 0, pos.Z).Unit
-	local dist     = Vector3.new(pos.X, 0, pos.Z).Magnitude
-	local midPoint = Vector3.new(pos.X / 2, 0.5, pos.Z / 2)
+-- Brown/dirt border strips along the left and right edges
+local leftBorder = Instance.new("Part")
+leftBorder.Name     = "LeftBorder"
+leftBorder.Size     = Vector3.new(10, 0.5, 280)
+leftBorder.Position = Vector3.new(-145, -0.25, 0)
+leftBorder.Anchored = true
+leftBorder.BrickColor = BrickColor.new("Brown")
+leftBorder.Material = Enum.Material.SmoothPlastic
+leftBorder.Parent   = workspace
 
-	local path = Instance.new("Part")
-	path.CFrame    = CFrame.lookAt(midPoint, midPoint + dir)
-	path.Size      = Vector3.new(8, 0.5, dist - 20)
-	path.Anchored  = true
-	path.BrickColor = BrickColor.new("Tan")
-	path.Material  = Enum.Material.SmoothPlastic
-	path.Parent    = workspace
-end
-
--- Decorative palm trees around the map
-local palmPositions = {
-	Vector3.new(50, 0, 50),  Vector3.new(-50, 0, 50),
-	Vector3.new(50, 0, -50), Vector3.new(-50, 0, -50),
-	Vector3.new(70, 0, 0),   Vector3.new(-70, 0, 0),
-	Vector3.new(0, 0, 70),   Vector3.new(0, 0, -70),
-}
-for _, treePos in ipairs(palmPositions) do
-	-- Trunk
-	local trunk = Instance.new("Part")
-	trunk.Size       = Vector3.new(1.5, 12, 1.5)
-	trunk.Position   = treePos + Vector3.new(0, 6, 0)
-	trunk.Anchored   = true
-	trunk.BrickColor = BrickColor.new("Reddish brown")
-	trunk.Material   = Enum.Material.Wood
-	trunk.Shape      = Enum.PartType.Cylinder
-	trunk.Parent     = workspace
-	-- Leaves (sphere on top)
-	local leaves = Instance.new("Part")
-	leaves.Shape      = Enum.PartType.Ball
-	leaves.Size       = Vector3.new(8, 6, 8)
-	leaves.Position   = treePos + Vector3.new(0, 13, 0)
-	leaves.Anchored   = true
-	leaves.BrickColor = BrickColor.new("Bright green")
-	leaves.Material   = Enum.Material.Grass
-	leaves.Parent     = workspace
-end
+local rightBorder = Instance.new("Part")
+rightBorder.Name     = "RightBorder"
+rightBorder.Size     = Vector3.new(10, 0.5, 280)
+rightBorder.Position = Vector3.new(145, -0.25, 0)
+rightBorder.Anchored = true
+rightBorder.BrickColor = BrickColor.new("Brown")
+rightBorder.Material = Enum.Material.SmoothPlastic
+rightBorder.Parent   = workspace
 
 -- Boundary water (visual only, large blue ring around the map)
 local waterParts = {
@@ -183,6 +159,8 @@ CombatSystem.init(carrying, playerBases, brainrotOwner)
 ProgressionSystem.init(playerBases, brainrotOwner, playerCollection)
 ItemsSystem.init(playerBases, carrying)
 
+ProgressionSystem.setShopSystem(ShopSystem)
+
 -- ============================================================
 -- 7. Build shop and rebirth structures
 -- ============================================================
@@ -199,6 +177,7 @@ local batTool = CombatSystem.createBatTool()
 -- 9. Start game loops
 -- ============================================================
 ProgressionSystem.startIncomeLoop(playerBases, brainrotOwner)
+DataStore.setupAutoSave(brainrotOwner)
 
 -- Heartbeat: move carried brainrots above carrier's head and detect claims
 RunService.Heartbeat:Connect(function()
@@ -249,7 +228,7 @@ end)
 
 Players.PlayerAdded:Connect(function(player)
 	-- Default attributes
-	player:SetAttribute("Money",               100)
+	player:SetAttribute("Money",               GameConfig.STARTER_MONEY)
 	player:SetAttribute("RebirthCount",         0)
 	player:SetAttribute("MoneyMultiplier",       1)
 	player:SetAttribute("BaseIsLocked",       false)
@@ -263,13 +242,21 @@ Players.PlayerAdded:Connect(function(player)
 
 	local moneyValue = Instance.new("IntValue")
 	moneyValue.Name   = "Money"
-	moneyValue.Value  = 100
+	moneyValue.Value  = GameConfig.STARTER_MONEY
 	moneyValue.Parent = leaderstats
 
 	local rebirthsValue = Instance.new("IntValue")
 	rebirthsValue.Name   = "Rebirths"
 	rebirthsValue.Value  = 0
 	rebirthsValue.Parent = leaderstats
+
+	-- Load saved data and apply it
+	local savedData = DataStore.loadPlayer(player)
+	player:SetAttribute("Money", savedData.money)
+	player:SetAttribute("RebirthCount", savedData.rebirths)
+	player:SetAttribute("MoneyMultiplier", savedData.multiplier)
+	moneyValue.Value = savedData.money
+	rebirthsValue.Value = savedData.rebirths
 
 	-- Keep leaderstats in sync with attributes
 	player:GetAttributeChangedSignal("Money"):Connect(function()
@@ -291,6 +278,9 @@ Players.PlayerAdded:Connect(function(player)
 	-- Initialize collection
 	playerCollection[player] = {}
 
+	-- Update max slots based on loaded rebirth count
+	ProgressionSystem.updateMaxSlots(player)
+
 	-- Per-spawn setup: teleport and give bat
 	local function onCharacterAdded(character)
 		if not character then return end
@@ -305,30 +295,49 @@ Players.PlayerAdded:Connect(function(player)
 		onCharacterAdded(player.Character)
 	end
 
-	-- Spawn a free starter brainrot after the base is ready
+	-- Spawn brainrots after the base is ready
 	task.wait(1.5)
 
 	-- Verify player is still in game after the wait
 	if not player or not player.Parent then return end
 	if not playerBases[player] then return end
 
-	local commons = BrainrotData.getByRarity("Common")
-	if commons and #commons > 0 then
-		local starterBrainrot = commons[1]
-		ShopSystem.spawnBrainrot(starterBrainrot, pos, player, brainrotOwner)
-
-		playerCollection[player][starterBrainrot.id] = 1
+	if savedData and #savedData.brainrotIds > 0 then
+		-- Player has saved brainrots, re-spawn them
+		local BrainrotDataModule = require(Modules:WaitForChild("BrainrotData"))
+		for _, brainrotId in ipairs(savedData.brainrotIds) do
+			local brainrotDef = BrainrotDataModule.getById(brainrotId)
+			if brainrotDef then
+				local spawnPos = Vector3.new(pos.X, pos.Y + 5, pos.Z)
+				ShopSystem.spawnBrainrot(brainrotDef, spawnPos, player, brainrotOwner)
+				playerCollection[player][brainrotId] = (playerCollection[player][brainrotId] or 0) + 1
+			end
+		end
 		CollectionUpdated:FireClient(player, playerCollection[player])
+		Notification:FireClient(player, "Welcome back! Your brainrots have been restored.", Color3.fromRGB(0, 220, 255))
+	else
+		-- New player: give free starter
+		local commons = BrainrotData.getByRarity("Common")
+		if commons and #commons > 0 then
+			local starterBrainrot = commons[1]
+			ShopSystem.spawnBrainrot(starterBrainrot, pos, player, brainrotOwner)
 
-		Notification:FireClient(
-			player,
-			"Welcome! You received a free " .. starterBrainrot.name .. "!",
-			Color3.fromRGB(0, 220, 100)
-		)
+			playerCollection[player][starterBrainrot.id] = 1
+			CollectionUpdated:FireClient(player, playerCollection[player])
+
+			Notification:FireClient(
+				player,
+				"Welcome! You received a free " .. starterBrainrot.name .. "!",
+				Color3.fromRGB(0, 220, 100)
+			)
+		end
 	end
 end)
 
 Players.PlayerRemoving:Connect(function(player)
+	-- Save player data before cleanup
+	DataStore.savePlayer(player, brainrotOwner)
+
 	-- Drop any brainrot the player was carrying so it stays in the world
 	if carrying[player] then
 		StealSystem.dropBrainrot(player, carrying)

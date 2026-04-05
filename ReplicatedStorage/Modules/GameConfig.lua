@@ -3,7 +3,7 @@
 
 return {
 	-- Base size of each player's home base plot (studs).
-	BASE_SIZE = 44,
+	BASE_SIZE = 50,
 
 	-- How often the server awards income to each player (seconds).
 	INCOME_INTERVAL = 1,
@@ -41,22 +41,30 @@ return {
 	-- Seconds between each income tick.
 	INCOME_TICK = 1,
 
-	-- Z position of the conveyor belt in the world.
+	-- Z position of the conveyor belt in the world (center road).
 	CONVEYOR_BELT_Z = 0,
 
-	-- Z position of the items shop in the world.
-	ITEMS_SHOP_Z = -60,
+	-- Z position of the items shop in the world (center road, offset along Z).
+	ITEMS_SHOP_Z = 0,
 
-	-- Eight spawn positions evenly distributed around the central shop area.
+	-- Number of conveyor belt slots available at each rebirth tier.
+	-- Indices correspond to rebirth ranges: 0-1, 2-3, 4-5, 6-7, 8+
+	LEVEL_SLOTS = {5, 8, 12, 16, 20},
+
+	-- Eight player house plots arranged in two rows of four facing each other
+	-- across a central road. Left row at X=-75, right row at X=+75.
+	-- All plots face the center (front/open side toward X=0).
 	BASE_POSITIONS = {
-		Vector3.new(-90,  0.5, -90),
-		Vector3.new( 90,  0.5, -90),
-		Vector3.new(-90,  0.5,  90),
-		Vector3.new( 90,  0.5,  90),
-		Vector3.new(  0,  0.5, -130),
-		Vector3.new(  0,  0.5,  130),
-		Vector3.new(-130, 0.5,   0),
-		Vector3.new( 130, 0.5,   0),
+		-- Left row (X = -75)
+		Vector3.new(-75, 0.5, -90),
+		Vector3.new(-75, 0.5, -30),
+		Vector3.new(-75, 0.5,  30),
+		Vector3.new(-75, 0.5,  90),
+		-- Right row (X = +75)
+		Vector3.new( 75, 0.5, -90),
+		Vector3.new( 75, 0.5, -30),
+		Vector3.new( 75, 0.5,  30),
+		Vector3.new( 75, 0.5,  90),
 	},
 
 	-- UI and model tint colors keyed by rarity name.
