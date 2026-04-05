@@ -22,6 +22,9 @@
       },
       "ProgressionSystem": {
         "$path": "ServerScriptService/ProgressionSystem.lua"
+      },
+      "ItemsSystem": {
+        "$path": "ServerScriptService/ItemsSystem.lua"
       }
     },
 

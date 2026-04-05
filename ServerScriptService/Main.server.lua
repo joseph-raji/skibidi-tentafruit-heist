@@ -55,6 +55,7 @@ local BaseSystem        = require(ServerScriptService:WaitForChild("BaseSystem")
 local ShopSystem        = require(ServerScriptService:WaitForChild("ShopSystem"))
 local CombatSystem      = require(ServerScriptService:WaitForChild("CombatSystem"))
 local ProgressionSystem = require(ServerScriptService:WaitForChild("ProgressionSystem"))
+local ItemsSystem       = require(ServerScriptService:WaitForChild("ItemsSystem"))
 
 -- ============================================================
 -- 4. Shared state tables
@@ -88,12 +89,14 @@ ShopSystem.init(playerBases, brainrotOwner, playerCollection)
 ShopSystem.setCarrying(carrying)
 CombatSystem.init(carrying, playerBases, brainrotOwner)
 ProgressionSystem.init(playerBases, brainrotOwner, playerCollection)
+ItemsSystem.init(playerBases, carrying)
 
 -- ============================================================
 -- 7. Build shop and rebirth structures
 -- ============================================================
 ShopSystem.createShopPads()
 ProgressionSystem.setupRebirthPad(playerBases)
+ItemsSystem.createItemsShop()
 
 -- ============================================================
 -- 8. Create the bat tool (shared template, cloned per player)
