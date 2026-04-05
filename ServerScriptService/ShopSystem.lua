@@ -898,26 +898,34 @@ function ShopSystem.createShopPads()
 						CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
 						NotificationEvent:FireClient(player, "Bought " .. chosen.name .. "! +" .. chosen.income .. "$/s", Color3.fromRGB(100, 255, 100))
 
-						-- Animate brainrot flying to its base slot over 2 seconds
+						-- Animate brainrot walking to its base slot (stays near ground, walking bob)
 						_flyingBodies[body] = true
-						local startCF  = body.CFrame
-						local endCF    = CFrame.new(dest)
-						local duration = 2
+						local startPos = body.Position
+						local endPos   = dest
+						local duration = 5   -- seconds to walk to base
 						local startT   = tick()
+
+						-- Direction yaw so brainrot faces where it's walking
+						local dx = endPos.X - startPos.X
+						local dz = endPos.Z - startPos.Z
+						local walkYaw = math.atan2(dz, dx)
 
 						task.spawn(function()
 							repeat
-								local alpha = math.min((tick() - startT) / duration, 1)
-								-- smooth ease-in-out arc
-								local t = alpha < 0.5 and (2 * alpha * alpha) or (1 - (-2*alpha + 2)^2 / 2)
-								local arcY = math.sin(alpha * math.pi) * 12  -- arc up to 12 studs
-								local lerpedCF = startCF:Lerp(endCF, t)
-								body.CFrame = CFrame.new(lerpedCF.Position + Vector3.new(0, arcY, 0))
+								local elapsed = tick() - startT
+								local alpha = math.min(elapsed / duration, 1)
+								-- linear interpolation along X/Z, gentle Y lerp
+								local wx = startPos.X + (endPos.X - startPos.X) * alpha
+								local wz = startPos.Z + (endPos.Z - startPos.Z) * alpha
+								local wy = startPos.Y + (endPos.Y - startPos.Y) * alpha
+								-- small walking bounce (footstep-like up-down)
+								local bob = math.abs(math.sin(elapsed * 6)) * 0.35
+								body.CFrame = CFrame.new(wx, wy + bob, wz) * CFrame.Angles(0, walkYaw, 0)
 								task.wait()
 							until not body.Parent or (tick() - startT) >= duration
 
 							if not body.Parent then return end
-							body.CFrame = endCF
+							body.CFrame = CFrame.new(endPos)
 							_flyingBodies[body] = nil
 
 							-- Pressure plate at slot's plate position
