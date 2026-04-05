@@ -51,6 +51,9 @@
       },
       "Pokedex": {
         "$path": "StarterGui/Pokedex.client.lua"
+      },
+      "FloatingIncome": {
+        "$path": "StarterGui/FloatingIncome.client.lua"
       }
     }
   }

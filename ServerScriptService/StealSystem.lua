@@ -17,6 +17,9 @@ local evtNotification = remoteEvents:WaitForChild("Notification")
 -- Internal debounce table to prevent repeated touch triggers
 local touchDebounce = {}
 
+-- Per-brainrot touch connection storage
+local touchConnections = {}
+
 function StealSystem.init(playerBases, brainrotOwner, carrying, playerCollection)
 	-- Called once at startup. State tables are passed in by reference from Main.server.lua.
 	-- Nothing needs to be stored here since all functions receive the tables as parameters.
@@ -59,7 +62,7 @@ function StealSystem.startCarrying(player, brainrot, playerBases, brainrotOwner,
 		return
 	end
 
-	local brainrotName = brainrot.Name
+	local brainrotName = brainrot:GetAttribute("BrainrotName") or "Brainrot"
 
 	-- Begin carrying
 	brainrot.Anchored = false
@@ -73,6 +76,9 @@ function StealSystem.startCarrying(player, brainrot, playerBases, brainrotOwner,
 
 	-- Fire stolen event for victim UI
 	evtBrainrotStolen:FireClient(victim, player.Name, brainrotName)
+
+	-- Notify thief
+	evtNotification:FireClient(player, "You grabbed " .. brainrotName .. "! Run to your base!", Color3.fromRGB(80, 200, 255))
 end
 
 function StealSystem.dropBrainrot(player, carrying)
@@ -95,13 +101,14 @@ function StealSystem.claimBrainrot(player, playerBases, brainrotOwner, carrying,
 		return
 	end
 
-	local brainrotName = brainrot.Name
+	local brainrotName = brainrot:GetAttribute("BrainrotName") or brainrot.Name
 	local baseData = playerBases[player]
 	if not baseData then
 		return
 	end
 
-	local userId = player.UserId
+	-- Read IncomePerSecond before transferring ownership so it is preserved
+	local income = brainrot:GetAttribute("IncomePerSecond") or 0
 
 	-- Update collection
 	if not playerCollection[player] then
@@ -119,6 +126,9 @@ function StealSystem.claimBrainrot(player, playerBases, brainrotOwner, carrying,
 	-- Transfer ownership
 	brainrotOwner[brainrot] = player
 
+	-- Ensure income attribute stays on the part after ownership transfer
+	brainrot:SetAttribute("IncomePerSecond", income)
+
 	-- Clear carrying state
 	carrying[player] = nil
 	player:SetAttribute("IsCarrying", false)
@@ -132,7 +142,7 @@ function StealSystem.claimBrainrot(player, playerBases, brainrotOwner, carrying,
 	brainrot.CFrame = CFrame.new(randomX, basePos.Y + 3, randomZ)
 	brainrot.Anchored = true
 
-	-- Re-attach touch events with new owner
+	-- Re-attach touch events with new owner so it can be stolen again
 	StealSystem.setupBrainrotTouchEvents(brainrot, player, playerBases, brainrotOwner, carrying, playerCollection)
 
 	-- Notify thief (green)
@@ -141,27 +151,15 @@ function StealSystem.claimBrainrot(player, playerBases, brainrotOwner, carrying,
 end
 
 function StealSystem.setupBrainrotTouchEvents(brainrot, owner, playerBases, brainrotOwner, carrying, playerCollection)
-	-- Disconnect any previously connected touch events stored on the part
-	if brainrot:GetAttribute("TouchEventsConnected") then
-		-- Disconnect by storing connections on the instance via a BindableEvent workaround.
-		-- We use ObjectValue children to store connections; clean them up first.
-	end
-
-	-- Use a separate connection storage table keyed by brainrot
-	if not StealSystem._touchConnections then
-		StealSystem._touchConnections = {}
-	end
-
-	-- Disconnect old connections for this brainrot
-	local oldConns = StealSystem._touchConnections[brainrot]
-	if oldConns then
-		for _, conn in ipairs(oldConns) do
+	-- Disconnect any existing connections for this brainrot
+	if touchConnections[brainrot] then
+		for _, conn in ipairs(touchConnections[brainrot]) do
 			conn:Disconnect()
 		end
 	end
+	touchConnections[brainrot] = {}
 
-	local connections = {}
-	StealSystem._touchConnections[brainrot] = connections
+	local connections = touchConnections[brainrot]
 
 	-- Touch event 1: non-owner touches brainrot → start carrying
 	local conn1 = brainrot.Touched:Connect(function(hit)
@@ -190,7 +188,7 @@ function StealSystem.setupBrainrotTouchEvents(brainrot, owner, playerBases, brai
 	end)
 	table.insert(connections, conn1)
 
-	-- Touch event 2: brainrot is being carried and a different player touches carrier → drop
+	-- Touch event 2: a different player touches the carrier while they carry this brainrot → drop
 	local conn2 = brainrot.Touched:Connect(function(hit)
 		local character = hit.Parent
 		if not character then return end
@@ -218,10 +216,25 @@ function StealSystem.setupBrainrotTouchEvents(brainrot, owner, playerBases, brai
 			touchDebounce[debounceKey] = nil
 		end)
 
+		local droppedName = brainrot:GetAttribute("BrainrotName") or brainrot.Name
+
 		StealSystem.dropBrainrot(carrier, carrying)
-		evtNotification:FireClient(carrier, touchingPlayer.Name .. " knocked the brainrot out of your hands!", Color3.fromRGB(255, 80, 80))
+		evtNotification:FireClient(carrier, "You got hit! " .. droppedName .. " dropped!", Color3.fromRGB(255, 80, 80))
+		evtNotification:FireClient(touchingPlayer, "Hit! You knocked their " .. droppedName .. " loose!", Color3.fromRGB(100, 255, 120))
 	end)
 	table.insert(connections, conn2)
+
+	-- Clean up connection table when brainrot is destroyed / removed from workspace
+	brainrot.AncestryChanged:Connect(function()
+		if not brainrot.Parent then
+			if touchConnections[brainrot] then
+				for _, conn in ipairs(touchConnections[brainrot]) do
+					conn:Disconnect()
+				end
+				touchConnections[brainrot] = nil
+			end
+		end
+	end)
 end
 
 function StealSystem.onHeartbeat(playerBases, brainrotOwner, carrying, playerCollection)

@@ -7,7 +7,7 @@ local BrainrotData = {}
 BrainrotData.list = {
 
 	-- =====================================================================
-	-- COMMON (5) — income ~5-6/s, cost 100-150, dropWeight 50, size 3
+	-- COMMON (5) — income 5-8/s, cost 50-80, dropWeight 50, size 3
 	-- =====================================================================
 
 	{
@@ -15,7 +15,7 @@ BrainrotData.list = {
 		name        = "Fraise Jr",
 		rarity      = "Common",
 		income      = 5,
-		cost        = 100,
+		cost        = 50,
 		color       = BrickColor.new("Bright red"),
 		glowColor   = Color3.fromRGB(255, 50, 80),
 		size        = 3,
@@ -27,8 +27,8 @@ BrainrotData.list = {
 		id          = "banane_bro",
 		name        = "Banane Bro",
 		rarity      = "Common",
-		income      = 5,
-		cost        = 100,
+		income      = 6,
+		cost        = 60,
 		color       = BrickColor.new("Bright yellow"),
 		glowColor   = Color3.fromRGB(255, 220, 0),
 		size        = 3,
@@ -40,8 +40,8 @@ BrainrotData.list = {
 		id          = "orange_girl",
 		name        = "Orange Girl",
 		rarity      = "Common",
-		income      = 6,
-		cost        = 110,
+		income      = 7,
+		cost        = 70,
 		color       = BrickColor.new("Bright orange"),
 		glowColor   = Color3.fromRGB(255, 140, 0),
 		size        = 3,
@@ -53,8 +53,8 @@ BrainrotData.list = {
 		id          = "raisin_guy",
 		name        = "Raisin Guy",
 		rarity      = "Common",
-		income      = 5,
-		cost        = 100,
+		income      = 6,
+		cost        = 60,
 		color       = BrickColor.new("Bright violet"),
 		glowColor   = Color3.fromRGB(120, 0, 200),
 		size        = 3,
@@ -66,8 +66,8 @@ BrainrotData.list = {
 		id          = "tomate_basic",
 		name        = "Tomate Basic",
 		rarity      = "Common",
-		income      = 5,
-		cost        = 100,
+		income      = 8,
+		cost        = 80,
 		color       = BrickColor.new("Bright red"),
 		glowColor   = Color3.fromRGB(200, 30, 30),
 		size        = 3,
@@ -76,15 +76,15 @@ BrainrotData.list = {
 	},
 
 	-- =====================================================================
-	-- UNCOMMON (5) — income ~14-16/s, cost 200-300, dropWeight 25, size 3.5
+	-- UNCOMMON (5) — income 15-20/s, cost 150-200, dropWeight 25, size 3.5
 	-- =====================================================================
 
 	{
 		id          = "mangue_queen",
 		name        = "Mangue Queen",
 		rarity      = "Uncommon",
-		income      = 15,
-		cost        = 250,
+		income      = 18,
+		cost        = 180,
 		color       = BrickColor.new("Neon orange"),
 		glowColor   = Color3.fromRGB(255, 160, 0),
 		size        = 3.5,
@@ -96,8 +96,8 @@ BrainrotData.list = {
 		id          = "ananas_king",
 		name        = "Ananas King",
 		rarity      = "Uncommon",
-		income      = 14,
-		cost        = 230,
+		income      = 15,
+		cost        = 150,
 		color       = BrickColor.new("Bright yellow"),
 		glowColor   = Color3.fromRGB(255, 200, 50),
 		size        = 3.5,
@@ -109,8 +109,8 @@ BrainrotData.list = {
 		id          = "cerise_duo",
 		name        = "Cerise Duo",
 		rarity      = "Uncommon",
-		income      = 16,
-		cost        = 270,
+		income      = 20,
+		cost        = 200,
 		color       = BrickColor.new("Crimson"),
 		glowColor   = Color3.fromRGB(200, 0, 50),
 		size        = 3.5,
@@ -122,8 +122,8 @@ BrainrotData.list = {
 		id          = "pasteque_bro",
 		name        = "Pastèque Bro",
 		rarity      = "Uncommon",
-		income      = 15,
-		cost        = 250,
+		income      = 17,
+		cost        = 170,
 		color       = BrickColor.new("Bright green"),
 		glowColor   = Color3.fromRGB(0, 200, 80),
 		size        = 3.5,
@@ -135,8 +135,8 @@ BrainrotData.list = {
 		id          = "citron_vert",
 		name        = "Citron Vert",
 		rarity      = "Uncommon",
-		income      = 15,
-		cost        = 200,
+		income      = 16,
+		cost        = 160,
 		color       = BrickColor.new("Bright green"),
 		glowColor   = Color3.fromRGB(100, 255, 50),
 		size        = 3.5,
@@ -145,14 +145,14 @@ BrainrotData.list = {
 	},
 
 	-- =====================================================================
-	-- RARE (5) — income ~38-42/s, cost nil (gacha-only), dropWeight 12, size 4
+	-- RARE (5) — income 40-50/s, cost nil (gacha-only), dropWeight 12, size 4
 	-- =====================================================================
 
 	{
 		id          = "avocat_elite",
 		name        = "Avocat Elite",
 		rarity      = "Rare",
-		income      = 40,
+		income      = 43,
 		cost        = nil,
 		color       = BrickColor.new("Earth green"),
 		glowColor   = Color3.fromRGB(80, 160, 60),
@@ -165,7 +165,7 @@ BrainrotData.list = {
 		id          = "dragon_fruit",
 		name        = "Dragon Fruit",
 		rarity      = "Rare",
-		income      = 42,
+		income      = 48,
 		cost        = nil,
 		color       = BrickColor.new("Hot pink"),
 		glowColor   = Color3.fromRGB(255, 0, 150),
@@ -178,7 +178,7 @@ BrainrotData.list = {
 		id          = "kiwi_shadow",
 		name        = "Kiwi Shadow",
 		rarity      = "Rare",
-		income      = 38,
+		income      = 40,
 		cost        = nil,
 		color       = BrickColor.new("Dark green"),
 		glowColor   = Color3.fromRGB(60, 120, 40),
@@ -191,7 +191,7 @@ BrainrotData.list = {
 		id          = "figue_mystique",
 		name        = "Figue Mystique",
 		rarity      = "Rare",
-		income      = 40,
+		income      = 45,
 		cost        = nil,
 		color       = BrickColor.new("Dark purple"),
 		glowColor   = Color3.fromRGB(100, 0, 150),
@@ -204,7 +204,7 @@ BrainrotData.list = {
 		id          = "papaye_pro",
 		name        = "Papaye Pro",
 		rarity      = "Rare",
-		income      = 40,
+		income      = 50,
 		cost        = nil,
 		color       = BrickColor.new("Neon orange"),
 		glowColor   = Color3.fromRGB(255, 100, 50),
@@ -214,7 +214,7 @@ BrainrotData.list = {
 	},
 
 	-- =====================================================================
-	-- EPIC (5) — income ~98-105/s, cost nil (gacha-only), dropWeight 5, size 4.5
+	-- EPIC (5) — income 100-120/s, cost nil (gacha-only), dropWeight 5, size 4.5
 	-- =====================================================================
 
 	{
@@ -234,7 +234,7 @@ BrainrotData.list = {
 		id          = "banane_doom",
 		name        = "Banane Doom",
 		rarity      = "Epic",
-		income      = 105,
+		income      = 115,
 		cost        = nil,
 		color       = BrickColor.new("Bright yellow"),
 		glowColor   = Color3.fromRGB(255, 255, 0),
@@ -247,7 +247,7 @@ BrainrotData.list = {
 		id          = "raisin_rainbow",
 		name        = "Raisin Rainbow",
 		rarity      = "Epic",
-		income      = 98,
+		income      = 105,
 		cost        = nil,
 		color       = BrickColor.new("Royal purple"),
 		glowColor   = Color3.fromRGB(200, 0, 255),
@@ -260,7 +260,7 @@ BrainrotData.list = {
 		id          = "ananas_sigma",
 		name        = "Ananas Sigma",
 		rarity      = "Epic",
-		income      = 100,
+		income      = 110,
 		cost        = nil,
 		color       = BrickColor.new("Bright orange"),
 		glowColor   = Color3.fromRGB(255, 180, 0),
@@ -273,7 +273,7 @@ BrainrotData.list = {
 		id          = "pasteque_plasma",
 		name        = "Pastèque Plasma",
 		rarity      = "Epic",
-		income      = 102,
+		income      = 120,
 		cost        = nil,
 		color       = BrickColor.new("Hot pink"),
 		glowColor   = Color3.fromRGB(255, 50, 100),
@@ -283,14 +283,14 @@ BrainrotData.list = {
 	},
 
 	-- =====================================================================
-	-- LEGENDARY (5) — income ~275-290/s, cost nil (gacha-only), dropWeight 1, size 5
+	-- LEGENDARY (5) — income 280-320/s, cost nil (gacha-only), dropWeight 1, size 5
 	-- =====================================================================
 
 	{
 		id          = "mangue_cosmique",
 		name        = "Mangue Cosmique",
 		rarity      = "Legendary",
-		income      = 285,
+		income      = 295,
 		cost        = nil,
 		color       = BrickColor.new("Neon orange"),
 		glowColor   = Color3.fromRGB(255, 140, 0),
@@ -303,7 +303,7 @@ BrainrotData.list = {
 		id          = "fraise_omega",
 		name        = "Fraise Oméga",
 		rarity      = "Legendary",
-		income      = 290,
+		income      = 310,
 		cost        = nil,
 		color       = BrickColor.new("Hot pink"),
 		glowColor   = Color3.fromRGB(255, 0, 100),
@@ -316,7 +316,7 @@ BrainrotData.list = {
 		id          = "banane_fantome",
 		name        = "Banane Fantôme",
 		rarity      = "Legendary",
-		income      = 275,
+		income      = 280,
 		cost        = nil,
 		color       = BrickColor.new("White"),
 		glowColor   = Color3.fromRGB(200, 200, 255),
@@ -329,7 +329,7 @@ BrainrotData.list = {
 		id          = "dragon_ultime",
 		name        = "Dragon Ultime",
 		rarity      = "Legendary",
-		income      = 280,
+		income      = 300,
 		cost        = nil,
 		color       = BrickColor.new("Deep orange"),
 		glowColor   = Color3.fromRGB(255, 50, 0),
@@ -342,7 +342,7 @@ BrainrotData.list = {
 		id          = "le_tentafruit",
 		name        = "LE TENTAFRUIT",
 		rarity      = "Legendary",
-		income      = 290,
+		income      = 320,
 		cost        = nil,
 		color       = BrickColor.new("Royal purple"),
 		glowColor   = Color3.fromRGB(150, 0, 255),
@@ -368,13 +368,13 @@ end
 
 -- Returns a list of all brainrot entries with the given rarity string.
 function BrainrotData.getByRarity(rarity)
-	local results = {}
+	local result = {}
 	for _, entry in ipairs(BrainrotData.list) do
 		if entry.rarity == rarity then
-			table.insert(results, entry)
+			table.insert(result, entry)
 		end
 	end
-	return results
+	return result
 end
 
 -- Performs a weighted gacha roll and returns one brainrot entry.

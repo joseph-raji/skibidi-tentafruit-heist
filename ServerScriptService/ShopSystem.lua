@@ -234,46 +234,103 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 
 	-- -----------------------------------------------------------------------
 	-- Billboard GUI (on body)
+	-- Conveyor items show cost prominently.
+	-- Owned items show income/rarity (cost is already paid).
 	-- -----------------------------------------------------------------------
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size          = UDim2.new(0, 160, 0, 70)
 	billboard.StudsOffset   = Vector3.new(0, s + headSize + 1.2, 0)
 	billboard.AlwaysOnTop   = false
 	billboard.LightInfluence = 0
 	billboard.Parent        = body
 
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size            = UDim2.new(1, 0, 0.45, 0)
-	nameLabel.Position        = UDim2.new(0, 0, 0, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text            = brainrotData.name
-	nameLabel.TextColor3      = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextStrokeTransparency = 0.4
-	nameLabel.TextScaled      = true
-	nameLabel.Font            = Enum.Font.GothamBold
-	nameLabel.Parent          = billboard
+	if owner then
+		-- Owned brainrot: 3-row billboard (name / income / rarity)
+		billboard.Size = UDim2.new(0, 160, 0, 70)
 
-	local incomeLabel = Instance.new("TextLabel")
-	incomeLabel.Size            = UDim2.new(1, 0, 0.3, 0)
-	incomeLabel.Position        = UDim2.new(0, 0, 0.45, 0)
-	incomeLabel.BackgroundTransparency = 1
-	incomeLabel.Text            = "$" .. brainrotData.income .. "/s"
-	incomeLabel.TextColor3      = Color3.fromRGB(100, 255, 100)
-	incomeLabel.TextStrokeTransparency = 0.4
-	incomeLabel.TextScaled      = true
-	incomeLabel.Font            = Enum.Font.Gotham
-	incomeLabel.Parent          = billboard
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size            = UDim2.new(1, 0, 0.38, 0)
+		nameLabel.Position        = UDim2.new(0, 0, 0, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text            = brainrotData.name
+		nameLabel.TextColor3      = Color3.fromRGB(255, 255, 255)
+		nameLabel.TextStrokeTransparency = 0.4
+		nameLabel.TextScaled      = true
+		nameLabel.Font            = Enum.Font.GothamBold
+		nameLabel.Parent          = billboard
 
-	local rarityLabel = Instance.new("TextLabel")
-	rarityLabel.Size            = UDim2.new(1, 0, 0.25, 0)
-	rarityLabel.Position        = UDim2.new(0, 0, 0.75, 0)
-	rarityLabel.BackgroundTransparency = 1
-	rarityLabel.Text            = brainrotData.rarity
-	rarityLabel.TextColor3      = RARITY_COLOR[brainrotData.rarity] or Color3.fromRGB(255, 255, 255)
-	rarityLabel.TextStrokeTransparency = 0.4
-	rarityLabel.TextScaled      = true
-	rarityLabel.Font            = Enum.Font.GothamBold
-	rarityLabel.Parent          = billboard
+		local incomeLabel = Instance.new("TextLabel")
+		incomeLabel.Size            = UDim2.new(1, 0, 0.37, 0)
+		incomeLabel.Position        = UDim2.new(0, 0, 0.38, 0)
+		incomeLabel.BackgroundTransparency = 1
+		incomeLabel.Text            = "$" .. brainrotData.income .. "/s"
+		incomeLabel.TextColor3      = Color3.fromRGB(100, 255, 100)
+		incomeLabel.TextStrokeTransparency = 0.4
+		incomeLabel.TextScaled      = true
+		incomeLabel.Font            = Enum.Font.Gotham
+		incomeLabel.Parent          = billboard
+
+		local rarityLabel = Instance.new("TextLabel")
+		rarityLabel.Size            = UDim2.new(1, 0, 0.25, 0)
+		rarityLabel.Position        = UDim2.new(0, 0, 0.75, 0)
+		rarityLabel.BackgroundTransparency = 1
+		rarityLabel.Text            = brainrotData.rarity
+		rarityLabel.TextColor3      = RARITY_COLOR[brainrotData.rarity] or Color3.fromRGB(255, 255, 255)
+		rarityLabel.TextStrokeTransparency = 0.4
+		rarityLabel.TextScaled      = true
+		rarityLabel.Font            = Enum.Font.GothamBold
+		rarityLabel.Parent          = billboard
+	else
+		-- Conveyor shop item: 4-row billboard with cost as the most prominent element
+		billboard.Size = UDim2.new(0, 200, 0, 110)
+
+		-- Row 1: name (white, bold)
+		local nameLabel = Instance.new("TextLabel")
+		nameLabel.Size            = UDim2.new(1, 0, 0.22, 0)
+		nameLabel.Position        = UDim2.new(0, 0, 0, 0)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text            = brainrotData.name
+		nameLabel.TextColor3      = Color3.fromRGB(255, 255, 255)
+		nameLabel.TextStrokeTransparency = 0.4
+		nameLabel.TextScaled      = true
+		nameLabel.Font            = Enum.Font.GothamBold
+		nameLabel.Parent          = billboard
+
+		-- Row 2: cost (yellow, large — most prominent)
+		local costLabel = Instance.new("TextLabel")
+		costLabel.Size            = UDim2.new(1, 0, 0.36, 0)
+		costLabel.Position        = UDim2.new(0, 0, 0.22, 0)
+		costLabel.BackgroundTransparency = 1
+		costLabel.Text            = "COST: " .. (brainrotData.cost and ("$" .. brainrotData.cost) or "GACHA")
+		costLabel.TextColor3      = Color3.fromRGB(255, 220, 0)
+		costLabel.TextStrokeTransparency = 0.2
+		costLabel.TextScaled      = true
+		costLabel.Font            = Enum.Font.GothamBold
+		costLabel.Parent          = billboard
+
+		-- Row 3: income (green, smaller)
+		local incomeLabel = Instance.new("TextLabel")
+		incomeLabel.Size            = UDim2.new(1, 0, 0.22, 0)
+		incomeLabel.Position        = UDim2.new(0, 0, 0.58, 0)
+		incomeLabel.BackgroundTransparency = 1
+		incomeLabel.Text            = "+" .. brainrotData.income .. "$/s income"
+		incomeLabel.TextColor3      = Color3.fromRGB(100, 255, 100)
+		incomeLabel.TextStrokeTransparency = 0.4
+		incomeLabel.TextScaled      = true
+		incomeLabel.Font            = Enum.Font.Gotham
+		incomeLabel.Parent          = billboard
+
+		-- Row 4: rarity (rarity color)
+		local rarityLabel = Instance.new("TextLabel")
+		rarityLabel.Size            = UDim2.new(1, 0, 0.20, 0)
+		rarityLabel.Position        = UDim2.new(0, 0, 0.80, 0)
+		rarityLabel.BackgroundTransparency = 1
+		rarityLabel.Text            = brainrotData.rarity
+		rarityLabel.TextColor3      = RARITY_COLOR[brainrotData.rarity] or Color3.fromRGB(255, 255, 255)
+		rarityLabel.TextStrokeTransparency = 0.4
+		rarityLabel.TextScaled      = true
+		rarityLabel.Font            = Enum.Font.GothamBold
+		rarityLabel.Parent          = billboard
+	end
 
 	-- -----------------------------------------------------------------------
 	-- Register ownership on the body (PrimaryPart)
@@ -281,15 +338,19 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 	-- Register ownership (nil for conveyor shop items)
 	if owner then
 		brainrotOwner[body] = owner
+		body:SetAttribute("IncomePerSecond", brainrotData.income)
+		body:SetAttribute("BrainrotId", brainrotData.id)
+		body:SetAttribute("BrainrotName", brainrotData.name)
 	end
 
 	-- -----------------------------------------------------------------------
 	-- Income plaque — small sign planted at spawn position (only for owned brainrots)
+	-- Shows name, income rate, and rarity on a wider board.
 	-- -----------------------------------------------------------------------
 	if owner then
 		local plaque = Instance.new("Part")
 		plaque.Name       = "IncomePlaque"
-		plaque.Size       = Vector3.new(2.5, 1.2, 0.1)
+		plaque.Size       = Vector3.new(3, 1.5, 0.1)
 		plaque.Position   = Vector3.new(position.X, position.Y - s * 0.3, position.Z + s * 0.9)
 		plaque.Anchored   = true
 		plaque.CanCollide = false
@@ -301,9 +362,21 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 		sg.Face   = Enum.NormalId.Front
 		sg.Parent = plaque
 
+		-- Top: brainrot name (white)
+		local nameText = Instance.new("TextLabel")
+		nameText.Size                  = UDim2.new(1, 0, 0.33, 0)
+		nameText.Position              = UDim2.new(0, 0, 0, 0)
+		nameText.BackgroundTransparency = 1
+		nameText.Text                  = brainrotData.name
+		nameText.TextScaled            = true
+		nameText.Font                  = Enum.Font.GothamBold
+		nameText.TextColor3            = Color3.fromRGB(255, 255, 255)
+		nameText.Parent                = sg
+
+		-- Middle: income (green, large)
 		local incomeText = Instance.new("TextLabel")
-		incomeText.Size                  = UDim2.new(1, 0, 0.55, 0)
-		incomeText.Position              = UDim2.new(0, 0, 0, 0)
+		incomeText.Size                  = UDim2.new(1, 0, 0.40, 0)
+		incomeText.Position              = UDim2.new(0, 0, 0.33, 0)
 		incomeText.BackgroundTransparency = 1
 		incomeText.Text                  = "$" .. brainrotData.income .. "/s"
 		incomeText.TextScaled            = true
@@ -311,9 +384,10 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner)
 		incomeText.TextColor3            = Color3.fromRGB(100, 255, 100)
 		incomeText.Parent                = sg
 
+		-- Bottom: rarity (rarity color)
 		local rarityText = Instance.new("TextLabel")
-		rarityText.Size                  = UDim2.new(1, 0, 0.45, 0)
-		rarityText.Position              = UDim2.new(0, 0, 0.55, 0)
+		rarityText.Size                  = UDim2.new(1, 0, 0.27, 0)
+		rarityText.Position              = UDim2.new(0, 0, 0.73, 0)
 		rarityText.BackgroundTransparency = 1
 		rarityText.Text                  = brainrotData.rarity
 		rarityText.TextScaled            = true
@@ -458,6 +532,10 @@ local BELT_Y       = 0.5  -- height
 local BELT_START_X = -BELT_LENGTH / 2
 local BELT_END_X   =  BELT_LENGTH / 2
 
+-- Number of stripes and their spacing (studs apart)
+local STRIPE_COUNT   = 8
+local STRIPE_SPACING = BELT_LENGTH / STRIPE_COUNT
+
 function ShopSystem.createShopPads()
 
 	-- -----------------------------------------------------------------------
@@ -474,16 +552,89 @@ function ShopSystem.createShopPads()
 	belt.Parent      = workspace
 
 	-- Belt stripes (decorative arrows showing direction)
-	for i = -3, 3 do
+	-- Stored so their positions can be animated each heartbeat.
+	local stripes = {}
+	for i = 0, STRIPE_COUNT - 1 do
 		local stripe = Instance.new("Part")
 		stripe.Anchored   = true
 		stripe.Size       = Vector3.new(2, 0.05, BELT_WIDTH - 1)
-		stripe.Position   = Vector3.new(i * 10, BELT_Y + 0.32, 0)
 		stripe.BrickColor = BrickColor.new("Bright orange")
 		stripe.Material   = Enum.Material.Neon
 		stripe.CanCollide = false
 		stripe.Parent     = workspace
+		stripes[i + 1] = stripe
 	end
+
+	-- Animate stripes to simulate belt movement
+	local stripeOffset = 0
+	RunService.Heartbeat:Connect(function(dt)
+		stripeOffset = (stripeOffset + BELT_SPEED * dt) % STRIPE_SPACING
+		for i, stripe in ipairs(stripes) do
+			local baseX = BELT_START_X + (i - 1) * STRIPE_SPACING
+			local x = baseX + stripeOffset
+			-- Wrap around so stripes loop seamlessly within belt bounds
+			if x > BELT_END_X then
+				x = x - BELT_LENGTH
+			end
+			stripe.Position = Vector3.new(x, BELT_Y + 0.32, 0)
+		end
+	end)
+
+	-- -----------------------------------------------------------------------
+	-- Entry portal (glowing neon arch at belt start)
+	-- -----------------------------------------------------------------------
+	local function buildPortal(xPos, color)
+		-- Left pillar
+		local pillarL = Instance.new("Part")
+		pillarL.Anchored   = true
+		pillarL.Size       = Vector3.new(0.6, 10, 0.6)
+		pillarL.Position   = Vector3.new(xPos, BELT_Y + 5, -BELT_WIDTH / 2 - 0.5)
+		pillarL.BrickColor = BrickColor.new("Really black")
+		pillarL.Material   = Enum.Material.Neon
+		pillarL.CanCollide = false
+		pillarL.Parent     = workspace
+
+		-- Right pillar
+		local pillarR = Instance.new("Part")
+		pillarR.Anchored   = true
+		pillarR.Size       = Vector3.new(0.6, 10, 0.6)
+		pillarR.Position   = Vector3.new(xPos, BELT_Y + 5, BELT_WIDTH / 2 + 0.5)
+		pillarR.BrickColor = BrickColor.new("Really black")
+		pillarR.Material   = Enum.Material.Neon
+		pillarR.CanCollide = false
+		pillarR.Parent     = workspace
+
+		-- Arch crossbar
+		local arch = Instance.new("Part")
+		arch.Anchored   = true
+		arch.Size       = Vector3.new(0.6, 0.6, BELT_WIDTH + 2)
+		arch.Position   = Vector3.new(xPos, BELT_Y + 10.3, 0)
+		arch.BrickColor = BrickColor.new("Really black")
+		arch.Material   = Enum.Material.Neon
+		arch.CanCollide = false
+		arch.Parent     = workspace
+
+		-- Glow light on arch
+		local archLight = Instance.new("PointLight")
+		archLight.Brightness = 4
+		archLight.Range      = 18
+		archLight.Color      = color
+		archLight.Parent     = arch
+
+		-- Pulse the glow color over time
+		RunService.Heartbeat:Connect(function()
+			if not arch or not arch.Parent then return end
+			local h   = (tick() * 0.4) % 1
+			local c   = Color3.fromHSV(h, 0.9, 1)
+			arch.Color       = c
+			pillarL.Color    = c
+			pillarR.Color    = c
+			archLight.Color  = c
+		end)
+	end
+
+	buildPortal(BELT_START_X - 1, Color3.fromRGB(0, 200, 255))
+	buildPortal(BELT_END_X   + 1, Color3.fromRGB(255, 80, 200))
 
 	-- SHOP sign above belt start
 	local signPost = Instance.new("Part")
@@ -510,7 +661,7 @@ function ShopSystem.createShopPads()
 	local signLabel = Instance.new("TextLabel")
 	signLabel.Size                   = UDim2.new(1, 0, 1, 0)
 	signLabel.BackgroundTransparency = 1
-	signLabel.Text                   = "🛒  BRAINROT SHOP\nTouch one to buy!"
+	signLabel.Text                   = "🛒  BRAINROT SHOP\nHold E on one to buy!"
 	signLabel.TextScaled             = true
 	signLabel.Font                   = Enum.Font.GothamBold
 	signLabel.TextColor3             = Color3.fromRGB(255, 220, 50)
@@ -571,100 +722,114 @@ function ShopSystem.createShopPads()
 					if body then
 						conveyorItems[body] = true
 
-						-- Buy on touch
-						body.Touched:Connect(function(hit)
-							local character = hit.Parent
-							local player = game.Players:GetPlayerFromCharacter(character)
-							if not player then return end
-							if buyDebounce[player] then return end
-							if not conveyorItems[body] then return end -- already bought
+						-- ProximityPrompt buy (hold E for 0.3s — prevents accidental purchase)
+						local prompt = Instance.new("ProximityPrompt")
+						prompt.ObjectText            = chosen.name
+						prompt.ActionText            = chosen.cost and ("Buy - $" .. chosen.cost) or "Gacha Only"
+						prompt.MaxActivationDistance = 8
+						prompt.HoldDuration          = 0.3
+						prompt.UIOffset              = Vector2.new(0, 50)
+						prompt.Parent                = body
 
-							local price = chosen.cost
-							if price == nil then
-								-- Gacha-only: inform player
+						prompt.Triggered:Connect(function(player)
+							if not conveyorItems[body] then return end  -- already bought
+							if buyDebounce[player] then return end
+
+							if chosen.cost == nil then
 								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
-								RE:WaitForChild("Notification"):FireClient(
-									player,
-									chosen.name .. " is GACHA only! Spin the gacha wheel.",
-									Color3.fromRGB(255, 150, 0)
-								)
+								RE:WaitForChild("Notification"):FireClient(player,
+									chosen.name .. " is GACHA only!", Color3.fromRGB(255, 150, 0))
 								return
 							end
 
 							local money = player:GetAttribute("Money") or 0
-							if money < price then
+							if money < chosen.cost then
 								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
-								RE:WaitForChild("Notification"):FireClient(
-									player,
-									"Need $" .. price .. " to buy " .. chosen.name .. "!",
-									Color3.fromRGB(255, 80, 80)
-								)
+								RE:WaitForChild("Notification"):FireClient(player,
+									"Need $" .. chosen.cost .. "! You have $" .. money,
+									Color3.fromRGB(255, 80, 80))
 								return
 							end
 
-							-- Purchase
 							buyDebounce[player] = true
-							task.delay(1.5, function() buyDebounce[player] = nil end)
+							task.delay(2, function() buyDebounce[player] = nil end)
 
-							player:SetAttribute("Money", money - price)
+							player:SetAttribute("Money", money - chosen.cost)
 							conveyorItems[body] = nil
+							prompt:Destroy()
 
-							-- Move to buyer's base
+							-- Move to base
 							local baseInfo = _playerBases[player]
 							local dest = baseInfo
 								and Vector3.new(
 									baseInfo.position.X + math.random(-12, 12),
 									baseInfo.position.Y + chosen.size / 2 + 1,
-									baseInfo.position.Z + math.random(-12, 12)
-								)
+									baseInfo.position.Z + math.random(-12, 12))
 								or Vector3.new(0, 5, 0)
 
-							-- Remove from conveyor, place in base
 							body.Anchored = true
 							body.CFrame = CFrame.new(dest)
 							_brainrotOwner[body] = player
+							body:SetAttribute("IncomePerSecond", chosen.income)
+							body:SetAttribute("BrainrotId", chosen.id)
+							body:SetAttribute("BrainrotName", chosen.name)
 
-							-- Update collection
 							if not _playerCollection[player] then _playerCollection[player] = {} end
 							_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
 
 							local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
 							RE:WaitForChild("CollectionUpdated"):FireClient(player, _playerCollection[player])
-							RE:WaitForChild("Notification"):FireClient(
-								player,
-								"You bought " .. chosen.name .. "!",
-								RARITY_COLOR[chosen.rarity] or Color3.fromRGB(100, 255, 100)
-							)
+							RE:WaitForChild("Notification"):FireClient(player,
+								"✅ Bought " .. chosen.name .. "! +" .. chosen.income .. "$/s",
+								Color3.fromRGB(100, 255, 100))
 
 							-- Spawn income plaque at destination
 							local plaque = Instance.new("Part")
-							plaque.Size       = Vector3.new(2.5, 1.2, 0.1)
+							plaque.Size       = Vector3.new(3, 1.5, 0.1)
 							plaque.Position   = Vector3.new(dest.X, dest.Y - chosen.size * 0.3, dest.Z + chosen.size * 0.9)
 							plaque.Anchored   = true
 							plaque.CanCollide = false
 							plaque.BrickColor = BrickColor.new("Really black")
 							plaque.Material   = Enum.Material.SmoothPlastic
 							plaque.Parent     = workspace
+
 							local sg = Instance.new("SurfaceGui")
 							sg.Face = Enum.NormalId.Front
 							sg.Parent = plaque
+
+							-- Name (top, white)
+							local t0 = Instance.new("TextLabel")
+							t0.Size = UDim2.new(1, 0, 0.33, 0)
+							t0.Position = UDim2.new(0, 0, 0, 0)
+							t0.BackgroundTransparency = 1
+							t0.Text = chosen.name
+							t0.TextScaled = true
+							t0.Font = Enum.Font.GothamBold
+							t0.TextColor3 = Color3.fromRGB(255, 255, 255)
+							t0.Parent = sg
+
+							-- Income (middle, green, large)
 							local t1 = Instance.new("TextLabel")
-							t1.Size = UDim2.new(1,0,0.55,0)
+							t1.Size = UDim2.new(1, 0, 0.40, 0)
+							t1.Position = UDim2.new(0, 0, 0.33, 0)
 							t1.BackgroundTransparency = 1
 							t1.Text = "$" .. chosen.income .. "/s"
 							t1.TextScaled = true
 							t1.Font = Enum.Font.GothamBold
 							t1.TextColor3 = Color3.fromRGB(100, 255, 100)
 							t1.Parent = sg
+
+							-- Rarity (bottom, rarity color)
 							local t2 = Instance.new("TextLabel")
-							t2.Size = UDim2.new(1,0,0.45,0)
-							t2.Position = UDim2.new(0,0,0.55,0)
+							t2.Size = UDim2.new(1, 0, 0.27, 0)
+							t2.Position = UDim2.new(0, 0, 0.73, 0)
 							t2.BackgroundTransparency = 1
 							t2.Text = chosen.rarity
 							t2.TextScaled = true
 							t2.Font = Enum.Font.Gotham
-							t2.TextColor3 = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255,255,255)
+							t2.TextColor3 = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
 							t2.Parent = sg
+
 							body.AncestryChanged:Connect(function()
 								if not body.Parent then plaque:Destroy() end
 							end)

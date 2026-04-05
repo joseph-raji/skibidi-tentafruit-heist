@@ -65,9 +65,6 @@ local trapOwners = {}
 -- Per-player trap count by type: trapCount[player][id] = number
 local trapCount  = {}
 
--- Per-player buy-touch debounce: buyDebounce[player][itemId] = true
-local buyDebounce = {}
-
 -- =========================================================================
 -- Public: init
 -- =========================================================================
@@ -363,7 +360,6 @@ local function makeGrapplingHookTool()
 		-- Raycast 60 studs forward from player look direction
 		local lookDir = root.CFrame.LookVector
 		local origin  = root.Position + Vector3.new(0, 1, 0)
-		local target  = origin + lookDir * 60
 
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterDescendantsInstances = { char }
@@ -399,14 +395,17 @@ local function makeGrapplingHookTool()
 			end)
 		end)
 
-		-- Zip toward hit point using BodyVelocity
+		-- Zip toward hit point using LinearVelocity
 		task.spawn(function()
-			local bv = Instance.new("BodyVelocity")
-			bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-			bv.Velocity = Vector3.zero
-			bv.Parent   = root
+			local attachment = Instance.new("Attachment")
+			attachment.Parent = root
 
-			local dir = (hitPoint - root.Position).Unit * 80
+			local lv = Instance.new("LinearVelocity")
+			lv.Attachment0 = attachment
+			lv.VectorVelocity = Vector3.zero
+			lv.MaxForce = 100000
+			lv.RelativeTo = Enum.ActuatorRelativeTo.World
+			lv.Parent = root
 
 			local elapsed   = 0
 			local maxTime   = 1.5
@@ -415,17 +414,19 @@ local function makeGrapplingHookTool()
 				elapsed = elapsed + dt
 				if not root or not root.Parent then
 					connection:Disconnect()
-					bv:Destroy()
+					lv:Destroy()
+					attachment:Destroy()
 					return
 				end
 				local dist = (hitPoint - root.Position).Magnitude
 				if dist <= 4 or elapsed >= maxTime then
 					connection:Disconnect()
-					bv:Destroy()
+					lv:Destroy()
+					attachment:Destroy()
 					return
 				end
 				-- Recalculate direction each frame so we curve toward target
-				bv.Velocity = (hitPoint - root.Position).Unit * 80
+				lv.VectorVelocity = (hitPoint - root.Position).Unit * 80
 			end)
 		end)
 	end)
@@ -877,13 +878,21 @@ local function makeBouncerTrapTool()
 			if awayDir.Magnitude < 0.1 then awayDir = Vector3.new(1, 0, 0) end
 			awayDir = awayDir.Unit
 
-			local bv = Instance.new("BodyVelocity")
-			bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-			bv.Velocity = awayDir * 60 + Vector3.new(0, 80, 0)
-			bv.Parent   = victimRoot
+			local launchVelocity = awayDir * 60 + Vector3.new(0, 80, 0)
+
+			local attachment = Instance.new("Attachment")
+			attachment.Parent = victimRoot
+
+			local lv = Instance.new("LinearVelocity")
+			lv.Attachment0    = attachment
+			lv.VectorVelocity = launchVelocity
+			lv.MaxForce       = 100000
+			lv.RelativeTo     = Enum.ActuatorRelativeTo.World
+			lv.Parent         = victimRoot
 
 			task.delay(0.25, function()
-				if bv and bv.Parent then bv:Destroy() end
+				if lv and lv.Parent then lv:Destroy() end
+				if attachment and attachment.Parent then attachment:Destroy() end
 			end)
 
 			evtNotification:FireClient(victim, "Bounced out of the base!", Color3.fromRGB(255, 0, 128))
@@ -1041,6 +1050,19 @@ function ItemsSystem.buyItem(player, itemId)
 end
 
 -- =========================================================================
+-- Public: dropBrainrot helper (clears _carrying reference)
+-- =========================================================================
+
+function ItemsSystem.dropBrainrot(player)
+	if _carrying[player] then
+		_carrying[player].Anchored = true
+		_carrying[player] = nil
+		player:SetAttribute("IsCarrying", false)
+		player:SetAttribute("CarryingBrainrotName", "")
+	end
+end
+
+-- =========================================================================
 -- Public: shield helpers
 -- =========================================================================
 
@@ -1075,13 +1097,51 @@ function ItemsSystem.consumeShield(player, bubblePart)
 end
 
 -- =========================================================================
+-- Internal: create a floating section sign above a group of pedestals
+-- =========================================================================
+
+local function makeSectionSign(text, color, posX, posY, posZ)
+	local signPart = Instance.new("Part")
+	signPart.Name        = "ShopSectionSign_" .. text
+	signPart.Anchored    = true
+	signPart.CanCollide  = false
+	signPart.Size        = Vector3.new(18, 3, 0.2)
+	signPart.CFrame      = CFrame.new(posX, posY, posZ)
+	signPart.BrickColor  = BrickColor.new("Really black")
+	signPart.Material    = Enum.Material.SmoothPlastic
+	signPart.Transparency = 0.2
+	signPart.Parent      = workspace
+
+	local sg = Instance.new("SurfaceGui")
+	sg.Face   = Enum.NormalId.Front
+	sg.Parent = signPart
+
+	local lbl = Instance.new("TextLabel")
+	lbl.Size                   = UDim2.new(1, 0, 1, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text                   = text
+	lbl.TextColor3             = color
+	lbl.TextStrokeTransparency = 0.2
+	lbl.TextScaled             = true
+	lbl.Font                   = Enum.Font.GothamBold
+	lbl.Parent                 = sg
+
+	local light = Instance.new("PointLight")
+	light.Brightness = 1
+	light.Range      = 12
+	light.Color      = color
+	light.Parent     = signPart
+end
+
+-- =========================================================================
 -- Public: createItemsShop
 -- =========================================================================
 
 function ItemsSystem.createItemsShop()
 	local SHOP_Z     = -60
 	local FLOOR_Y    = 0.5
-	local STAND_Y    = FLOOR_Y + 1.25  -- top of pedestal
+	local STAND_HEIGHT  = 2.5
+	local PEDESTAL_SIZE = Vector3.new(3, STAND_HEIGHT, 3)
 
 	-- -----------------------------------------------------------------------
 	-- Floor
@@ -1140,157 +1200,177 @@ function ItemsSystem.createItemsShop()
 	signLabel.Parent                 = signGui
 
 	-- -----------------------------------------------------------------------
-	-- Build 10 display stands in two rows of 5
-	-- Row 0 (items 1-5): SHOP_Z - 7
-	-- Row 1 (items 6-10): SHOP_Z + 7
-	-- Columns spaced 14 studs apart, centered at X=0
+	-- Category grouping: define which items belong to which section and their
+	-- layout. Sections are placed left-to-right along the shop floor.
+	--
+	-- Layout:
+	--   WEAPONS  (2 items) — leftmost group,  columns centered around X = -28
+	--   MOBILITY (3 items) — next group,       columns centered around X = -7
+	--   TRAPS    (4 items) — next group,       columns centered around X = 14
+	--   DEFENSE  (1 item)  — rightmost group,  centered at X = 28
+	--
+	-- Each pedestal sits at SHOP_Z (single row — shop is narrower this way).
 	-- -----------------------------------------------------------------------
 
-	local ROW_Z_OFFSET  = { -7, 7 }
-	local COL_SPACING   = 14
-	local STAND_HEIGHT  = 2.5
-	local PEDESTAL_SIZE = Vector3.new(3, STAND_HEIGHT, 3)
+	local SECTIONS = {
+		{
+			label    = "⚔️ WEAPONS",
+			color    = CATEGORY_COLOR.weapon,
+			centerX  = -28,
+			posZ     = SHOP_Z,
+			items    = { "power_bat", "rocket_bat" },
+		},
+		{
+			label    = "🏃 MOBILITY",
+			color    = CATEGORY_COLOR.mobility,
+			centerX  = -7,
+			posZ     = SHOP_Z,
+			items    = { "grappling_hook", "speed_boots", "invis_cap" },
+		},
+		{
+			label    = "🪤 TRAPS",
+			color    = CATEGORY_COLOR.trap,
+			centerX  = 14,
+			posZ     = SHOP_Z,
+			items    = { "spike_trap", "alarm_trap", "freeze_trap", "bouncer_trap" },
+		},
+		{
+			label    = "🛡️ DEFENSE",
+			color    = CATEGORY_COLOR.defense,
+			centerX  = 28,
+			posZ     = SHOP_Z,
+			items    = { "shield_bubble" },
+		},
+	}
 
-	for idx, item in ipairs(ITEMS) do
-		local row   = idx <= 5 and 0 or 1
-		local col   = (idx - 1) % 5           -- 0..4
-		local posX  = (col - 2) * COL_SPACING -- centers the 5 columns
-		local posZ  = SHOP_Z + ROW_Z_OFFSET[row + 1]
-		local baseY = FLOOR_Y + STAND_HEIGHT / 2
+	local COL_SPACING = 8  -- tighter spacing within a section
 
-		-- Pedestal
-		local pedestal = Instance.new("Part")
-		pedestal.Name      = "ItemStand_" .. item.id
-		pedestal.Anchored  = true
-		pedestal.Size      = PEDESTAL_SIZE
-		pedestal.Position  = Vector3.new(posX, baseY, posZ)
-		pedestal.BrickColor = BrickColor.new("Dark stone grey")
-		pedestal.Material  = Enum.Material.SmoothPlastic
-		pedestal.TopSurface = Enum.SurfaceType.Smooth
-		pedestal.Parent    = workspace
+	for _, section in ipairs(SECTIONS) do
+		local itemCount  = #section.items
+		-- Spread columns symmetrically around centerX
+		local totalWidth = (itemCount - 1) * COL_SPACING
+		local startX     = section.centerX - totalWidth / 2
 
-		-- Colored top cap (item's category color)
-		local cap = Instance.new("Part")
-		cap.Name      = "ItemStandCap_" .. item.id
-		cap.Anchored  = true
-		cap.CanCollide = false
-		cap.Size      = Vector3.new(3.2, 0.3, 3.2)
-		cap.Position  = Vector3.new(posX, FLOOR_Y + STAND_HEIGHT + 0.15, posZ)
-		cap.Color     = CATEGORY_COLOR[item.category] or Color3.fromRGB(200, 200, 200)
-		cap.Material  = Enum.Material.Neon
-		cap.Transparency = 0.2
-		cap.Parent    = workspace
+		-- Section sign floating above the group
+		local signY = FLOOR_Y + STAND_HEIGHT + 5
+		makeSectionSign(section.label, section.color, section.centerX, signY, section.posZ - 1)
 
-		-- Point light on cap
-		local light = Instance.new("PointLight")
-		light.Brightness = 1.5
-		light.Range      = 8
-		light.Color      = CATEGORY_COLOR[item.category] or Color3.fromRGB(200, 200, 200)
-		light.Parent     = cap
+		for i, itemId in ipairs(section.items) do
+			local item  = ITEM_BY_ID[itemId]
+			local posX  = startX + (i - 1) * COL_SPACING
+			local posZ  = section.posZ
+			local baseY = FLOOR_Y + STAND_HEIGHT / 2
 
-		-- Icon part (small sphere on top)
-		local iconPart = Instance.new("Part")
-		iconPart.Name        = "ItemIcon_" .. item.id
-		iconPart.Anchored    = true
-		iconPart.CanCollide  = false
-		iconPart.Shape       = Enum.PartType.Ball
-		iconPart.Size        = Vector3.new(1.5, 1.5, 1.5)
-		iconPart.Position    = Vector3.new(posX, FLOOR_Y + STAND_HEIGHT + 1.2, posZ)
-		iconPart.BrickColor  = item.color
-		iconPart.Material    = Enum.Material.Neon
-		iconPart.Parent      = workspace
+			-- Pedestal
+			local pedestal = Instance.new("Part")
+			pedestal.Name      = "ItemStand_" .. item.id
+			pedestal.Anchored  = true
+			pedestal.Size      = PEDESTAL_SIZE
+			pedestal.Position  = Vector3.new(posX, baseY, posZ)
+			pedestal.BrickColor = BrickColor.new("Dark stone grey")
+			pedestal.Material  = Enum.Material.SmoothPlastic
+			pedestal.TopSurface = Enum.SurfaceType.Smooth
+			pedestal.Parent    = workspace
 
-		-- Billboard above the stand
-		local bb = Instance.new("BillboardGui")
-		bb.Size        = UDim2.new(0, 180, 0, 100)
-		bb.StudsOffset = Vector3.new(0, 5, 0)
-		bb.AlwaysOnTop = false
-		bb.Parent      = pedestal
+			-- Colored top cap (category color)
+			local cap = Instance.new("Part")
+			cap.Name      = "ItemStandCap_" .. item.id
+			cap.Anchored  = true
+			cap.CanCollide = false
+			cap.Size      = Vector3.new(3.2, 0.3, 3.2)
+			cap.Position  = Vector3.new(posX, FLOOR_Y + STAND_HEIGHT + 0.15, posZ)
+			cap.Color     = CATEGORY_COLOR[item.category] or Color3.fromRGB(200, 200, 200)
+			cap.Material  = Enum.Material.Neon
+			cap.Transparency = 0.2
+			cap.Parent    = workspace
 
-		-- Icon + Name row
-		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Size                   = UDim2.new(1, 0, 0.35, 0)
-		nameLabel.Position               = UDim2.new(0, 0, 0, 0)
-		nameLabel.BackgroundTransparency = 1
-		nameLabel.Text                   = item.icon .. " " .. item.name
-		nameLabel.TextColor3             = Color3.fromRGB(255, 255, 255)
-		nameLabel.TextStrokeTransparency = 0.3
-		nameLabel.TextScaled             = true
-		nameLabel.Font                   = Enum.Font.GothamBold
-		nameLabel.Parent                 = bb
+			-- Point light on cap
+			local pedLight = Instance.new("PointLight")
+			pedLight.Brightness = 1.5
+			pedLight.Range      = 8
+			pedLight.Color      = CATEGORY_COLOR[item.category] or Color3.fromRGB(200, 200, 200)
+			pedLight.Parent     = cap
 
-		-- Category label
-		local catLabel = Instance.new("TextLabel")
-		catLabel.Size                   = UDim2.new(1, 0, 0.25, 0)
-		catLabel.Position               = UDim2.new(0, 0, 0.35, 0)
-		catLabel.BackgroundTransparency = 1
-		catLabel.Text                   = "[" .. item.category:upper() .. "]"
-		catLabel.TextColor3             = CATEGORY_COLOR[item.category] or Color3.fromRGB(200, 200, 200)
-		catLabel.TextStrokeTransparency = 0.4
-		catLabel.TextScaled             = true
-		catLabel.Font                   = Enum.Font.Gotham
-		catLabel.Parent                 = bb
+			-- Icon part (small sphere on top)
+			local iconPart = Instance.new("Part")
+			iconPart.Name        = "ItemIcon_" .. item.id
+			iconPart.Anchored    = true
+			iconPart.CanCollide  = false
+			iconPart.Shape       = Enum.PartType.Ball
+			iconPart.Size        = Vector3.new(1.5, 1.5, 1.5)
+			iconPart.Position    = Vector3.new(posX, FLOOR_Y + STAND_HEIGHT + 1.2, posZ)
+			iconPart.BrickColor  = item.color
+			iconPart.Material    = Enum.Material.Neon
+			iconPart.Parent      = workspace
 
-		-- Cost label
-		local costLabel = Instance.new("TextLabel")
-		costLabel.Size                   = UDim2.new(1, 0, 0.25, 0)
-		costLabel.Position               = UDim2.new(0, 0, 0.6, 0)
-		costLabel.BackgroundTransparency = 1
-		costLabel.Text                   = "$" .. item.cost
-		costLabel.TextColor3             = Color3.fromRGB(100, 255, 100)
-		costLabel.TextStrokeTransparency = 0.4
-		costLabel.TextScaled             = true
-		costLabel.Font                   = Enum.Font.GothamBold
-		costLabel.Parent                 = bb
+			-- Billboard above the stand
+			local bb = Instance.new("BillboardGui")
+			bb.Size        = UDim2.new(0, 180, 0, 110)
+			bb.StudsOffset = Vector3.new(0, 5, 0)
+			bb.AlwaysOnTop = false
+			bb.Parent      = pedestal
 
-		-- Description label
-		local descLabel = Instance.new("TextLabel")
-		descLabel.Size                   = UDim2.new(1, 0, 0.15, 0)
-		descLabel.Position               = UDim2.new(0, 0, 0.85, 0)
-		descLabel.BackgroundTransparency = 1
-		descLabel.Text                   = item.description
-		descLabel.TextColor3             = Color3.fromRGB(200, 200, 200)
-		descLabel.TextStrokeTransparency = 0.5
-		descLabel.TextScaled             = true
-		descLabel.Font                   = Enum.Font.Gotham
-		descLabel.Parent                 = bb
+			-- Icon + Name row
+			local nameLabel = Instance.new("TextLabel")
+			nameLabel.Size                   = UDim2.new(1, 0, 0.30, 0)
+			nameLabel.Position               = UDim2.new(0, 0, 0, 0)
+			nameLabel.BackgroundTransparency = 1
+			nameLabel.Text                   = item.icon .. " " .. item.name
+			nameLabel.TextColor3             = Color3.fromRGB(255, 255, 255)
+			nameLabel.TextStrokeTransparency = 0.3
+			nameLabel.TextScaled             = true
+			nameLabel.Font                   = Enum.Font.GothamBold
+			nameLabel.Parent                 = bb
 
-		-- Touch-to-buy: per-player 1.5s debounce
-		local itemId  = item.id  -- capture for closure
-		pedestal.Touched:Connect(function(hit)
-			local character = hit.Parent
-			local player = Players:GetPlayerFromCharacter(character)
-			if not player then return end
+			-- Category label
+			local catLabel = Instance.new("TextLabel")
+			catLabel.Size                   = UDim2.new(1, 0, 0.20, 0)
+			catLabel.Position               = UDim2.new(0, 0, 0.30, 0)
+			catLabel.BackgroundTransparency = 1
+			catLabel.Text                   = "[" .. item.category:upper() .. "]"
+			catLabel.TextColor3             = CATEGORY_COLOR[item.category] or Color3.fromRGB(200, 200, 200)
+			catLabel.TextStrokeTransparency = 0.4
+			catLabel.TextScaled             = true
+			catLabel.Font                   = Enum.Font.Gotham
+			catLabel.Parent                 = bb
 
-			if not buyDebounce[player] then buyDebounce[player] = {} end
-			if buyDebounce[player][itemId] then return end
-			buyDebounce[player][itemId] = true
-			task.delay(1.5, function()
-				if buyDebounce[player] then
-					buyDebounce[player][itemId] = nil
-				end
+			-- Cost label
+			local costLabel = Instance.new("TextLabel")
+			costLabel.Size                   = UDim2.new(1, 0, 0.22, 0)
+			costLabel.Position               = UDim2.new(0, 0, 0.50, 0)
+			costLabel.BackgroundTransparency = 1
+			costLabel.Text                   = "$" .. item.cost
+			costLabel.TextColor3             = Color3.fromRGB(100, 255, 100)
+			costLabel.TextStrokeTransparency = 0.4
+			costLabel.TextScaled             = true
+			costLabel.Font                   = Enum.Font.GothamBold
+			costLabel.Parent                 = bb
+
+			-- Description label
+			local descLabel = Instance.new("TextLabel")
+			descLabel.Size                   = UDim2.new(1, 0, 0.18, 0)
+			descLabel.Position               = UDim2.new(0, 0, 0.82, 0)
+			descLabel.BackgroundTransparency = 1
+			descLabel.Text                   = item.description
+			descLabel.TextColor3             = Color3.fromRGB(200, 200, 200)
+			descLabel.TextStrokeTransparency = 0.5
+			descLabel.TextScaled             = true
+			descLabel.Font                   = Enum.Font.Gotham
+			descLabel.Parent                 = bb
+
+			-- ProximityPrompt on the icon sphere — replaces Touched buy logic
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.ObjectText            = item.name
+			prompt.ActionText            = "Buy — $" .. item.cost
+			prompt.MaxActivationDistance = 8
+			prompt.HoldDuration          = 0.5
+			prompt.Parent                = iconPart
+
+			local capturedId = item.id  -- capture for closure
+			prompt.Triggered:Connect(function(buyingPlayer)
+				ItemsSystem.buyItem(buyingPlayer, capturedId)
 			end)
-
-			ItemsSystem.buyItem(player, itemId)
-		end)
-
-		-- Cap also triggers buy on touch
-		cap.Touched:Connect(function(hit)
-			local character = hit.Parent
-			local player = Players:GetPlayerFromCharacter(character)
-			if not player then return end
-
-			if not buyDebounce[player] then buyDebounce[player] = {} end
-			if buyDebounce[player][itemId] then return end
-			buyDebounce[player][itemId] = true
-			task.delay(1.5, function()
-				if buyDebounce[player] then
-					buyDebounce[player][itemId] = nil
-				end
-			end)
-
-			ItemsSystem.buyItem(player, itemId)
-		end)
+		end
 	end
 end
 
@@ -1299,9 +1379,8 @@ end
 -- =========================================================================
 
 Players.PlayerRemoving:Connect(function(player)
-	cooldowns[player]    = nil
-	trapCount[player]    = nil
-	buyDebounce[player]  = nil
+	cooldowns[player]   = nil
+	trapCount[player]   = nil
 	-- Clean up any traps owned by this player
 	for trapPart, owner in pairs(trapOwners) do
 		if owner == player then

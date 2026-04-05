@@ -32,7 +32,7 @@ function CombatSystem.dropBrainrot(player, carrying)
 		return
 	end
 
-	-- Anchor the brainrot in place where it was dropped
+	-- Anchor the brainrot at its current position
 	brainrot.Anchored = true
 
 	carrying[player] = nil
@@ -46,6 +46,23 @@ function CombatSystem.dropBrainrot(player, carrying)
 	)
 end
 
+local function flashRed(character)
+	local origColors = {}
+	for _, part in ipairs(character:GetDescendants()) do
+		if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+			origColors[part] = part.BrickColor
+			part.BrickColor = BrickColor.new("Bright red")
+		end
+	end
+	task.delay(0.2, function()
+		for part, color in pairs(origColors) do
+			if part and part.Parent then
+				part.BrickColor = color
+			end
+		end
+	end)
+end
+
 function CombatSystem.detectHit(attacker, carrying, playerBases, brainrotOwner)
 	local attackerChar = attacker.Character
 	if not attackerChar then
@@ -57,7 +74,6 @@ function CombatSystem.detectHit(attacker, carrying, playerBases, brainrotOwner)
 		return
 	end
 
-	local attackerPos = attackerRoot.Position
 	local hitSomeone = false
 
 	for _, target in ipairs(Players:GetPlayers()) do
@@ -75,26 +91,33 @@ function CombatSystem.detectHit(attacker, carrying, playerBases, brainrotOwner)
 			continue
 		end
 
-		local distance = (attackerPos - targetRoot.Position).Magnitude
-		if distance > HIT_RANGE then
+		local dist = (targetRoot.Position - attackerRoot.Position).Magnitude
+		if dist > HIT_RANGE then
 			continue
 		end
 
-		-- Hit visual: brief red highlight on the target's character
-		for _, part in ipairs(targetChar:GetDescendants()) do
-			if part:IsA("BasePart") then
-				local originalColor = part.Color
-				local originalMaterial = part.Material
-				part.Color = Color3.fromRGB(220, 50, 50)
-				part.Material = Enum.Material.Neon
-				task.delay(0.2, function()
-					if part and part.Parent then
-						part.Color = originalColor
-						part.Material = originalMaterial
+		-- Check shield before applying any hit effects
+		local hasShield = target:GetAttribute("HasShield") == true
+		if hasShield then
+			-- Shield absorbs the hit
+			target:SetAttribute("HasShield", false)
+			-- Destroy the shield bubble Part on the character
+			local char = target.Character
+			if char then
+				for _, part in ipairs(char:GetChildren()) do
+					if part.Name == "ShieldBubble" then
+						part:Destroy()
 					end
-				end)
+				end
 			end
+			evtNotification:FireClient(attacker, "🛡️ Their shield blocked your hit!", Color3.fromRGB(100, 200, 255))
+			evtNotification:FireClient(target, "🛡️ Shield blocked a hit!", Color3.fromRGB(100, 200, 255))
+			hitSomeone = true
+			continue
 		end
+
+		-- No shield: apply hit flash
+		flashRed(targetChar)
 
 		if carrying[target] then
 			CombatSystem.dropBrainrot(target, carrying)
@@ -134,17 +157,51 @@ function CombatSystem.createBatTool()
 	tool.ToolTip = "Hit carriers to make them drop!"
 	tool.RequiresHandle = true
 
-	-- Handle: a simple brown bat shape
+	-- Handle: main bat body (tall, brown, Wood material)
 	local handle = Instance.new("Part")
 	handle.Name = "Handle"
-	handle.Size = Vector3.new(1, 3, 1)
-	handle.Color = Color3.fromRGB(101, 71, 25) -- brown
-	handle.Material = Enum.Material.SmoothPlastic
+	handle.Size = Vector3.new(1, 4, 1)
+	handle.BrickColor = BrickColor.new("Reddish brown")
+	handle.Material = Enum.Material.Wood
 	handle.CastShadow = true
 	handle.Parent = tool
 
-	-- Grip offset: hold near the bottom of the bat
-	tool.GripPos = Vector3.new(0, -1.2, 0)
+	-- Grip wrap: darker band at the bottom of the handle
+	local grip = Instance.new("Part")
+	grip.Name = "GripWrap"
+	grip.Size = Vector3.new(1.2, 1.5, 1.2)
+	grip.BrickColor = BrickColor.new("Dark orange")
+	grip.Material = Enum.Material.Wood
+	grip.CastShadow = false
+	grip.Parent = tool
+
+	local gripWeld = Instance.new("WeldConstraint")
+	gripWeld.Part0 = handle
+	gripWeld.Part1 = grip
+	gripWeld.Parent = handle
+
+	-- Position grip at the bottom of the handle
+	grip.CFrame = handle.CFrame * CFrame.new(0, -1.25, 0)
+
+	-- "SKIBIDI BAT" label via SurfaceGui
+	local surfaceGui = Instance.new("SurfaceGui")
+	surfaceGui.Face = Enum.NormalId.Front
+	surfaceGui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+	surfaceGui.CanvasSize = Vector2.new(200, 800)
+	surfaceGui.Parent = handle
+
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(1, 0, 1, 0)
+	label.BackgroundTransparency = 1
+	label.Text = "SKIBIDI BAT"
+	label.TextColor3 = Color3.fromRGB(255, 220, 50)
+	label.TextScaled = true
+	label.Font = Enum.Font.GothamBold
+	label.Rotation = 90
+	label.Parent = surfaceGui
+
+	-- Hold grip at the bottom of the bat
+	tool.GripPos = Vector3.new(0, -1.5, 0)
 	tool.GripForward = Vector3.new(0, 0, 1)
 	tool.GripRight = Vector3.new(1, 0, 0)
 	tool.GripUp = Vector3.new(0, 1, 0)
@@ -164,11 +221,11 @@ function CombatSystem.createBatTool()
 		swingCooldowns[player] = now
 
 		-- Visual swing effect: flash handle yellow briefly
-		local originalColor = handle.Color
-		handle.Color = Color3.fromRGB(255, 220, 50)
+		local originalColor = handle.BrickColor
+		handle.BrickColor = BrickColor.new("Bright yellow")
 		task.delay(0.15, function()
 			if handle and handle.Parent then
-				handle.Color = originalColor
+				handle.BrickColor = originalColor
 			end
 		end)
 

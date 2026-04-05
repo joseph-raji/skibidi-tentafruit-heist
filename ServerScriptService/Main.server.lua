@@ -70,15 +70,107 @@ local baseIndex        = 0
 -- 5. Build the map
 -- ============================================================
 
--- Baseplate
+-- Large baseplate (tropical ground)
 local baseplate = Instance.new("Part")
-baseplate.Name        = "Baseplate"
-baseplate.Size        = Vector3.new(600, 1, 600)
-baseplate.Position    = Vector3.new(0, -1, 0)
-baseplate.Anchored    = true
-baseplate.BrickColor  = BrickColor.new("Medium stone grey")
-baseplate.Material    = Enum.Material.SmoothPlastic
-baseplate.Parent      = workspace
+baseplate.Name       = "Baseplate"
+baseplate.Size       = Vector3.new(700, 1, 700)
+baseplate.Position   = Vector3.new(0, -1, 0)
+baseplate.Anchored   = true
+baseplate.BrickColor = BrickColor.new("Sand green")
+baseplate.Material   = Enum.Material.Grass
+baseplate.Parent     = workspace
+
+-- Central island platform (raised slightly, where the shop is)
+local islandCenter = Instance.new("Part")
+islandCenter.Size        = Vector3.new(160, 2, 160)
+islandCenter.Position    = Vector3.new(0, 0, 0)
+islandCenter.Anchored    = true
+islandCenter.BrickColor  = BrickColor.new("Bright orange")
+islandCenter.Material    = Enum.Material.SmoothPlastic
+islandCenter.TopSurface  = Enum.SurfaceType.Smooth
+islandCenter.Parent      = workspace
+
+-- Paths connecting center to each base position (one per base)
+local BASE_POSITIONS = GameConfig.BASE_POSITIONS
+for _, pos in ipairs(BASE_POSITIONS) do
+	local dir      = Vector3.new(pos.X, 0, pos.Z).Unit
+	local dist     = Vector3.new(pos.X, 0, pos.Z).Magnitude
+	local midPoint = Vector3.new(pos.X / 2, 0.5, pos.Z / 2)
+
+	local path = Instance.new("Part")
+	path.CFrame    = CFrame.lookAt(midPoint, midPoint + dir)
+	path.Size      = Vector3.new(8, 0.5, dist - 20)
+	path.Anchored  = true
+	path.BrickColor = BrickColor.new("Tan")
+	path.Material  = Enum.Material.SmoothPlastic
+	path.Parent    = workspace
+end
+
+-- Decorative palm trees around the map
+local palmPositions = {
+	Vector3.new(50, 0, 50),  Vector3.new(-50, 0, 50),
+	Vector3.new(50, 0, -50), Vector3.new(-50, 0, -50),
+	Vector3.new(70, 0, 0),   Vector3.new(-70, 0, 0),
+	Vector3.new(0, 0, 70),   Vector3.new(0, 0, -70),
+}
+for _, treePos in ipairs(palmPositions) do
+	-- Trunk
+	local trunk = Instance.new("Part")
+	trunk.Size       = Vector3.new(1.5, 12, 1.5)
+	trunk.Position   = treePos + Vector3.new(0, 6, 0)
+	trunk.Anchored   = true
+	trunk.BrickColor = BrickColor.new("Reddish brown")
+	trunk.Material   = Enum.Material.Wood
+	trunk.Shape      = Enum.PartType.Cylinder
+	trunk.Parent     = workspace
+	-- Leaves (sphere on top)
+	local leaves = Instance.new("Part")
+	leaves.Shape      = Enum.PartType.Ball
+	leaves.Size       = Vector3.new(8, 6, 8)
+	leaves.Position   = treePos + Vector3.new(0, 13, 0)
+	leaves.Anchored   = true
+	leaves.BrickColor = BrickColor.new("Bright green")
+	leaves.Material   = Enum.Material.Grass
+	leaves.Parent     = workspace
+end
+
+-- Boundary water (visual only, large blue ring around the map)
+local waterParts = {
+	{ size = Vector3.new(700, 2, 50),  pos = Vector3.new(0,    -1.5,  375) },
+	{ size = Vector3.new(700, 2, 50),  pos = Vector3.new(0,    -1.5, -375) },
+	{ size = Vector3.new(50,  2, 700), pos = Vector3.new( 375, -1.5,    0) },
+	{ size = Vector3.new(50,  2, 700), pos = Vector3.new(-375, -1.5,    0) },
+}
+for _, w in ipairs(waterParts) do
+	local water = Instance.new("Part")
+	water.Size         = w.size
+	water.Position     = w.pos
+	water.Anchored     = true
+	water.BrickColor   = BrickColor.new("Cyan")
+	water.Material     = Enum.Material.Water
+	water.Transparency = 0.3
+	water.Parent       = workspace
+end
+
+-- Atmosphere and sky
+local atmosphere = Instance.new("Atmosphere")
+atmosphere.Density = 0.3
+atmosphere.Color   = Color3.fromRGB(199, 170, 120)
+atmosphere.Glare   = 0.5
+atmosphere.Haze    = 1.5
+atmosphere.Parent  = game:GetService("Lighting")
+
+Instance.new("Sky").Parent = game:GetService("Lighting")
+
+-- ============================================================
+-- 5b. Lighting
+-- ============================================================
+local Lighting = game:GetService("Lighting")
+Lighting.Brightness    = 3
+Lighting.ClockTime     = 14   -- afternoon
+Lighting.FogEnd        = 1000
+Lighting.GlobalShadows = true
+Lighting.Ambient       = Color3.fromRGB(100, 100, 80)
 
 -- ============================================================
 -- 6. Initialize all systems
@@ -241,6 +333,10 @@ Players.PlayerRemoving:Connect(function(player)
 	if carrying[player] then
 		StealSystem.dropBrainrot(player, carrying)
 	end
+	-- Remove carrying table entry and reset related attributes
+	carrying[player] = nil
+	player:SetAttribute("IsCarrying",         false)
+	player:SetAttribute("CarryingBrainrotName", "")
 
 	-- Destroy all brainrots owned by this player
 	for brainrot, owner in pairs(brainrotOwner) do
@@ -260,6 +356,8 @@ Players.PlayerRemoving:Connect(function(player)
 		end
 		playerBases[player] = nil
 	end
+	-- Reset base-related attributes to defaults
+	player:SetAttribute("BaseIsLocked", false)
 
 	-- Clean up collection
 	playerCollection[player] = nil

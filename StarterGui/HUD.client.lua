@@ -34,10 +34,20 @@ local function addCorner(parent, radius)
 	corner.Parent = parent
 end
 
+-- Helper: create UIStroke (neon border)
+local function addStroke(parent, color, thickness)
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = color or Color3.fromRGB(255, 255, 255)
+	stroke.Thickness = thickness or 1.5
+	stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+	stroke.Parent = parent
+	return stroke
+end
+
 -- Helper: create text label
 local function makeLabel(parent, text, size, font, color, zIndex)
 	local lbl = Instance.new("TextLabel")
-	lbl.Size = UDim2.new(1, 0, 1, 0)
+	lbl.Size = size or UDim2.new(1, 0, 1, 0)
 	lbl.BackgroundTransparency = 1
 	lbl.Text = text
 	lbl.TextScaled = true
@@ -63,27 +73,93 @@ local function makeDarkFrame(name, size, position, parent, transparency)
 end
 
 -- ─────────────────────────────────────────────────────────
+-- BOTTOM GRADIENT BACKDROP
+-- ─────────────────────────────────────────────────────────
+local BottomGradientFrame = Instance.new("Frame")
+BottomGradientFrame.Name = "BottomGradient"
+BottomGradientFrame.Size = UDim2.new(1, 0, 0, 120)
+BottomGradientFrame.Position = UDim2.new(0, 0, 1, -120)
+BottomGradientFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BottomGradientFrame.BackgroundTransparency = 0
+BottomGradientFrame.BorderSizePixel = 0
+BottomGradientFrame.ZIndex = 1
+BottomGradientFrame.Parent = ScreenGui
+
+local bottomGrad = Instance.new("UIGradient")
+bottomGrad.Rotation = 90
+bottomGrad.Transparency = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 1),
+	NumberSequenceKeypoint.new(1, 0.55),
+})
+bottomGrad.Parent = BottomGradientFrame
+
+-- ─────────────────────────────────────────────────────────
 -- 1. MONEY DISPLAY (top-left)
 -- ─────────────────────────────────────────────────────────
 local MoneyFrame = makeDarkFrame(
 	"MoneyFrame",
-	UDim2.new(0, 200, 0, 52),
+	UDim2.new(0, 220, 0, 72),
 	UDim2.new(0, 16, 0, 16),
 	ScreenGui
 )
+addStroke(MoneyFrame, Color3.fromRGB(255, 200, 30), 1.5)
 
-local MoneyLabel = makeLabel(MoneyFrame, "💰 $0", nil, Enum.Font.GothamBold, Color3.fromRGB(255, 220, 50))
+local MoneyLabel = makeLabel(
+	MoneyFrame,
+	"💰 $0",
+	UDim2.new(1, 0, 0.55, 0),
+	Enum.Font.GothamBold,
+	Color3.fromRGB(255, 220, 50)
+)
+MoneyLabel.Position = UDim2.new(0, 0, 0, 0)
+
+local incomeRateLabel = Instance.new("TextLabel")
+incomeRateLabel.Name = "IncomeRateLabel"
+incomeRateLabel.Size = UDim2.new(1, -8, 0.42, 0)
+incomeRateLabel.Position = UDim2.new(0, 4, 0.56, 0)
+incomeRateLabel.BackgroundTransparency = 1
+incomeRateLabel.Text = "📈 0$/s"
+incomeRateLabel.TextScaled = true
+incomeRateLabel.Font = Enum.Font.Gotham
+incomeRateLabel.TextColor3 = Color3.fromRGB(80, 200, 100)
+incomeRateLabel.TextTransparency = 0.25
+incomeRateLabel.ZIndex = 2
+incomeRateLabel.Parent = MoneyFrame
+
+-- Income rate tracking
+local lastMoney = LocalPlayer:GetAttribute("Money") or 0
+local lastTime = tick()
+local currentIncomeRate = 0
+
+RunService.Heartbeat:Connect(function()
+	local now = tick()
+	if now - lastTime >= 2 then
+		local currentMoney = LocalPlayer:GetAttribute("Money") or 0
+		local gained = currentMoney - lastMoney
+		if gained > 0 then
+			currentIncomeRate = math.floor(gained / (now - lastTime))
+		end
+		lastMoney = currentMoney
+		lastTime = now
+		if incomeRateLabel then
+			incomeRateLabel.Text = "📈 " .. currentIncomeRate .. "$/s"
+		end
+	end
+end)
+
+-- Money color flash tracking
+local prevMoney = LocalPlayer:GetAttribute("Money") or 0
 
 local function updateMoney()
 	local money = LocalPlayer:GetAttribute("Money") or 0
 	MoneyLabel.Text = "💰 $" .. tostring(money)
 	-- Scale pulse tween
 	MoneyFrame:TweenSize(
-		UDim2.new(0, 220, 0, 58),
+		UDim2.new(0, 240, 0, 78),
 		Enum.EasingDirection.Out, Enum.EasingStyle.Back, 0.12, true,
 		function()
 			MoneyFrame:TweenSize(
-				UDim2.new(0, 200, 0, 52),
+				UDim2.new(0, 220, 0, 72),
 				Enum.EasingDirection.Out, Enum.EasingStyle.Bounce, 0.18, true
 			)
 		end
@@ -91,7 +167,20 @@ local function updateMoney()
 end
 
 updateMoney()
-LocalPlayer:GetAttributeChangedSignal("Money"):Connect(updateMoney)
+
+-- Money color flash on change
+LocalPlayer:GetAttributeChangedSignal("Money"):Connect(function()
+	local newMoney = LocalPlayer:GetAttribute("Money") or 0
+	if newMoney > prevMoney then
+		MoneyLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+		task.delay(0.3, function() MoneyLabel.TextColor3 = Color3.fromRGB(255, 220, 50) end)
+	elseif newMoney < prevMoney then
+		MoneyLabel.TextColor3 = Color3.fromRGB(255, 80, 80)
+		task.delay(0.3, function() MoneyLabel.TextColor3 = Color3.fromRGB(255, 220, 50) end)
+	end
+	prevMoney = newMoney
+	updateMoney()
+end)
 
 -- ─────────────────────────────────────────────────────────
 -- 2. CARRYING BANNER (top-center)
@@ -106,8 +195,9 @@ CarryFrame.BorderSizePixel = 0
 CarryFrame.Visible = false
 CarryFrame.Parent = ScreenGui
 addCorner(CarryFrame, 12)
+addStroke(CarryFrame, Color3.fromRGB(255, 120, 30), 1.5)
 
-makeLabel(CarryFrame, "🏃 STEALING!  Run back to your base!", nil, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
+local CarryLabel = makeLabel(CarryFrame, "🏃 Carrying Brainrot! Run to your base!", nil, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
 
 -- Pulsing glow animation
 local carryPulseTween
@@ -131,6 +221,8 @@ end
 local function updateCarrying()
 	local carrying = LocalPlayer:GetAttribute("IsCarrying")
 	if carrying then
+		local brainrotName = LocalPlayer:GetAttribute("CarryingBrainrotName") or "Brainrot"
+		CarryLabel.Text = "🏃 Carrying " .. brainrotName .. "! Run to your base!"
 		CarryFrame.Visible = true
 		startCarryPulse()
 	else
@@ -141,6 +233,7 @@ end
 
 updateCarrying()
 LocalPlayer:GetAttributeChangedSignal("IsCarrying"):Connect(updateCarrying)
+LocalPlayer:GetAttributeChangedSignal("CarryingBrainrotName"):Connect(updateCarrying)
 
 -- ─────────────────────────────────────────────────────────
 -- 3. REBIRTH INFO (top-right)
@@ -151,6 +244,7 @@ local RebirthFrame = makeDarkFrame(
 	UDim2.new(1, -276, 0, 16),
 	ScreenGui
 )
+addStroke(RebirthFrame, Color3.fromRGB(160, 100, 255), 1.5)
 
 local RebirthLabel = makeLabel(RebirthFrame, "🌀 Rebirths: 0 | Multiplier: x1", nil, Enum.Font.Gotham, Color3.fromRGB(180, 140, 255))
 
@@ -173,6 +267,7 @@ local LockFrame = makeDarkFrame(
 	UDim2.new(1, -176, 0.5, -29),
 	ScreenGui
 )
+addStroke(LockFrame, Color3.fromRGB(80, 200, 255), 1.5)
 
 local LockButton = Instance.new("TextButton")
 LockButton.Name = "LockButton"
@@ -192,29 +287,6 @@ local lockCooldownConn
 local function setLockCooldown()
 	lockOnCooldown = true
 	LockButton.TextColor3 = Color3.fromRGB(140, 140, 140)
-	local remaining = LOCK_COOLDOWN
-	local function tick()
-		if remaining > 0 then
-			LockButton.Text = "⏳ Recharging: " .. remaining .. "s"
-			remaining -= 1
-		else
-			lockOnCooldown = false
-			LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-			local locked = LocalPlayer:GetAttribute("BaseIsLocked")
-			LockButton.Text = locked and "🔒 BASE LOCKED" or "🔒 Lock Base"
-			if lockCooldownConn then
-				lockCooldownConn:Disconnect()
-				lockCooldownConn = nil
-			end
-		end
-	end
-	if lockCooldownConn then lockCooldownConn:Disconnect() end
-	lockCooldownConn = RunService.Heartbeat:Connect(function()
-		-- Run once per second via os.clock
-	end)
-	-- Use task.delay chain instead
-	lockCooldownConn:Disconnect()
-	lockCooldownConn = nil
 	local function countdown(n)
 		if n <= 0 then
 			lockOnCooldown = false
@@ -270,7 +342,6 @@ local function removeToast(toastFrame)
 		toastFrame:Destroy()
 		-- Reposition remaining toasts
 		for i, t in ipairs(activeToasts) do
-			local targetY = 1 - (i * (TOAST_HEIGHT + TOAST_PADDING) / 600)
 			TweenService:Create(t, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
 				Position = UDim2.new(1, -(TOAST_WIDTH + 16), 0, 80 + (i - 1) * (TOAST_HEIGHT + TOAST_PADDING))
 			}):Play()
@@ -334,7 +405,7 @@ if NotificationEvent then
 end
 
 -- ─────────────────────────────────────────────────────────
--- 6. STEAL ALERT (red flash + toast)
+-- 6. STEAL ALERT (red flash + UIStroke border + toast)
 -- ─────────────────────────────────────────────────────────
 local StealFlash = Instance.new("Frame")
 StealFlash.Name = "StealFlash"
@@ -353,9 +424,48 @@ local function doRedFlash()
 	}):Play()
 end
 
+-- Red UIStroke border on ScreenGui root frame for "base under attack"
+local attackBorderStroke = Instance.new("UIStroke")
+attackBorderStroke.Color = Color3.fromRGB(230, 30, 30)
+attackBorderStroke.Thickness = 6
+attackBorderStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+attackBorderStroke.Transparency = 1
+attackBorderStroke.Parent = ScreenGui
+
+-- We attach the stroke to a full-screen frame so it renders as a screen border
+local AttackBorderFrame = Instance.new("Frame")
+AttackBorderFrame.Name = "AttackBorderFrame"
+AttackBorderFrame.Size = UDim2.new(1, 0, 1, 0)
+AttackBorderFrame.Position = UDim2.new(0, 0, 0, 0)
+AttackBorderFrame.BackgroundTransparency = 1
+AttackBorderFrame.BorderSizePixel = 0
+AttackBorderFrame.ZIndex = 19
+AttackBorderFrame.Parent = ScreenGui
+
+local attackBorder = Instance.new("UIStroke")
+attackBorder.Color = Color3.fromRGB(230, 30, 30)
+attackBorder.Thickness = 8
+attackBorder.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+attackBorder.Transparency = 1
+attackBorder.Parent = AttackBorderFrame
+
+local function showAttackBorder()
+	-- Fade in
+	TweenService:Create(attackBorder, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Transparency = 0
+	}):Play()
+	-- Fade out after 2 seconds
+	task.delay(2, function()
+		TweenService:Create(attackBorder, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Transparency = 1
+		}):Play()
+	end)
+end
+
 if BrainrotStolenEvent then
 	BrainrotStolenEvent.OnClientEvent:Connect(function(thiefName, brainrotName)
 		doRedFlash()
+		showAttackBorder()
 		showToast(
 			"😡 " .. (thiefName or "Someone") .. " stole your " .. (brainrotName or "Brainrot") .. "!",
 			Color3.fromRGB(180, 30, 30)
@@ -497,8 +607,8 @@ end)
 -- ─────────────────────────────────────────────────────────
 local BottomRightHolder = Instance.new("Frame")
 BottomRightHolder.Name = "BottomRightButtons"
-BottomRightHolder.Size = UDim2.new(0, 220, 0, 52)
-BottomRightHolder.Position = UDim2.new(1, -236, 1, -68)
+BottomRightHolder.Size = UDim2.new(0, 260, 0, 50)
+BottomRightHolder.Position = UDim2.new(1, -276, 1, -68)
 BottomRightHolder.BackgroundTransparency = 1
 BottomRightHolder.Parent = ScreenGui
 
@@ -509,9 +619,9 @@ UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
 UIListLayout.Padding = UDim.new(0, 10)
 UIListLayout.Parent = BottomRightHolder
 
-local function makeBottomButton(text, color, parent)
+local function makeBottomButton(text, color, strokeColor, parent)
 	local btn = Instance.new("TextButton")
-	btn.Size = UDim2.new(0, 100, 0, 46)
+	btn.Size = UDim2.new(0, 120, 0, 50)
 	btn.BackgroundColor3 = color
 	btn.BackgroundTransparency = 0.15
 	btn.BorderSizePixel = 0
@@ -522,6 +632,7 @@ local function makeBottomButton(text, color, parent)
 	btn.ZIndex = 3
 	btn.Parent = parent
 	addCorner(btn, 10)
+	addStroke(btn, strokeColor or color, 1.5)
 
 	-- Hover effect
 	btn.MouseEnter:Connect(function()
@@ -534,8 +645,8 @@ local function makeBottomButton(text, color, parent)
 	return btn
 end
 
-local ShopButton = makeBottomButton("🛒 SHOP", Color3.fromRGB(30, 130, 200), BottomRightHolder)
-local PokedexButton = makeBottomButton("📖 POKÉDEX", Color3.fromRGB(80, 170, 60), BottomRightHolder)
+local ShopButton = makeBottomButton("🛒 SHOP", Color3.fromRGB(30, 130, 200), Color3.fromRGB(80, 180, 255), BottomRightHolder)
+local PokedexButton = makeBottomButton("📖 POKÉDEX", Color3.fromRGB(80, 170, 60), Color3.fromRGB(120, 220, 80), BottomRightHolder)
 
 ShopButton.MouseButton1Click:Connect(function()
 	if OpenShopRemote then OpenShopRemote:FireServer() end
@@ -543,4 +654,80 @@ end)
 
 PokedexButton.MouseButton1Click:Connect(function()
 	if OpenPokedexRemote then OpenPokedexRemote:FireServer() end
+end)
+
+-- ─────────────────────────────────────────────────────────
+-- 11. "E TO BUY" PROXIMITY HINT (bottom-center)
+-- ─────────────────────────────────────────────────────────
+local BuyHintFrame = makeDarkFrame(
+	"BuyHintFrame",
+	UDim2.new(0, 340, 0, 46),
+	UDim2.new(0.5, -170, 1, -80),
+	ScreenGui,
+	0.3
+)
+BuyHintFrame.BackgroundColor3 = Color3.fromRGB(10, 10, 18)
+BuyHintFrame.BackgroundTransparency = 1
+BuyHintFrame.ZIndex = 4
+
+local BuyHintLabel = makeLabel(
+	BuyHintFrame,
+	"Press E near a brainrot to buy it",
+	nil,
+	Enum.Font.Gotham,
+	Color3.fromRGB(220, 220, 255),
+	5
+)
+BuyHintLabel.TextTransparency = 1
+
+addStroke(BuyHintFrame, Color3.fromRGB(140, 100, 255), 1.5)
+
+local buyHintVisible = false
+
+local function showBuyHint()
+	if buyHintVisible then return end
+	buyHintVisible = true
+	TweenService:Create(BuyHintFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundTransparency = 0.3
+	}):Play()
+	TweenService:Create(BuyHintLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		TextTransparency = 0
+	}):Play()
+end
+
+local function hideBuyHint()
+	if not buyHintVisible then return end
+	buyHintVisible = false
+	TweenService:Create(BuyHintFrame, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		BackgroundTransparency = 1
+	}):Play()
+	TweenService:Create(BuyHintLabel, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		TextTransparency = 1
+	}):Play()
+end
+
+-- Check proximity to conveyor belt every heartbeat (sampled every 0.5s for perf)
+local lastProximityCheck = 0
+RunService.Heartbeat:Connect(function()
+	local now = tick()
+	if now - lastProximityCheck < 0.5 then return end
+	lastProximityCheck = now
+
+	local character = LocalPlayer.Character
+	if not character then
+		hideBuyHint()
+		return
+	end
+	local rootPart = character:FindFirstChild("HumanoidRootPart")
+	if not rootPart then
+		hideBuyHint()
+		return
+	end
+
+	local z = rootPart.Position.Z
+	if z >= -15 and z <= 15 then
+		showBuyHint()
+	else
+		hideBuyHint()
+	end
 end)

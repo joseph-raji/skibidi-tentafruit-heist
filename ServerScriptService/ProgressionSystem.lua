@@ -14,21 +14,15 @@ local MAX_REBIRTHS = 10
 local INCOME_INTERVAL = 1
 local REBIRTH_PAD_DEBOUNCE_TIME = 3
 
--- BrainrotData: maps brainrot name to income-per-second. Extend as new brainrots are added.
-local BrainrotData = {
-	["Skibidi Toilet"]       = { income = 5 },
-	["Tentafruit"]           = { income = 12 },
-	["Ohio Sigma"]           = { income = 8 },
-	["Rizz Lord"]            = { income = 20 },
-	["Gyatt Monster"]        = { income = 15 },
-	["NPC Glazer"]           = { income = 6 },
-	["Fanum Tax Collector"]  = { income = 18 },
-	["Brain Rot Supreme"]    = { income = 50 },
-}
+-- NOTE: Income per second is read from the "IncomePerSecond" attribute on each
+-- brainrot part. ShopSystem.spawnBrainrot must set:
+--   body:SetAttribute("IncomePerSecond", brainrotData.income)
+-- on every spawned brainrot body part for income to be credited.
 
 -- Starter brainrot spawned after a rebirth (Common tier)
 local STARTER_BRAINROT_NAME = "Skibidi Toilet"
 local STARTER_BRAINROT_COLOR = Color3.fromRGB(100, 200, 255)
+local STARTER_BRAINROT_INCOME = 5
 
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local evtNotification = remoteEvents:WaitForChild("Notification")
@@ -86,6 +80,10 @@ local function spawnStarterBrainrot(player, playerBases, brainrotOwner, playerCo
 	part.Shape = Enum.PartType.Ball
 	part.Anchored = true
 	part.CFrame = CFrame.new(spawnPos)
+
+	-- Set income attribute so the income loop picks this part up
+	part:SetAttribute("IncomePerSecond", STARTER_BRAINROT_INCOME)
+
 	part.Parent = Workspace
 
 	-- Register ownership
@@ -97,22 +95,34 @@ local function spawnStarterBrainrot(player, playerBases, brainrotOwner, playerCo
 	end
 	playerCollection[player][STARTER_BRAINROT_NAME] = (playerCollection[player][STARTER_BRAINROT_NAME] or 0) + 1
 
-	-- Label the brainrot
+	-- Billboard showing name and income rate
 	local billboard = Instance.new("BillboardGui")
-	billboard.Size = UDim2.new(0, 120, 0, 40)
+	billboard.Size = UDim2.new(0, 160, 0, 55)
 	billboard.StudsOffset = Vector3.new(0, 3, 0)
 	billboard.AlwaysOnTop = false
 	billboard.Parent = part
 
-	local label = Instance.new("TextLabel")
-	label.Size = UDim2.new(1, 0, 1, 0)
-	label.BackgroundTransparency = 1
-	label.TextColor3 = Color3.fromRGB(255, 255, 255)
-	label.TextStrokeTransparency = 0
-	label.Text = STARTER_BRAINROT_NAME
-	label.Font = Enum.Font.GothamBold
-	label.TextScaled = true
-	label.Parent = billboard
+	local nameLabel = Instance.new("TextLabel")
+	nameLabel.Size = UDim2.new(1, 0, 0.55, 0)
+	nameLabel.Position = UDim2.new(0, 0, 0, 0)
+	nameLabel.BackgroundTransparency = 1
+	nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+	nameLabel.TextStrokeTransparency = 0
+	nameLabel.Text = STARTER_BRAINROT_NAME
+	nameLabel.Font = Enum.Font.GothamBold
+	nameLabel.TextScaled = true
+	nameLabel.Parent = billboard
+
+	local incomeLabel = Instance.new("TextLabel")
+	incomeLabel.Size = UDim2.new(1, 0, 0.45, 0)
+	incomeLabel.Position = UDim2.new(0, 0, 0.55, 0)
+	incomeLabel.BackgroundTransparency = 1
+	incomeLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
+	incomeLabel.TextStrokeTransparency = 0
+	incomeLabel.Text = "$" .. STARTER_BRAINROT_INCOME .. "/s"
+	incomeLabel.Font = Enum.Font.Gotham
+	incomeLabel.TextScaled = true
+	incomeLabel.Parent = billboard
 end
 
 function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCollection)
@@ -177,37 +187,46 @@ end
 
 function ProgressionSystem.startIncomeLoop(playerBases, brainrotOwner)
 	task.spawn(function()
+		local tickCount = 0
 		while true do
 			task.wait(INCOME_INTERVAL)
+			tickCount = tickCount + 1
 
 			-- Accumulate income per owner in a temporary table to batch SetAttribute calls
 			local incomeMap = {}
 
 			for brainrotPart, owner in pairs(brainrotOwner) do
-				if not owner or not owner.Parent then
-					continue
+				if brainrotPart and brainrotPart.Parent and owner and owner.Parent then
+					local income = brainrotPart:GetAttribute("IncomePerSecond") or 0
+					if income > 0 then
+						local mult = owner:GetAttribute("MoneyMultiplier") or 1
+						incomeMap[owner] = (incomeMap[owner] or 0) + (income * mult)
+					end
 				end
-
-				local brainrotName = brainrotPart.Name
-				local data = BrainrotData[brainrotName]
-				if not data then
-					continue
-				end
-
-				local multiplier = owner:GetAttribute("MoneyMultiplier") or 1
-				local income = data.income * multiplier
-
-				incomeMap[owner] = (incomeMap[owner] or 0) + income
 			end
 
 			for owner, totalIncome in pairs(incomeMap) do
 				ProgressionSystem.addMoney(owner, totalIncome)
+			end
+
+			-- Every 10 seconds, notify each player of their income rate
+			if tickCount % 10 == 0 then
+				for player, earned in pairs(incomeMap) do
+					evtNotification:FireClient(
+						player,
+						"💰 +$" .. math.floor(earned) .. " earned (earning $" .. math.floor(earned) .. "/s total)",
+						Color3.fromRGB(100, 220, 100)
+					)
+				end
 			end
 		end
 	end)
 end
 
 function ProgressionSystem.setupRebirthPad(playerBases)
+	-- Prefer the stored _playerBases from init; accept param for backward compatibility
+	local bases = _playerBases or playerBases
+
 	-- Pad placed at a distinct position in the shop area
 	local padPosition = Vector3.new(0, 0.75, -20)
 
