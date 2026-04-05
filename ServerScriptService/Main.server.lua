@@ -162,6 +162,7 @@ ItemsSystem.init(playerBases, carrying)
 
 ProgressionSystem.setShopSystem(ShopSystem)
 ShopSystem.setBaseSystem(BaseSystem)
+ShopSystem.setStealSystem(StealSystem)
 ProgressionSystem.setBaseSystem(BaseSystem)
 
 -- ============================================================
@@ -176,7 +177,7 @@ end
 -- ============================================================
 ShopSystem.createShopPads()
 ProgressionSystem.setupRebirthPad(playerBases)
-ItemsSystem.createItemsShop()
+-- ItemsSystem.createItemsShop()  -- physical shop removed; buy equipment via the Shop UI button
 
 -- ============================================================
 -- 9. Create the bat tool (shared template, cloned per player)

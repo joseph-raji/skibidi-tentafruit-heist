@@ -122,7 +122,7 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	playerCollection[player] = {}
 
 	-- Apply rebirth effects
-	player:SetAttribute("Money", 0)
+	player:SetAttribute("Money", 100)
 	local newRebirthCount = rebirthCount + 1
 	player:SetAttribute("RebirthCount", newRebirthCount)
 
@@ -152,22 +152,6 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 
 	-- Update MaxSlots for the new rebirth tier
 	ProgressionSystem.updateMaxSlots(player)
-
-	-- Spawn a proper starter brainrot via ShopSystem if available
-	if ShopSystem then
-		local BrainrotData = require(game:GetService("ReplicatedStorage"):WaitForChild("Modules"):WaitForChild("BrainrotData"))
-		local commons = BrainrotData.getByRarity("Common")
-		if commons and #commons > 0 then
-			local baseDataForSpawn = _playerBases[player]
-			if baseDataForSpawn then
-				local slotIndex, slotPos = BaseSystem and BaseSystem.getNextSlot(player, _playerBases)
-				local starter = commons[1]
-				local fallback = Vector3.new(baseDataForSpawn.position.X, baseDataForSpawn.position.Y + 2.2 + starter.size / 2, baseDataForSpawn.position.Z)
-				local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + starter.size / 2, slotPos.Z) or fallback
-				ShopSystem.spawnBrainrot(starter, spawnPos, player, brainrotOwner, slotIndex)
-			end
-		end
-	end
 
 	-- Fire events
 	evtRebirthComplete:FireClient(player, newMultiplier)

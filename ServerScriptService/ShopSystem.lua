@@ -37,6 +37,10 @@ local _carrying         = {}
 local BaseSystem = nil
 function ShopSystem.setBaseSystem(bs) BaseSystem = bs end
 
+-- StealSystem reference (set via ShopSystem.setStealSystem)
+local StealSystem = nil
+function ShopSystem.setStealSystem(ss) StealSystem = ss end
+
 -- Pressure plate tracking tables
 local _plateToBrainrot = {}   -- plate Part → body Part
 local _brainrotToPlate = {}   -- body Part → plate Part
@@ -259,6 +263,10 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		-- Store the slot index so it can be freed when this brainrot is removed
 		if slotIndex then
 			body:SetAttribute("SlotIndex", slotIndex)
+		end
+		-- Set up E-to-steal ProximityPrompt and touch interactions
+		if StealSystem then
+			StealSystem.setupBrainrotTouchEvents(body, owner, _playerBases, _brainrotOwner, _carrying, _playerCollection)
 		end
 	end
 

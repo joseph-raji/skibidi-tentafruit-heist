@@ -161,6 +161,25 @@ function StealSystem.setupBrainrotTouchEvents(brainrot, owner, playerBases, brai
 
 	local connections = touchConnections[brainrot]
 
+	-- ProximityPrompt: non-owner presses E → start carrying (steal)
+	local oldPrompt = brainrot:FindFirstChildOfClass("ProximityPrompt")
+	if oldPrompt then oldPrompt:Destroy() end
+
+	local stealPrompt = Instance.new("ProximityPrompt")
+	stealPrompt.ActionText            = "Carry"
+	stealPrompt.ObjectText            = brainrot:GetAttribute("BrainrotName") or "Brainrot"
+	stealPrompt.HoldDuration          = 0
+	stealPrompt.MaxActivationDistance = 8
+	stealPrompt.Parent                = brainrot
+
+	local conn0 = stealPrompt.Triggered:Connect(function(trigPlayer)
+		if trigPlayer == owner then return end
+		if not carrying[trigPlayer] then
+			StealSystem.startCarrying(trigPlayer, brainrot, playerBases, brainrotOwner, carrying)
+		end
+	end)
+	table.insert(connections, conn0)
+
 	-- Touch event 1: non-owner touches brainrot → start carrying
 	local conn1 = brainrot.Touched:Connect(function(hit)
 		local character = hit.Parent
