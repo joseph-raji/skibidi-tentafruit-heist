@@ -31,7 +31,8 @@ function ShopSystem.setBaseSystem(bs) BaseSystem = bs end
 -- Pressure plate tracking tables
 local _plateToBrainrot = {}   -- plate Part → body Part
 local _brainrotToPlate = {}   -- body Part → plate Part
-local _plateDebounce   = {}   -- plate Part → bool
+local _platePrompt     = {}   -- plate Part → ProximityPrompt
+local _flyingBodies    = {}   -- body Part → true, skip bobbing during flight to base
 
 local GACHA_COST = 150
 
@@ -112,7 +113,10 @@ function ShopSystem.removePlate(body)
 		plate:Destroy()
 	end
 	_brainrotToPlate[body] = nil
-	_plateToBrainrot[plate] = nil
+	if plate then
+		_plateToBrainrot[plate] = nil
+		_platePrompt[plate] = nil
+	end
 end
 
 -- =========================================================================
@@ -321,12 +325,11 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		rarityLabel.Font            = Enum.Font.GothamBold
 		rarityLabel.Parent          = billboard
 	else
-		-- Conveyor shop item: 4-row billboard with cost as the most prominent element
-		billboard.Size = UDim2.new(0, 200, 0, 110)
+		-- Conveyor shop item: name + price only (details in Pokédex)
+		billboard.Size = UDim2.new(0, 180, 0, 60)
 
-		-- Row 1: name (white, bold)
 		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Size            = UDim2.new(1, 0, 0.22, 0)
+		nameLabel.Size            = UDim2.new(1, 0, 0.5, 0)
 		nameLabel.Position        = UDim2.new(0, 0, 0, 0)
 		nameLabel.BackgroundTransparency = 1
 		nameLabel.Text            = brainrotData.name
@@ -336,41 +339,16 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		nameLabel.Font            = Enum.Font.GothamBold
 		nameLabel.Parent          = billboard
 
-		-- Row 2: cost (yellow, large — most prominent)
 		local costLabel = Instance.new("TextLabel")
-		costLabel.Size            = UDim2.new(1, 0, 0.36, 0)
-		costLabel.Position        = UDim2.new(0, 0, 0.22, 0)
+		costLabel.Size            = UDim2.new(1, 0, 0.5, 0)
+		costLabel.Position        = UDim2.new(0, 0, 0.5, 0)
 		costLabel.BackgroundTransparency = 1
-		costLabel.Text            = "COST: " .. (brainrotData.cost and ("$" .. brainrotData.cost) or "GACHA")
+		costLabel.Text            = brainrotData.cost and ("$" .. brainrotData.cost) or "GACHA ONLY"
 		costLabel.TextColor3      = Color3.fromRGB(255, 220, 0)
 		costLabel.TextStrokeTransparency = 0.2
 		costLabel.TextScaled      = true
 		costLabel.Font            = Enum.Font.GothamBold
 		costLabel.Parent          = billboard
-
-		-- Row 3: income (green, smaller)
-		local incomeLabel = Instance.new("TextLabel")
-		incomeLabel.Size            = UDim2.new(1, 0, 0.22, 0)
-		incomeLabel.Position        = UDim2.new(0, 0, 0.58, 0)
-		incomeLabel.BackgroundTransparency = 1
-		incomeLabel.Text            = "+" .. brainrotData.income .. "$/s income"
-		incomeLabel.TextColor3      = Color3.fromRGB(100, 255, 100)
-		incomeLabel.TextStrokeTransparency = 0.4
-		incomeLabel.TextScaled      = true
-		incomeLabel.Font            = Enum.Font.Gotham
-		incomeLabel.Parent          = billboard
-
-		-- Row 4: rarity (rarity color)
-		local rarityLabel = Instance.new("TextLabel")
-		rarityLabel.Size            = UDim2.new(1, 0, 0.20, 0)
-		rarityLabel.Position        = UDim2.new(0, 0, 0.80, 0)
-		rarityLabel.BackgroundTransparency = 1
-		rarityLabel.Text            = brainrotData.rarity
-		rarityLabel.TextColor3      = RARITY_COLOR[brainrotData.rarity] or Color3.fromRGB(255, 255, 255)
-		rarityLabel.TextStrokeTransparency = 0.4
-		rarityLabel.TextScaled      = true
-		rarityLabel.Font            = Enum.Font.GothamBold
-		rarityLabel.Parent          = billboard
 	end
 
 	-- -----------------------------------------------------------------------
@@ -485,21 +463,25 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		_plateToBrainrot[plate] = body
 		_brainrotToPlate[body]  = plate
 
-		-- Collect money on touch
-		plate.Touched:Connect(function(hit)
-			local player = Players:GetPlayerFromCharacter(hit.Parent)
-			if not player then return end
-			if _brainrotOwner[body] ~= player then return end
-			if _plateDebounce[plate] then return end
+		-- ProximityPrompt for reliable collection (Touched is unreliable on CanCollide=false)
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.ObjectText            = brainrotData.name
+		prompt.ActionText            = "Collect $0"
+		prompt.MaxActivationDistance = 8
+		prompt.HoldDuration          = 0
+		prompt.Parent                = plate
+		_platePrompt[plate] = prompt
 
-			_plateDebounce[plate] = true
-			task.delay(0.3, function() _plateDebounce[plate] = nil end)
-
+		prompt.Triggered:Connect(function(trigPlayer)
+			if _brainrotOwner[body] ~= trigPlayer then return end
 			local money = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
-			if money <= 0 then return end
-
+			if money <= 0 then
+				NotificationEvent:FireClient(trigPlayer, "Nothing to collect yet!", Color3.fromRGB(200, 200, 100))
+				return
+			end
 			body:SetAttribute("AccumulatedMoney", 0)
-			player:SetAttribute("Money", (player:GetAttribute("Money") or 0) + money)
+			trigPlayer:SetAttribute("Money", (trigPlayer:GetAttribute("Money") or 0) + money)
+			prompt.ActionText = "Collect $0"
 
 			-- Update label immediately
 			local gui = plate:FindFirstChildWhichIsA("BillboardGui")
@@ -509,14 +491,12 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 			end
 
 			-- Flash plate to bright lime green
-			local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 1, true)
-			local flashTween = TweenService:Create(plate, tweenInfo, {
+			TweenService:Create(plate, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 1, true), {
 				Color = Color3.fromRGB(0, 255, 80),
 				Transparency = 0.4,
-			})
-			flashTween:Play()
+			}):Play()
 
-			NotificationEvent:FireClient(player, "+" .. money .. "$", Color3.fromRGB(100, 255, 100))
+			NotificationEvent:FireClient(trigPlayer, "+" .. money .. "$", Color3.fromRGB(100, 255, 100))
 		end)
 	end
 
@@ -532,6 +512,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	RunService.Heartbeat:Connect(function(dt)
 		if not body or not body.Parent then return end
 		if isBeingCarried(body) then return end
+		if _flyingBodies[body] then return end
 
 		local t     = tick() + timeOffset
 		local bobY  = math.sin(t * BOB_SPEED) * BOB_AMP
@@ -559,19 +540,24 @@ RunService.Heartbeat:Connect(function()
 	for plate, body in pairs(_plateToBrainrot) do
 		if plate.Parent and body.Parent then
 			local amt = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
+			local amtText = "$" .. amt
 			local gui = plate:FindFirstChildWhichIsA("BillboardGui")
 			if gui then
 				local label = gui:FindFirstChildWhichIsA("TextLabel")
-				if label then
-					label.Text = "$" .. amt
-					-- Dim when empty, bright when has money
-					plate.Color = amt > 0 and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(30, 80, 30)
-				end
+				if label then label.Text = amtText end
+			end
+			-- Dim when empty, bright when has money
+			plate.Color = amt > 0 and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(30, 80, 30)
+			-- Update prompt action text
+			local prompt = _platePrompt[plate]
+			if prompt then
+				prompt.ActionText = "Collect " .. amtText
 			end
 		else
 			-- Brainrot or plate was destroyed, clean up
 			_plateToBrainrot[plate] = nil
 			if body then _brainrotToPlate[body] = nil end
+			_platePrompt[plate] = nil
 		end
 	end
 end)
@@ -673,15 +659,6 @@ end
 -- =========================================================================
 -- Public: createShopPads  (now a conveyor belt shop)
 -- =========================================================================
-
--- How often each rarity tier appears on the belt (seconds between spawns)
-local CONVEYOR_INTERVALS = {
-	Common    = 12,
-	Uncommon  = 28,
-	Rare      = 60,
-	Epic      = 130,
-	Legendary = 300,
-}
 
 local BELT_LENGTH  = 80   -- studs long
 local BELT_WIDTH   = 8    -- studs wide
@@ -854,164 +831,166 @@ function ShopSystem.createShopPads()
 	end)
 
 	-- -----------------------------------------------------------------------
-	-- Spawn loops — one per rarity tier, staggered so they don't all arrive
-	-- at the same time
 	-- -----------------------------------------------------------------------
-	local rarityOrder = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
+	-- Single spawn loop: 1 brainrot every 2 seconds (weighted random by rarity)
+	-- -----------------------------------------------------------------------
 	local buyDebounce = {}
 
-	-- Each rarity gets its own Z lane so brainrots never overlap on the belt
-	local RARITY_LANE_Z = {
-		Common    = -3,
-		Uncommon  = -1.5,
-		Rare      =  0,
-		Epic      =  1.5,
-		Legendary =  3,
-	}
+	task.spawn(function()
+		while true do
+			task.wait(2)
+			local chosen = BrainrotData.gachaRoll()
+			if chosen then
+				local spawnPos = Vector3.new(BELT_START_X, BELT_Y + chosen.size / 2 + 0.3, 0)
+				local body = ShopSystem.spawnBrainrot(chosen, spawnPos, nil, _brainrotOwner, nil)
+				if body then
+					conveyorItems[body] = true
 
-	for idx, rarity in ipairs(rarityOrder) do
-		local interval = CONVEYOR_INTERVALS[rarity]
-		local laneZ    = RARITY_LANE_Z[rarity] or 0
-		task.spawn(function()
-			task.wait(idx * 1.5) -- stagger initial spawns
-			while true do
-				-- Pick a random brainrot of this rarity
-				local options = BrainrotData.getByRarity(rarity)
-				if options and #options > 0 then
-					local chosen = options[math.random(1, #options)]
-					local spawnPos = Vector3.new(
-						BELT_START_X,
-						BELT_Y + chosen.size / 2 + 0.3,
-						laneZ
-					)
+					-- ProximityPrompt to buy (hold E for 0.3s)
+					local prompt = Instance.new("ProximityPrompt")
+					prompt.ObjectText            = chosen.name
+					prompt.ActionText            = chosen.cost and ("Buy - $" .. chosen.cost) or "Gacha Only"
+					prompt.MaxActivationDistance = 8
+					prompt.HoldDuration          = 0.3
+					prompt.UIOffset              = Vector2.new(0, 50)
+					prompt.Parent                = body
 
-					-- Spawn visual without ownership (nil owner = no plaque, no steal events)
-					local body = ShopSystem.spawnBrainrot(chosen, spawnPos, nil, _brainrotOwner, nil)
-					if body then
-						conveyorItems[body] = true
+					prompt.Triggered:Connect(function(player)
+						if not conveyorItems[body] then return end
+						if buyDebounce[player] then return end
 
-						-- ProximityPrompt buy (hold E for 0.3s — prevents accidental purchase)
-						local prompt = Instance.new("ProximityPrompt")
-						prompt.ObjectText            = chosen.name
-						prompt.ActionText            = chosen.cost and ("Buy - $" .. chosen.cost) or "Gacha Only"
-						prompt.MaxActivationDistance = 8
-						prompt.HoldDuration          = 0.3
-						prompt.UIOffset              = Vector2.new(0, 50)
-						prompt.Parent                = body
+						if chosen.cost == nil then
+							NotificationEvent:FireClient(player, chosen.name .. " is GACHA only!", Color3.fromRGB(255, 150, 0))
+							return
+						end
 
-						prompt.Triggered:Connect(function(player)
-							if not conveyorItems[body] then return end  -- already bought
-							if buyDebounce[player] then return end
+						local slotIndex, dest = BaseSystem.getNextSlot(player, _playerBases)
+						if not slotIndex then
+							NotificationEvent:FireClient(player, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
+							return
+						end
 
-							if chosen.cost == nil then
-								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
-								RE:WaitForChild("Notification"):FireClient(player,
-									chosen.name .. " is GACHA only!", Color3.fromRGB(255, 150, 0))
-								return
+						local money = player:GetAttribute("Money") or 0
+						if money < chosen.cost then
+							NotificationEvent:FireClient(player, "Need $" .. chosen.cost .. "! You have $" .. money, Color3.fromRGB(255, 80, 80))
+							return
+						end
+
+						buyDebounce[player] = true
+						task.delay(2, function() buyDebounce[player] = nil end)
+
+						-- Deduct money and claim the slot immediately
+						player:SetAttribute("Money", money - chosen.cost)
+						conveyorItems[body] = nil
+						prompt:Destroy()
+
+						-- Register ownership before flight so income starts accumulating
+						_brainrotOwner[body] = player
+						body:SetAttribute("IncomePerSecond", chosen.income)
+						body:SetAttribute("BrainrotId", chosen.id)
+						body:SetAttribute("BrainrotName", chosen.name)
+						body:SetAttribute("SlotIndex", slotIndex)
+						body.Anchored = true
+
+						if not _playerCollection[player] then _playerCollection[player] = {} end
+						_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
+
+						CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
+						NotificationEvent:FireClient(player, "Bought " .. chosen.name .. "! +" .. chosen.income .. "$/s", Color3.fromRGB(100, 255, 100))
+
+						-- Animate brainrot flying to its base slot over 2 seconds
+						_flyingBodies[body] = true
+						local startCF  = body.CFrame
+						local endCF    = CFrame.new(dest)
+						local duration = 2
+						local startT   = tick()
+
+						task.spawn(function()
+							repeat
+								local alpha = math.min((tick() - startT) / duration, 1)
+								-- smooth ease-in-out arc
+								local t = alpha < 0.5 and (2 * alpha * alpha) or (1 - (-2*alpha + 2)^2 / 2)
+								local arcY = math.sin(alpha * math.pi) * 12  -- arc up to 12 studs
+								local lerpedCF = startCF:Lerp(endCF, t)
+								body.CFrame = CFrame.new(lerpedCF.Position + Vector3.new(0, arcY, 0))
+								task.wait()
+							until not body.Parent or (tick() - startT) >= duration
+
+							if not body.Parent then return end
+							body.CFrame = endCF
+							_flyingBodies[body] = nil
+
+							-- Pressure plate at slot's plate position
+							local baseData = _playerBases[player]
+							local platePos = dest
+							if baseData and baseData.platePositions and slotIndex then
+								platePos = baseData.platePositions[slotIndex]
 							end
 
-							-- Check slot limit before allowing purchase
-							local slotIndex, dest = BaseSystem.getNextSlot(player, _playerBases)
-							if not slotIndex then
-								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
-								RE:WaitForChild("Notification"):FireClient(player,
-									"Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
-								return
-							end
+							local cplate = Instance.new("Part")
+							cplate.Name       = "CollectPlate_" .. slotIndex
+							cplate.Size       = Vector3.new(4, 0.3, 4)
+							cplate.Material   = Enum.Material.Neon
+							cplate.Color      = Color3.fromRGB(30, 80, 30)
+							cplate.CanCollide = false
+							cplate.Anchored   = true
+							cplate.CFrame     = CFrame.new(platePos)
+							cplate.Parent     = workspace
 
-							local money = player:GetAttribute("Money") or 0
-							if money < chosen.cost then
-								local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
-								RE:WaitForChild("Notification"):FireClient(player,
-									"Need $" .. chosen.cost .. "! You have $" .. money,
-									Color3.fromRGB(255, 80, 80))
-								return
-							end
+							local cplateBB = Instance.new("BillboardGui")
+							cplateBB.StudsOffset = Vector3.new(0, 2, 0)
+							cplateBB.Size        = UDim2.new(0.1, 0, 0.1, 0)
+							cplateBB.Parent      = cplate
+							local cplateLabel = Instance.new("TextLabel")
+							cplateLabel.Size                   = UDim2.new(1, 0, 1, 0)
+							cplateLabel.BackgroundTransparency = 1
+							cplateLabel.Text                   = "$0"
+							cplateLabel.TextColor3             = Color3.fromRGB(100, 255, 100)
+							cplateLabel.TextStrokeTransparency = 0.4
+							cplateLabel.TextScaled             = true
+							cplateLabel.Font                   = Enum.Font.GothamBold
+							cplateLabel.Parent                 = cplateBB
 
-							buyDebounce[player] = true
-							task.delay(2, function() buyDebounce[player] = nil end)
+							_plateToBrainrot[cplate] = body
+							_brainrotToPlate[body]   = cplate
 
-							player:SetAttribute("Money", money - chosen.cost)
-							conveyorItems[body] = nil
-							prompt:Destroy()
+							local cPrompt = Instance.new("ProximityPrompt")
+							cPrompt.ObjectText            = chosen.name
+							cPrompt.ActionText            = "Collect $0"
+							cPrompt.MaxActivationDistance = 8
+							cPrompt.HoldDuration          = 0
+							cPrompt.Parent                = cplate
+							_platePrompt[cplate] = cPrompt
 
-							-- Move the purchased brainrot to the claimed slot
-							body.Anchored = true
-							body.CFrame = CFrame.new(dest)
-							_brainrotOwner[body] = player
-							body:SetAttribute("IncomePerSecond", chosen.income)
-							body:SetAttribute("BrainrotId", chosen.id)
-							body:SetAttribute("BrainrotName", chosen.name)
-							body:SetAttribute("SlotIndex", slotIndex)
-
-							if not _playerCollection[player] then _playerCollection[player] = {} end
-							_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
-
-							local RE = game:GetService("ReplicatedStorage"):WaitForChild("RemoteEvents")
-							RE:WaitForChild("CollectionUpdated"):FireClient(player, _playerCollection[player])
-							RE:WaitForChild("Notification"):FireClient(player,
-								"✅ Bought " .. chosen.name .. "! +" .. chosen.income .. "$/s",
-								Color3.fromRGB(100, 255, 100))
-
-							-- Spawn income plaque at destination
-							local plaque = Instance.new("Part")
-							plaque.Size       = Vector3.new(3, 1.5, 0.1)
-							plaque.Position   = Vector3.new(dest.X, dest.Y - chosen.size * 0.3, dest.Z + chosen.size * 0.9)
-							plaque.Anchored   = true
-							plaque.CanCollide = false
-							plaque.BrickColor = BrickColor.new("Really black")
-							plaque.Material   = Enum.Material.SmoothPlastic
-							plaque.Parent     = workspace
-
-							local sg = Instance.new("SurfaceGui")
-							sg.Face = Enum.NormalId.Front
-							sg.Parent = plaque
-
-							-- Name (top, white)
-							local t0 = Instance.new("TextLabel")
-							t0.Size = UDim2.new(1, 0, 0.33, 0)
-							t0.Position = UDim2.new(0, 0, 0, 0)
-							t0.BackgroundTransparency = 1
-							t0.Text = chosen.name
-							t0.TextScaled = true
-							t0.Font = Enum.Font.GothamBold
-							t0.TextColor3 = Color3.fromRGB(255, 255, 255)
-							t0.Parent = sg
-
-							-- Income (middle, green, large)
-							local t1 = Instance.new("TextLabel")
-							t1.Size = UDim2.new(1, 0, 0.40, 0)
-							t1.Position = UDim2.new(0, 0, 0.33, 0)
-							t1.BackgroundTransparency = 1
-							t1.Text = "$" .. chosen.income .. "/s"
-							t1.TextScaled = true
-							t1.Font = Enum.Font.GothamBold
-							t1.TextColor3 = Color3.fromRGB(100, 255, 100)
-							t1.Parent = sg
-
-							-- Rarity (bottom, rarity color)
-							local t2 = Instance.new("TextLabel")
-							t2.Size = UDim2.new(1, 0, 0.27, 0)
-							t2.Position = UDim2.new(0, 0, 0.73, 0)
-							t2.BackgroundTransparency = 1
-							t2.Text = chosen.rarity
-							t2.TextScaled = true
-							t2.Font = Enum.Font.Gotham
-							t2.TextColor3 = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
-							t2.Parent = sg
+							cPrompt.Triggered:Connect(function(trigPlayer)
+								if _brainrotOwner[body] ~= trigPlayer then return end
+								local amt = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
+								if amt <= 0 then
+									NotificationEvent:FireClient(trigPlayer, "Nothing to collect yet!", Color3.fromRGB(200, 200, 100))
+									return
+								end
+								body:SetAttribute("AccumulatedMoney", 0)
+								trigPlayer:SetAttribute("Money", (trigPlayer:GetAttribute("Money") or 0) + amt)
+								cPrompt.ActionText = "Collect $0"
+								local gui = cplate:FindFirstChildWhichIsA("BillboardGui")
+								if gui then
+									local lbl = gui:FindFirstChildWhichIsA("TextLabel")
+									if lbl then lbl.Text = "$0" end
+								end
+								TweenService:Create(cplate, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out, 1, true),
+									{Color = Color3.fromRGB(0, 255, 80), Transparency = 0.4}):Play()
+								NotificationEvent:FireClient(trigPlayer, "+" .. amt .. "$", Color3.fromRGB(100, 255, 100))
+							end)
 
 							body.AncestryChanged:Connect(function()
-								if not body.Parent then plaque:Destroy() end
+								if not body.Parent and cplate.Parent then cplate:Destroy() end
 							end)
 						end)
-					end
-				end
-
-				-- Wait with slight randomness so spawns feel organic
-				task.wait(interval * (0.8 + math.random() * 0.4))
-			end
-		end)
-	end
+					end)  -- end prompt.Triggered
+				end  -- end if body
+			end  -- end if chosen
+		end  -- end while
+	end)  -- end task.spawn
 
 	-- -----------------------------------------------------------------------
 	-- GACHA pad — beside the belt

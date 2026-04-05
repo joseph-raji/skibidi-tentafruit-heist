@@ -310,8 +310,9 @@ Players.PlayerAdded:Connect(function(player)
 		for _, brainrotId in ipairs(savedData.brainrotIds) do
 			local brainrotDef = BrainrotDataModule.getById(brainrotId)
 			if brainrotDef then
-				local spawnPos = Vector3.new(pos.X, pos.Y + 5, pos.Z)
-				ShopSystem.spawnBrainrot(brainrotDef, spawnPos, player, brainrotOwner)
+				local slotIndex, slotPos = BaseSystem.getNextSlot(player, playerBases)
+				local spawnPos = slotPos or Vector3.new(pos.X, pos.Y + 5, pos.Z)
+				ShopSystem.spawnBrainrot(brainrotDef, spawnPos, player, brainrotOwner, slotIndex)
 				playerCollection[player][brainrotId] = (playerCollection[player][brainrotId] or 0) + 1
 			end
 		end
@@ -322,7 +323,9 @@ Players.PlayerAdded:Connect(function(player)
 		local commons = BrainrotData.getByRarity("Common")
 		if commons and #commons > 0 then
 			local starterBrainrot = commons[1]
-			ShopSystem.spawnBrainrot(starterBrainrot, pos, player, brainrotOwner)
+			local slotIndex, slotPos = BaseSystem.getNextSlot(player, playerBases)
+			local spawnPos = slotPos or Vector3.new(pos.X, pos.Y + 5, pos.Z)
+			ShopSystem.spawnBrainrot(starterBrainrot, spawnPos, player, brainrotOwner, slotIndex)
 
 			playerCollection[player][starterBrainrot.id] = 1
 			CollectionUpdated:FireClient(player, playerCollection[player])

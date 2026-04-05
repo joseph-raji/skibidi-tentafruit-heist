@@ -33,7 +33,7 @@ return {
 	BAT_COOLDOWN = 1.5,
 
 	-- Money a new player starts with.
-	STARTER_MONEY = 50,
+	STARTER_MONEY = 100,
 
 	-- Seconds between each income tick.
 	INCOME_TICK = 1,

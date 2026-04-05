@@ -114,19 +114,28 @@ local function computeAllSlotPositions(pos)
 	for floorIndex = 1, MAX_FLOORS do
 		local floorY = pos.Y + 5 + (floorIndex - 1) * FLOOR_HEIGHT_STEP
 
+		-- Plates sit on the walkable floor surface, not floating at brainrot height.
+		-- Floor 1 interior surface is pos.Y + 2.2 (foundation + interior floor slab).
+		-- Upper floors surface is pos.Y + (floorIndex-1) * FLOOR_HEIGHT_STEP.
+		local floorSurfaceY
+		if floorIndex == 1 then
+			floorSurfaceY = pos.Y + 2.2
+		else
+			floorSurfaceY = pos.Y + (floorIndex - 1) * FLOOR_HEIGHT_STEP
+		end
+		local plateY = floorSurfaceY + 0.15  -- half of plate thickness (0.3)
+
 		for row = 1, 5 do
 			local rowX = bCX + faceSign * ROW_OFFSETS[row]
 
-			-- Slot on left side (global slot index within this floor: row, left=1..5)
 			local leftSlotGlobal  = (floorIndex - 1) * SLOTS_PER_FLOOR + row
-			-- Slot on right side (right=6..10 within this floor)
 			local rightSlotGlobal = (floorIndex - 1) * SLOTS_PER_FLOOR + 5 + row
 
 			slotPositions[leftSlotGlobal]  = Vector3.new(rowX, floorY, leftZ)
 			slotPositions[rightSlotGlobal] = Vector3.new(rowX, floorY, rightZ)
 
-			platePositions[leftSlotGlobal]  = Vector3.new(rowX, floorY, leftPlateZ)
-			platePositions[rightSlotGlobal] = Vector3.new(rowX, floorY, rightPlateZ)
+			platePositions[leftSlotGlobal]  = Vector3.new(rowX, plateY, leftPlateZ)
+			platePositions[rightSlotGlobal] = Vector3.new(rowX, plateY, rightPlateZ)
 		end
 	end
 
