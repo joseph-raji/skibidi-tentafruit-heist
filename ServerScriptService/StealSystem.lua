@@ -44,16 +44,15 @@ function StealSystem.startCarrying(player, brainrot, playerBases, brainrotOwner,
 		return
 	end
 
-	-- Guard: cannot steal from yourself
-	if victim == player then
-		return
-	end
+	local isOwnBrainrot = (victim == player)
 
-	-- Guard: victim's base is locked
-	local victimBase = playerBases[victim]
-	if victimBase and victimBase.isLocked then
-		evtNotification:FireClient(player, "That base is protected by a lock shield!", Color3.fromRGB(255, 100, 100))
-		return
+	-- Guard: victim's base is locked (only applies when stealing)
+	if not isOwnBrainrot then
+		local victimBase = playerBases[victim]
+		if victimBase and victimBase.isLocked then
+			evtNotification:FireClient(player, "That base is protected by a lock shield!", Color3.fromRGB(255, 100, 100))
+			return
+		end
 	end
 
 	-- Guard: player character must exist
@@ -71,14 +70,14 @@ function StealSystem.startCarrying(player, brainrot, playerBases, brainrotOwner,
 	player:SetAttribute("IsCarrying", true)
 	player:SetAttribute("CarryingBrainrotName", brainrotName)
 
-	-- Notify victim (orange)
-	evtNotification:FireClient(victim, player.Name .. " is stealing your " .. brainrotName .. "!", Color3.fromRGB(255, 140, 0))
-
-	-- Fire stolen event for victim UI
-	evtBrainrotStolen:FireClient(victim, player.Name, brainrotName)
-
-	-- Notify thief
-	evtNotification:FireClient(player, "You grabbed " .. brainrotName .. "! Run to your base!", Color3.fromRGB(80, 200, 255))
+	if isOwnBrainrot then
+		evtNotification:FireClient(player, "Picked up " .. brainrotName .. ". Walk back to your base!", Color3.fromRGB(200, 200, 255))
+	else
+		-- Notify victim (orange)
+		evtNotification:FireClient(victim, player.Name .. " is stealing your " .. brainrotName .. "!", Color3.fromRGB(255, 140, 0))
+		evtBrainrotStolen:FireClient(victim, player.Name, brainrotName)
+		evtNotification:FireClient(player, "You grabbed " .. brainrotName .. "! Run to your base!", Color3.fromRGB(80, 200, 255))
+	end
 end
 
 function StealSystem.dropBrainrot(player, carrying)
@@ -109,24 +108,23 @@ function StealSystem.claimBrainrot(player, playerBases, brainrotOwner, carrying,
 
 	-- Read IncomePerSecond before transferring ownership so it is preserved
 	local income = brainrot:GetAttribute("IncomePerSecond") or 0
+	local originalOwner = brainrotOwner[brainrot]
+	local isOwnBrainrot = (originalOwner == player)
 
-	-- Update collection
-	if not playerCollection[player] then
-		playerCollection[player] = {}
+	if not isOwnBrainrot then
+		-- Stealing: update collection and award money
+		if not playerCollection[player] then
+			playerCollection[player] = {}
+		end
+		local brainrotId = brainrotName
+		playerCollection[player][brainrotId] = (playerCollection[player][brainrotId] or 0) + 1
+		local multiplier = player:GetAttribute("MoneyMultiplier") or 1
+		local currentMoney = player:GetAttribute("Money") or 0
+		player:SetAttribute("Money", currentMoney + (100 * multiplier))
 	end
-
-	local brainrotId = brainrotName
-	playerCollection[player][brainrotId] = (playerCollection[player][brainrotId] or 0) + 1
-
-	-- Apply money multiplier
-	local multiplier = player:GetAttribute("MoneyMultiplier") or 1
-	local currentMoney = player:GetAttribute("Money") or 0
-	player:SetAttribute("Money", currentMoney + (100 * multiplier))
 
 	-- Transfer ownership
 	brainrotOwner[brainrot] = player
-
-	-- Ensure income attribute stays on the part after ownership transfer
 	brainrot:SetAttribute("IncomePerSecond", income)
 
 	-- Clear carrying state
@@ -145,9 +143,12 @@ function StealSystem.claimBrainrot(player, playerBases, brainrotOwner, carrying,
 	-- Re-attach touch events with new owner so it can be stolen again
 	StealSystem.setupBrainrotTouchEvents(brainrot, player, playerBases, brainrotOwner, carrying, playerCollection)
 
-	-- Notify thief (green)
-	evtNotification:FireClient(player, "You claimed " .. brainrotName .. "!", Color3.fromRGB(0, 220, 100))
-	evtBrainrotClaimed:FireClient(player, brainrotName)
+	if isOwnBrainrot then
+		evtNotification:FireClient(player, brainrotName .. " placed!", Color3.fromRGB(200, 200, 255))
+	else
+		evtNotification:FireClient(player, "You claimed " .. brainrotName .. "!", Color3.fromRGB(0, 220, 100))
+		evtBrainrotClaimed:FireClient(player, brainrotName)
+	end
 end
 
 function StealSystem.setupBrainrotTouchEvents(brainrot, owner, playerBases, brainrotOwner, carrying, playerCollection)
@@ -173,7 +174,6 @@ function StealSystem.setupBrainrotTouchEvents(brainrot, owner, playerBases, brai
 	stealPrompt.Parent                = brainrot
 
 	local conn0 = stealPrompt.Triggered:Connect(function(trigPlayer)
-		if trigPlayer == owner then return end
 		if not carrying[trigPlayer] then
 			StealSystem.startCarrying(trigPlayer, brainrot, playerBases, brainrotOwner, carrying)
 		end

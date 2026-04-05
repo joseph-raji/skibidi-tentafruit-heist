@@ -176,6 +176,7 @@ end
 -- 8. Build shop and rebirth structures
 -- ============================================================
 ShopSystem.createShopPads()
+ShopSystem.createFusionMachine()
 ProgressionSystem.setupRebirthPad(playerBases)
 -- ItemsSystem.createItemsShop()  -- physical shop removed; buy equipment via the Shop UI button
 

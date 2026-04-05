@@ -506,6 +506,25 @@ function BaseSystem.createBase(player, position, playerBases)
 	-- Pre-compute all 50 slot and plate positions
 	local slotPositions, platePositions = computeAllSlotPositions(position)
 
+	-- Pre-create empty visual plates for all floor-1 slots
+	local emptyPlates = {}
+	for i = 1, 10 do
+		local platePos = platePositions[i]
+		if platePos then
+			local ep = Instance.new("Part")
+			ep.Name         = "EmptySlotPlate_" .. i
+			ep.Size         = Vector3.new(4, 0.3, 4)
+			ep.Material     = Enum.Material.Neon
+			ep.Color        = Color3.fromRGB(50, 50, 55)
+			ep.Transparency = 0.4
+			ep.CanCollide   = false
+			ep.Anchored     = true
+			ep.CFrame       = CFrame.new(platePos)
+			ep.Parent       = folder
+			emptyPlates[i]  = ep
+		end
+	end
+
 	-- Initialise state
 	playerBases[player] = {
 		folder         = folder,
@@ -518,6 +537,7 @@ function BaseSystem.createBase(player, position, playerBases)
 		unlockedFloors = 1,
 		slotGrid       = {},     -- true = occupied, nil/false = free
 		maxSlots       = 10,     -- floor 1 gives 10 slots
+		emptyPlates    = emptyPlates,
 	}
 
 	return folder

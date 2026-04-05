@@ -82,8 +82,25 @@ end
 function ShopSystem.releaseSlot(player, slotIndex)
 	if slotIndex == nil or slotIndex < 1 then return end
 	local baseData = _playerBases[player]
-	if baseData and baseData.slotGrid then
+	if not baseData then return end
+	if baseData.slotGrid then
 		baseData.slotGrid[slotIndex] = false
+	end
+	-- Recreate the empty visual plate for this slot
+	local platePos = baseData.platePositions and baseData.platePositions[slotIndex]
+	if platePos and baseData.folder and baseData.folder.Parent then
+		if not baseData.emptyPlates then baseData.emptyPlates = {} end
+		local ep = Instance.new("Part")
+		ep.Name         = "EmptySlotPlate_" .. slotIndex
+		ep.Size         = Vector3.new(4, 0.3, 4)
+		ep.Material     = Enum.Material.Neon
+		ep.Color        = Color3.fromRGB(50, 50, 55)
+		ep.Transparency = 0.4
+		ep.CanCollide   = false
+		ep.Anchored     = true
+		ep.CFrame       = CFrame.new(platePos)
+		ep.Parent       = baseData.folder
+		baseData.emptyPlates[slotIndex] = ep
 	end
 end
 
@@ -337,6 +354,14 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 			platePos = _playerBases[owner].platePositions[slotIndex]
 		end
 
+		-- Remove empty placeholder plate for this slot if present
+		local baseDataForPlate = _playerBases[owner]
+		if baseDataForPlate and baseDataForPlate.emptyPlates and slotIndex then
+			local ep = baseDataForPlate.emptyPlates[slotIndex]
+			if ep and ep.Parent then ep:Destroy() end
+			baseDataForPlate.emptyPlates[slotIndex] = nil
+		end
+
 		local plate = Instance.new("Part")
 		plate.Name        = "CollectPlate_" .. (slotIndex or 0)
 		plate.Size        = Vector3.new(4, 0.3, 4)
@@ -406,7 +431,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		end)
 	else
 		-- -----------------------------------------------------------------------
-		-- Conveyor brainrot: ProximityPrompt so player can press E to buy
+		-- Conveyor brainrot: fly to buyer's base when purchased
 		-- -----------------------------------------------------------------------
 		if brainrotData.cost then
 			local prompt = Instance.new("ProximityPrompt")
@@ -417,7 +442,40 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 			prompt.Parent              = body
 
 			prompt.Triggered:Connect(function(buyer)
-				ShopSystem.buyBrainrot(buyer, brainrotData.id, _playerBases, _brainrotOwner, _playerCollection)
+				-- Check money
+				local money = buyer:GetAttribute("Money") or 0
+				if money < brainrotData.cost then
+					NotificationEvent:FireClient(buyer, "Not enough money! Need $" .. brainrotData.cost, Color3.fromRGB(255, 80, 80))
+					return
+				end
+				-- Check slot
+				local slotIndex, slotPos = BaseSystem.getNextSlot(buyer, _playerBases)
+				if not slotIndex then
+					NotificationEvent:FireClient(buyer, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
+					return
+				end
+				-- Deduct money and disable prompt so nobody else buys this one
+				buyer:SetAttribute("Money", money - brainrotData.cost)
+				prompt.Enabled = false
+				-- Mark as flying so the conveyor loop stops moving it
+				_flyingBodies[body] = true
+				-- Fly to slot
+				local dest = Vector3.new(slotPos.X, slotPos.Y + brainrotData.size / 2, slotPos.Z)
+				local tween = TweenService:Create(body, TweenInfo.new(1.8, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut), {CFrame = CFrame.new(dest)})
+				tween.Completed:Connect(function()
+					_flyingBodies[body] = nil
+					if buyer and buyer.Parent then
+						ShopSystem.spawnBrainrot(brainrotData, dest, buyer, _brainrotOwner, slotIndex)
+						if not _playerCollection[buyer] then _playerCollection[buyer] = {} end
+						_playerCollection[buyer][brainrotData.id] = (_playerCollection[buyer][brainrotData.id] or 0) + 1
+						CollectionUpdatedEvent:FireClient(buyer, _playerCollection[buyer])
+						NotificationEvent:FireClient(buyer, "You got " .. brainrotData.name .. "!", Color3.fromRGB(100, 255, 100))
+					end
+					-- Destroy the old flying model
+					local m = body.Parent
+					if m and m:IsA("Model") then m:Destroy() elseif body and body.Parent then body:Destroy() end
+				end)
+				tween:Play()
 			end)
 		end
 	end
@@ -732,6 +790,11 @@ function ShopSystem.createShopPads()
 				conveyorItems[body] = nil
 				continue
 			end
+			-- Body was purchased and is flying to a base — stop conveyor movement
+			if _flyingBodies[body] then
+				conveyorItems[body] = nil
+				continue
+			end
 			local newX = body.Position.X + BELT_SPEED * dt
 			body.CFrame = CFrame.new(newX, body.Position.Y, body.Position.Z)
 				* CFrame.Angles(0, tick() * 0.8, 0)
@@ -816,6 +879,131 @@ function ShopSystem.createShopPads()
 		gachaDebounce[player] = true
 		task.delay(1, function() gachaDebounce[player] = nil end)
 		ShopSystem.spinGacha(player, _playerBases, _brainrotOwner, _playerCollection)
+	end)
+end
+
+-- =========================================================================
+-- Public: createFusionMachine
+-- Fusion pad: carry two brainrots here to merge them into a stronger one.
+-- =========================================================================
+
+local fusionQueue = {}  -- [player] → { part, income, name, id }
+
+function ShopSystem.createFusionMachine()
+	local padY = BELT_Y + 0.25
+
+	local fusionPad = Instance.new("Part")
+	fusionPad.Name      = "FusionPad"
+	fusionPad.Anchored  = true
+	fusionPad.Size      = Vector3.new(12, 0.5, 12)
+	fusionPad.Position  = Vector3.new(0, padY, -20)
+	fusionPad.Material  = Enum.Material.Neon
+	fusionPad.Parent    = workspace
+
+	RunService.Heartbeat:Connect(function()
+		if not fusionPad or not fusionPad.Parent then return end
+		local h = ((tick() * 0.35) + 0.55) % 1
+		fusionPad.Color = Color3.fromHSV(h, 1, 1)
+	end)
+
+	local fusBB = Instance.new("BillboardGui")
+	fusBB.Size        = UDim2.new(0, 260, 0, 90)
+	fusBB.StudsOffset = Vector3.new(0, 7, 0)
+	fusBB.Parent      = fusionPad
+
+	local fusTitle = Instance.new("TextLabel")
+	fusTitle.Size = UDim2.new(1, 0, 0.5, 0)
+	fusTitle.BackgroundTransparency = 1
+	fusTitle.Text = "⚡ FUSION MACHINE"
+	fusTitle.TextScaled = true
+	fusTitle.Font = Enum.Font.GothamBold
+	fusTitle.TextColor3 = Color3.fromRGB(255, 255, 100)
+	fusTitle.Parent = fusBB
+
+	local fusHint = Instance.new("TextLabel")
+	fusHint.Size = UDim2.new(1, 0, 0.5, 0)
+	fusHint.Position = UDim2.new(0, 0, 0.5, 0)
+	fusHint.BackgroundTransparency = 1
+	fusHint.Text = "Carry 2 brainrots here to fuse!"
+	fusHint.TextScaled = true
+	fusHint.Font = Enum.Font.Gotham
+	fusHint.TextColor3 = Color3.fromRGB(200, 200, 255)
+	fusHint.Parent = fusBB
+
+	local fusDebounce = {}
+	fusionPad.Touched:Connect(function(hit)
+		local character = hit.Parent
+		if not character then return end
+		local player = Players:GetPlayerFromCharacter(character)
+		if not player then return end
+		if fusDebounce[player] then return end
+
+		local brainrot = _carrying[player]
+		if not brainrot then return end
+
+		fusDebounce[player] = true
+		task.delay(1.5, function() fusDebounce[player] = nil end)
+
+		local income = brainrot:GetAttribute("IncomePerSecond") or 1
+		local name   = brainrot:GetAttribute("BrainrotName") or "Brainrot"
+		local bId    = brainrot:GetAttribute("BrainrotId") or "unknown"
+
+		if not fusionQueue[player] then
+			-- Slot 1: park the brainrot above the machine
+			_carrying[player] = nil
+			player:SetAttribute("IsCarrying", false)
+			player:SetAttribute("CarryingBrainrotName", "")
+			brainrot.Anchored = true
+			brainrot.CFrame = CFrame.new(0, padY + 5, -20)
+			_brainrotOwner[brainrot] = player
+			fusionQueue[player] = { part = brainrot, income = income, name = name, id = bId }
+			NotificationEvent:FireClient(player, "Brainrot 1 loaded! Bring a second one to fuse.", Color3.fromRGB(100, 200, 255))
+		else
+			-- Slot 2: fuse!
+			local first = fusionQueue[player]
+			fusionQueue[player] = nil
+
+			_carrying[player] = nil
+			player:SetAttribute("IsCarrying", false)
+			player:SetAttribute("CarryingBrainrotName", "")
+
+			-- Destroy both parts
+			local firstPart = first.part
+			_brainrotOwner[firstPart] = nil
+			_brainrotOwner[brainrot]  = nil
+			local function destroyModel(part)
+				if not part or not part.Parent then return end
+				local m = part.Parent
+				if m and m:IsA("Model") then m:Destroy() else part:Destroy() end
+			end
+			destroyModel(firstPart)
+			destroyModel(brainrot)
+
+			-- Build fused brainrotData
+			local fusedIncome = first.income + income + 5
+			local n1 = first.name:sub(1, 6)
+			local n2 = name:sub(1, 6)
+			local fusedData = {
+				id        = "fused_" .. tostring(math.floor(tick())),
+				name      = n1 .. "-" .. n2,
+				income    = fusedIncome,
+				rarity    = "Legendary",
+				size      = 3,
+				cost      = nil,
+				color     = BrickColor.new("Bright yellow"),
+				glowColor = Color3.fromRGB(255, 220, 0),
+			}
+
+			-- Spawn in player's base
+			local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
+			if slotIndex and slotPos then
+				local dest = Vector3.new(slotPos.X, slotPos.Y + fusedData.size / 2, slotPos.Z)
+				ShopSystem.spawnBrainrot(fusedData, dest, player, _brainrotOwner, slotIndex)
+				NotificationEvent:FireClient(player, "FUSION! " .. fusedData.name .. " earns $" .. fusedIncome .. "/s!", Color3.fromRGB(255, 220, 0))
+			else
+				NotificationEvent:FireClient(player, "Base full — fusion failed! Free a slot first.", Color3.fromRGB(255, 80, 80))
+			end
+		end
 	end)
 end
 
