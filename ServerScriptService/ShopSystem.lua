@@ -396,6 +396,22 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 
 			NotificationEvent:FireClient(trigPlayer, "+" .. money .. "$", Color3.fromRGB(100, 255, 100))
 		end)
+	else
+		-- -----------------------------------------------------------------------
+		-- Conveyor brainrot: ProximityPrompt so player can press E to buy
+		-- -----------------------------------------------------------------------
+		if brainrotData.cost then
+			local prompt = Instance.new("ProximityPrompt")
+			prompt.ActionText          = "Buy  $" .. brainrotData.cost
+			prompt.ObjectText          = brainrotData.name
+			prompt.HoldDuration        = 0
+			prompt.MaxActivationDistance = 8
+			prompt.Parent              = body
+
+			prompt.Triggered:Connect(function(buyer)
+				ShopSystem.buyBrainrot(buyer, brainrotData.id, _playerBases, _brainrotOwner, _playerCollection)
+			end)
+		end
 	end
 
 	-- -----------------------------------------------------------------------

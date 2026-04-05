@@ -12,10 +12,10 @@ local PlayerGui = player:WaitForChild("PlayerGui")
 local BrainrotData = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"))
 
 local RE = ReplicatedStorage:WaitForChild("RemoteEvents")
-local OpenShopEvent  = RE:WaitForChild("OpenShop")
-local SpinGachaEvent   = RE:WaitForChild("SpinGacha")
-local BuyBrainrotEvent = RE:WaitForChild("BuyBrainrot")
-local RebirthEvent   = RE:WaitForChild("Rebirth")
+local OpenShopEvent     = RE:WaitForChild("OpenShop")
+local SpinGachaEvent    = RE:WaitForChild("SpinGacha")
+local BuyItemEvent      = RE:WaitForChild("BuyItem")
+local RebirthEvent      = RE:WaitForChild("Rebirth")
 local NotificationEvent = RE:WaitForChild("Notification")
 
 -- ============================================================
@@ -24,6 +24,28 @@ local NotificationEvent = RE:WaitForChild("Notification")
 
 local GACHA_COST   = 150
 local REBIRTH_COST = 10000
+
+-- Equipment items (mirrors ItemsSystem.ITEMS)
+local ITEMS = {
+	{ id = "power_bat",      name = "Power Bat",       category = "Weapon",   cost = 500,  icon = "🏏", description = "2x range, stuns enemies 2s" },
+	{ id = "rocket_bat",     name = "Rocket Bat",       category = "Weapon",   cost = 2500, icon = "🚀", description = "AOE blast — drops ALL carriers nearby" },
+	{ id = "grappling_hook", name = "Grappling Hook",   category = "Mobility", cost = 1500, icon = "🪝", description = "Zip forward to any point" },
+	{ id = "speed_boots",    name = "Speed Boots",       category = "Mobility", cost = 600,  icon = "👟", description = "50% speed boost for 20s (consumable)" },
+	{ id = "invis_cap",      name = "Invisibility Cap", category = "Stealth",  cost = 1000, icon = "🪄", description = "Turn invisible for 10s (consumable)" },
+	{ id = "spike_trap",     name = "Spike Trap",        category = "Trap",     cost = 350,  icon = "⚡", description = "Slows enemies who step on it" },
+	{ id = "alarm_trap",     name = "Alarm Trap",         category = "Trap",     cost = 450,  icon = "🔔", description = "Notifies you when enemy enters base" },
+	{ id = "freeze_trap",    name = "Freeze Trap",        category = "Trap",     cost = 900,  icon = "❄️", description = "Anchors enemy in place for 3s" },
+	{ id = "bouncer_trap",   name = "Bouncer",            category = "Trap",     cost = 1200, icon = "🌀", description = "Launches intruders out of your base" },
+	{ id = "shield_bubble",  name = "Shield Bubble",      category = "Defense",  cost = 800,  icon = "🛡️", description = "Absorbs one bat hit (consumable)" },
+}
+
+local CATEGORY_COLOR = {
+	Weapon   = Color3.fromRGB(220, 60,  60),
+	Mobility = Color3.fromRGB(80,  140, 255),
+	Stealth  = Color3.fromRGB(200, 200, 200),
+	Trap     = Color3.fromRGB(255, 160, 30),
+	Defense  = Color3.fromRGB(0,   210, 220),
+}
 
 local RARITY_COLOR = {
 	Common    = Color3.fromRGB(160, 160, 160),
@@ -221,7 +243,7 @@ local function makeTab(name, labelText, order)
 	return b
 end
 
-local TabInfo  = makeTab("TabInfo",  "BRAINROT INFO", 1)
+local TabInfo  = makeTab("TabInfo",  "🛍️ EQUIPMENT",  1)
 local TabGacha = makeTab("TabGacha", "🎰 GACHA",      2)
 local TabStats = makeTab("TabStats", "📊 STATS",      3)
 
@@ -250,13 +272,13 @@ InfoPage.ZIndex                 = 7
 InfoPage.Parent                 = ContentArea
 
 -- Hint text
-local HintLabel = label(InfoPage, "Buy brainrots below or spin the GACHA!", 13, Color3.fromRGB(140, 220, 140))
+local HintLabel = label(InfoPage, "Buy equipment below — get brainrots on the red carpet!", 13, Color3.fromRGB(140, 220, 140))
 HintLabel.Size     = UDim2.new(1, 0, 0, 22)
 HintLabel.Position = UDim2.new(0, 0, 0, 0)
 HintLabel.TextXAlignment = Enum.TextXAlignment.Center
 HintLabel.ZIndex   = 8
 
--- Filter bar
+-- Category filter bar
 local FilterBar = Instance.new("Frame")
 FilterBar.Name                   = "FilterBar"
 FilterBar.Size                   = UDim2.new(1, 0, 0, 28)
@@ -276,7 +298,7 @@ local filterButtons = {}
 local function makeFilterBtn(name, order)
 	local b = Instance.new("TextButton")
 	b.Name             = name
-	b.Size             = UDim2.new(0, 72, 1, 0)
+	b.Size             = UDim2.new(0, 78, 1, 0)
 	b.BackgroundColor3 = Color3.fromRGB(35, 35, 50)
 	b.Text             = name
 	b.TextColor3       = Color3.fromRGB(160, 160, 190)
@@ -291,48 +313,43 @@ local function makeFilterBtn(name, order)
 	return b
 end
 
-makeFilterBtn("ALL",       1)
-makeFilterBtn("Common",    2)
-makeFilterBtn("Uncommon",  3)
-makeFilterBtn("Rare",      4)
-makeFilterBtn("Epic",      5)
-makeFilterBtn("Legendary", 6)
+makeFilterBtn("ALL",      1)
+makeFilterBtn("Weapon",   2)
+makeFilterBtn("Mobility", 3)
+makeFilterBtn("Stealth",  4)
+makeFilterBtn("Trap",     5)
+makeFilterBtn("Defense",  6)
 
 -- Scrollable list
 local ScrollFrame = Instance.new("ScrollingFrame")
-ScrollFrame.Name                        = "BrainrotList"
-ScrollFrame.Size                        = UDim2.new(1, 0, 1, -58)
-ScrollFrame.Position                    = UDim2.new(0, 0, 0, 58)
-ScrollFrame.BackgroundTransparency      = 1
-ScrollFrame.ScrollBarThickness          = 4
-ScrollFrame.ScrollBarImageColor3        = Color3.fromRGB(80, 80, 120)
-ScrollFrame.CanvasSize                  = UDim2.new(0, 0, 0, 0)
-ScrollFrame.AutomaticCanvasSize         = Enum.AutomaticSize.Y
-ScrollFrame.ZIndex                      = 8
-ScrollFrame.Parent                      = InfoPage
+ScrollFrame.Name                   = "ItemList"
+ScrollFrame.Size                   = UDim2.new(1, 0, 1, -58)
+ScrollFrame.Position               = UDim2.new(0, 0, 0, 58)
+ScrollFrame.BackgroundTransparency = 1
+ScrollFrame.ScrollBarThickness     = 4
+ScrollFrame.ScrollBarImageColor3   = Color3.fromRGB(80, 80, 120)
+ScrollFrame.CanvasSize             = UDim2.new(0, 0, 0, 0)
+ScrollFrame.AutomaticCanvasSize    = Enum.AutomaticSize.Y
+ScrollFrame.ZIndex                 = 8
+ScrollFrame.Parent                 = InfoPage
 
 local ListLayout = Instance.new("UIListLayout")
-ListLayout.SortOrder   = Enum.SortOrder.LayoutOrder
-ListLayout.Padding     = UDim.new(0, 4)
-ListLayout.Parent      = ScrollFrame
+ListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+ListLayout.Padding   = UDim.new(0, 4)
+ListLayout.Parent    = ScrollFrame
 
-local brainrotRows = {}  -- { row, rarity, gachaOnly }
+local itemRows = {}  -- { row, category }
 
-local function buildBrainrotList()
-	-- Clear old rows
-	for _, r in ipairs(brainrotRows) do
-		r.row:Destroy()
-	end
-	brainrotRows = {}
+local function buildItemList()
+	for _, r in ipairs(itemRows) do r.row:Destroy() end
+	itemRows = {}
 
-	for i, entry in ipairs(BrainrotData.list) do
-		local rarityName = entry.rarity or "Common"
-		local rarityColor = RARITY_COLOR[rarityName] or Color3.fromRGB(160, 160, 160)
-		local isGachaOnly = entry.gachaOnly == true or entry.cost == nil
+	for i, entry in ipairs(ITEMS) do
+		local catColor = CATEGORY_COLOR[entry.category] or Color3.fromRGB(160, 160, 160)
 
 		local row = Instance.new("Frame")
 		row.Name             = "Row_" .. i
-		row.Size             = UDim2.new(1, -4, 0, 36)
+		row.Size             = UDim2.new(1, -4, 0, 44)
 		row.BackgroundColor3 = Color3.fromRGB(28, 28, 40)
 		row.BorderSizePixel  = 0
 		row.LayoutOrder      = i
@@ -340,48 +357,48 @@ local function buildBrainrotList()
 		row.Parent           = ScrollFrame
 		corner(row, 6)
 
-		-- Rarity color strip
+		-- Category color strip
 		local strip = Instance.new("Frame")
 		strip.Size             = UDim2.new(0, 4, 1, 0)
-		strip.BackgroundColor3 = rarityColor
+		strip.BackgroundColor3 = catColor
 		strip.BorderSizePixel  = 0
 		strip.ZIndex           = 10
 		strip.Parent           = row
 		corner(strip, 3)
 
-		-- Name
-		local nameLabel = label(row, entry.name or entry.id, 13, Color3.fromRGB(230, 230, 230), Enum.Font.GothamBold)
-		nameLabel.Size     = UDim2.new(0, 200, 1, 0)
-		nameLabel.Position = UDim2.new(0, 12, 0, 0)
+		-- Icon + Name
+		local nameLabel = label(row, entry.icon .. "  " .. entry.name, 13, Color3.fromRGB(230, 230, 230), Enum.Font.GothamBold)
+		nameLabel.Size     = UDim2.new(0, 190, 0, 20)
+		nameLabel.Position = UDim2.new(0, 12, 0, 4)
 		nameLabel.ZIndex   = 10
 
+		-- Description
+		local descLabel = label(row, entry.description, 10, Color3.fromRGB(150, 150, 170), Enum.Font.Gotham)
+		descLabel.Size     = UDim2.new(0, 190, 0, 16)
+		descLabel.Position = UDim2.new(0, 12, 0, 24)
+		descLabel.ZIndex   = 10
+
 		-- Cost
-		local costText = isGachaOnly and "GACHA ONLY" or ("$" .. (entry.cost or "?"))
-		local costColor = isGachaOnly and Color3.fromRGB(200, 130, 255) or Color3.fromRGB(255, 210, 80)
-		local costLabel = label(row, costText, 12, costColor, Enum.Font.GothamBold)
-		costLabel.Size     = UDim2.new(0, 100, 1, 0)
-		costLabel.Position = UDim2.new(0, 218, 0, 0)
+		local costLabel = label(row, "$" .. entry.cost, 12, Color3.fromRGB(255, 210, 80), Enum.Font.GothamBold)
+		costLabel.Size     = UDim2.new(0, 80, 1, 0)
+		costLabel.Position = UDim2.new(0, 210, 0, 0)
 		costLabel.ZIndex   = 10
 
-		-- BUY button (only for purchasable brainrots)
-		if not isGachaOnly then
-			local buyBtn = button(row, "BUY", Color3.fromRGB(40, 140, 60), Color3.fromRGB(255, 255, 255))
-			buyBtn.Size     = UDim2.new(0, 70, 0, 26)
-			buyBtn.Position = UDim2.new(1, -78, 0.5, -13)
-			buyBtn.ZIndex   = 11
-			buyBtn.MouseButton1Click:Connect(function()
-				BuyBrainrotEvent:FireServer(entry.id)
-			end)
-		end
+		-- BUY button
+		local buyBtn = button(row, "BUY", Color3.fromRGB(40, 140, 60), Color3.fromRGB(255, 255, 255))
+		buyBtn.Size     = UDim2.new(0, 70, 0, 28)
+		buyBtn.Position = UDim2.new(1, -78, 0.5, -14)
+		buyBtn.ZIndex   = 11
+		buyBtn.MouseButton1Click:Connect(function()
+			BuyItemEvent:FireServer(entry.id)
+		end)
 
-		table.insert(brainrotRows, { row = row, rarity = rarityName })
+		table.insert(itemRows, { row = row, category = entry.category })
 	end
 end
 
 local function applyFilter(filter)
 	activeFilter = filter
-
-	-- Update button highlights
 	for name, btn in pairs(filterButtons) do
 		if name == filter then
 			btn.BackgroundColor3 = Color3.fromRGB(60, 80, 160)
@@ -391,18 +408,13 @@ local function applyFilter(filter)
 			btn.TextColor3       = Color3.fromRGB(160, 160, 190)
 		end
 	end
-
-	-- Show/hide rows
-	for _, item in ipairs(brainrotRows) do
-		item.row.Visible = (filter == "ALL" or item.rarity == filter)
+	for _, item in ipairs(itemRows) do
+		item.row.Visible = (filter == "ALL" or item.category == filter)
 	end
 end
 
--- Wire up filter buttons
 for name, btn in pairs(filterButtons) do
-	btn.MouseButton1Click:Connect(function()
-		applyFilter(name)
-	end)
+	btn.MouseButton1Click:Connect(function() applyFilter(name) end)
 end
 
 -- ============================================================
@@ -686,7 +698,7 @@ local TWEEN_INFO = TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirecti
 local function openShop()
 	if shopOpen then return end
 	shopOpen = true
-	buildBrainrotList()
+	buildItemList()
 	applyFilter("ALL")
 	switchTab("INFO")
 	Panel.Position = CLOSE_POS

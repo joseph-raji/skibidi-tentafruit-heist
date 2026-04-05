@@ -28,6 +28,7 @@ local eventNames = {
 	"CollectionUpdated",
 	"OpenShop",
 	"OpenPokedex",
+	"BuyItem",
 }
 
 for _, name in ipairs(eventNames) do
@@ -229,6 +230,12 @@ end)
 -- Open pokédex UI on the requesting client
 RemoteEvents.OpenPokedex.OnServerEvent:Connect(function(player)
 	RemoteEvents.OpenPokedex:FireClient(player)
+end)
+
+-- Buy an equipment item from the shop UI
+RemoteEvents.BuyItem.OnServerEvent:Connect(function(player, itemId)
+	if not player or not itemId then return end
+	ItemsSystem.buyItem(player, itemId)
 end)
 
 -- ============================================================
