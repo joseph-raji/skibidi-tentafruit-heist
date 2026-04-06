@@ -116,8 +116,16 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 		end
 	end
 	for _, part in ipairs(partsToRemove) do
+		local slotIndex = part:GetAttribute("SlotIndex")
+		if ShopSystem then
+			ShopSystem.removePlate(part)
+			if slotIndex then
+				ShopSystem.releaseSlot(player, slotIndex)
+			end
+		end
 		brainrotOwner[part] = nil
-		part:Destroy()
+		local m = part.Parent
+		if m and m:IsA("Model") then m:Destroy() else part:Destroy() end
 	end
 
 	-- Reset collection
