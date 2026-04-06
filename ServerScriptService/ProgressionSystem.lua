@@ -19,10 +19,6 @@ local REBIRTH_PAD_DEBOUNCE_TIME = 3
 --   body:SetAttribute("IncomePerSecond", brainrotData.income)
 -- on every spawned brainrot body part for income to be credited.
 
--- MaxSlots granted per rebirth tier
--- Tiers: [0-1, 2-3, 4-5, 6-7, 8+]
-local LEVEL_SLOTS = {5, 8, 12, 16, 20}
-
 -- ShopSystem reference injected by Main
 local ShopSystem = nil
 
@@ -84,7 +80,7 @@ end
 -- Sets the MaxSlots attribute on the player based on baseData.maxSlots
 function ProgressionSystem.updateMaxSlots(player)
 	local baseData = _playerBases and _playerBases[player]
-	local maxSlots = baseData and (baseData.maxSlots or 10) or 10
+	local maxSlots = baseData and (baseData.maxSlots or 5) or 5
 	player:SetAttribute("MaxSlots", maxSlots)
 end
 
@@ -136,28 +132,11 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	local newMultiplier = 1 + (newRebirthCount * 0.5)
 	player:SetAttribute("MoneyMultiplier", newMultiplier)
 
-	-- Unlock floors based on rebirth count
-	local currentRebirthCount = player:GetAttribute("RebirthCount") or 0
-	local FLOOR_UNLOCK = {0, 1, 2, 4, 6}  -- same as GameConfig
-	local targetFloors = 1
-	for i = #FLOOR_UNLOCK, 1, -1 do
-		if currentRebirthCount >= FLOOR_UNLOCK[i] then
-			targetFloors = i
-			break
-		end
+	-- Grant 1 additional slot per rebirth; BaseSystem.grantSlot handles floor unlocking
+	if BaseSystem then
+		local newTotal = BaseSystem.grantSlot(player, _playerBases)
+		player:SetAttribute("MaxSlots", newTotal)
 	end
-
-	local baseData = _playerBases[player]
-	if baseData and BaseSystem then
-		local currentFloors = baseData.unlockedFloors or 1
-		while currentFloors < targetFloors do
-			BaseSystem.unlockNextFloor(player, _playerBases)
-			currentFloors = baseData.unlockedFloors or 1
-		end
-	end
-
-	-- Update MaxSlots for the new rebirth tier
-	ProgressionSystem.updateMaxSlots(player)
 
 	-- Fire events
 	evtRebirthComplete:FireClient(player, newMultiplier)

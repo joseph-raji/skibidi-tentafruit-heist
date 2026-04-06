@@ -332,8 +332,8 @@ end
 
 local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local PLATFORM_COLOR  = Color3.fromRGB(70, 70, 75)
-	local RAILING_COLOR   = Color3.fromRGB(100, 100, 105)
-	local RAMP_COLOR      = Color3.fromRGB(90, 90, 95)
+	local WALL_COLOR      = Color3.fromRGB(130, 130, 135)
+	local ROOF_COLOR      = Color3.fromRGB(190, 190, 195)
 
 	local bCX = pos.X + faceSign * (-6)
 
@@ -350,99 +350,76 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 		PLATFORM_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- Railings on all sides except the front entrance gap
-	local railH     = 3
-	local railThick = 0.5
-	local railY     = floorGroundY + railH / 2
+	-- Full concrete walls matching ground floor style
+	local wallY     = floorGroundY + WALL_HEIGHT / 2
 	local halfDepth = BUILDING_DEPTH / 2
 	local halfWidth = BUILDING_WIDTH / 2
 
-	-- Back railing
-	local backRailX = bCX - faceSign * halfDepth
-	makePart(
-		folder, "RailBack" .. floorNum,
-		Vector3.new(railThick, railH, BUILDING_WIDTH),
-		CFrame.new(backRailX, railY, pos.Z),
-		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
-	)
+	-- Back wall
+	makePart(folder, "WallBack" .. floorNum,
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, BUILDING_WIDTH),
+		CFrame.new(bCX - faceSign * halfDepth, wallY, pos.Z),
+		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Left railing (full depth along X)
-	makePart(
-		folder, "RailLeft" .. floorNum,
-		Vector3.new(BUILDING_DEPTH, railH, railThick),
-		CFrame.new(bCX, railY, pos.Z - halfWidth),
-		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
-	)
+	-- Left wall
+	makePart(folder, "WallLeft" .. floorNum,
+		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(bCX, wallY, pos.Z - halfWidth),
+		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Right railing
-	makePart(
-		folder, "RailRight" .. floorNum,
-		Vector3.new(BUILDING_DEPTH, railH, railThick),
-		CFrame.new(bCX, railY, pos.Z + halfWidth),
-		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
-	)
+	-- Right wall
+	makePart(folder, "WallRight" .. floorNum,
+		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(bCX, wallY, pos.Z + halfWidth),
+		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Front railing: two segments with entrance gap
+	-- Front wall: two segments with entrance gap
 	local frontFaceX   = bCX + faceSign * halfDepth
 	local segmentWidth = (BUILDING_WIDTH - ENTRANCE_GAP) / 2
 
-	local fwLeftZ  = pos.Z - ENTRANCE_GAP / 2 - segmentWidth / 2
-	local fwRightZ = pos.Z + ENTRANCE_GAP / 2 + segmentWidth / 2
-	makePart(
-		folder, "RailFrontLeft" .. floorNum,
-		Vector3.new(railThick, railH, segmentWidth),
-		CFrame.new(frontFaceX, railY, fwLeftZ),
-		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
-	)
-	makePart(
-		folder, "RailFrontRight" .. floorNum,
-		Vector3.new(railThick, railH, segmentWidth),
-		CFrame.new(frontFaceX, railY, fwRightZ),
-		RAILING_COLOR, 0, Enum.Material.SmoothPlastic, true
-	)
+	-- Front wall left segment
+	makePart(folder, "WallFrontLeft" .. floorNum,
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
+		CFrame.new(frontFaceX, wallY, pos.Z - ENTRANCE_GAP / 2 - segmentWidth / 2),
+		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Ramp/wedge going from previous floor to this floor, placed at the back of the aisle
-	-- Ramp sits between the back wall and the aisle along depth axis.
-	-- Previous floor ground Y:
-	local prevFloorY = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
-	-- Ramp height = FLOOR_HEIGHT_STEP, ramp depth = 6 studs (1 row spacing)
-	local rampHeight = FLOOR_HEIGHT_STEP
-	local rampDepth  = 6
-	local rampWidth  = ENTRANCE_GAP  -- span the aisle width
-	-- Ramp center Y: midpoint between prevFloorY and floorGroundY
-	local rampCenterY = (prevFloorY + floorGroundY) / 2
-	-- Place ramp at the back of the building along depth axis (back row area)
-	local rampX = bCX - faceSign * (halfDepth - rampDepth / 2)
+	-- Front wall right segment
+	makePart(folder, "WallFrontRight" .. floorNum,
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
+		CFrame.new(frontFaceX, wallY, pos.Z + ENTRANCE_GAP / 2 + segmentWidth / 2),
+		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Use a wedge part oriented so it slopes upward from front to back
-	local ramp = Instance.new("WedgePart")
-	ramp.Name      = "Ramp" .. floorNum
-	ramp.Size      = Vector3.new(rampDepth, rampHeight, rampWidth)
-	ramp.Anchored  = true
-	ramp.CanCollide = true
-	ramp.Color     = RAMP_COLOR
-	ramp.Material  = Enum.Material.SmoothPlastic
-	ramp.CastShadow = true
+	-- Roof
+	local roofY = floorGroundY + WALL_HEIGHT + 0.75
+	makePart(folder, "Roof" .. floorNum,
+		Vector3.new(BUILDING_DEPTH + 6, 1.5, BUILDING_WIDTH + 6),
+		CFrame.new(bCX, roofY, pos.Z),
+		ROOF_COLOR, 0, Enum.Material.SmoothPlastic, true)
 
-	-- Orient the wedge so the slope goes upward in the direction toward the back of the building.
-	-- A default WedgePart slopes upward from -Z toward +Z in its local space.
-	-- We want the slope to go upward from the front toward the back (away from road).
-	-- faceSign=+1: back is at -X relative to bCX, so we rotate to align slope with -X world direction.
-	-- faceSign=-1: back is at +X, slope should go toward +X.
-	-- CFrame: position at rampX, rampCenterY, pos.Z, then rotate to align wedge slope with depth axis.
-	local slopeAngle
-	if faceSign >= 0 then
-		-- slope rises toward -X (back): rotate around Z by 90 deg, then around Y
-		-- WedgePart default: top face tilts from front (+Z) to back (-Z).
-		-- We need it to tilt from front (+X, toward road) to back (-X).
-		-- Rotate -90 deg around Y so +Z of wedge aligns with -X world.
-		slopeAngle = math.pi / 2
-	else
-		slopeAngle = -math.pi / 2
+	-- Walkable staircase: 6 steps, each 2 studs tall x 4 studs deep, 12 studs wide
+	-- Placed at the back of the building, rising from the previous floor to this floor
+	local prevFloorY  = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
+	local STEP_HEIGHT = 2
+	local STEP_DEPTH  = 4
+	local STEP_COUNT  = 6   -- 6 x 2 = 12 studs rise = FLOOR_HEIGHT_STEP
+	local STAIR_WIDTH = ENTRANCE_GAP  -- 12 studs, centered at pos.Z
+
+	-- Back of staircase anchors at back wall inner face (1 stud inside back wall)
+	local stairBackX = bCX - faceSign * (halfDepth - 1)
+
+	for step = 1, STEP_COUNT do
+		local stepTopY    = prevFloorY + step * STEP_HEIGHT
+		local stepCenterY = stepTopY - STEP_HEIGHT / 2
+		-- step=1 is closest to back wall, step=6 is furthest (toward front/center)
+		local stepCenterX = stairBackX + faceSign * ((step - 1) * STEP_DEPTH + STEP_DEPTH / 2)
+
+		makePart(
+			folder, "Stair" .. floorNum .. "_" .. step,
+			Vector3.new(STEP_DEPTH, STEP_HEIGHT, STAIR_WIDTH),
+			CFrame.new(stepCenterX, stepCenterY, pos.Z),
+			Color3.fromRGB(90, 90, 95), 0, Enum.Material.SmoothPlastic, true
+		)
 	end
-
-	ramp.CFrame = CFrame.new(rampX, rampCenterY, pos.Z) * CFrame.Angles(0, slopeAngle, 0)
-	ramp.Parent = folder
 end
 
 -- ============================================================
@@ -508,7 +485,7 @@ function BaseSystem.createBase(player, position, playerBases)
 
 	-- Pre-create empty visual plates for all floor-1 slots
 	local emptyPlates = {}
-	for i = 1, 10 do
+	for i = 1, 5 do
 		local platePos = platePositions[i]
 		if platePos then
 			local ep = Instance.new("Part")
@@ -536,7 +513,7 @@ function BaseSystem.createBase(player, position, playerBases)
 		platePositions = platePositions,
 		unlockedFloors = 1,
 		slotGrid       = {},     -- true = occupied, nil/false = free
-		maxSlots       = 10,     -- floor 1 gives 10 slots
+		maxSlots       = 5,      -- players start with 5 slots
 		emptyPlates    = emptyPlates,
 	}
 
@@ -644,6 +621,51 @@ function BaseSystem.unlockNextFloor(player, playerBases)
 	baseData.maxSlots = baseData.maxSlots + SLOTS_PER_FLOOR
 
 	return true
+end
+
+-- ============================================================
+-- Public: grantSlot
+-- Grant one additional brainrot slot to a player.
+-- If the new slot count exceeds the current floor capacity, also unlocks the next floor.
+-- Returns the new total maxSlots.
+-- ============================================================
+
+function BaseSystem.grantSlot(player, playerBases)
+	local baseData = playerBases[player]
+	if not baseData then return 0 end
+
+	baseData.maxSlots = (baseData.maxSlots or 5) + 1
+	local newSlots = baseData.maxSlots
+
+	-- Check if a new floor is needed (each floor holds SLOTS_PER_FLOOR = 10 slots)
+	local floorsNeeded = math.ceil(newSlots / SLOTS_PER_FLOOR)
+	while (baseData.unlockedFloors or 1) < floorsNeeded do
+		BaseSystem.unlockNextFloor(player, playerBases)
+	end
+
+	-- If this new slot is on the current highest floor and it's within range,
+	-- create an empty plate for it so the player can see and use it
+	local slotIndex = newSlots
+	local platePos = baseData.platePositions and baseData.platePositions[slotIndex]
+	if platePos and baseData.folder and baseData.folder.Parent then
+		if not baseData.emptyPlates then baseData.emptyPlates = {} end
+		-- Only create if not already occupied
+		if not baseData.emptyPlates[slotIndex] and not baseData.slotGrid[slotIndex] then
+			local ep = Instance.new("Part")
+			ep.Name         = "EmptySlotPlate_" .. slotIndex
+			ep.Size         = Vector3.new(4, 0.3, 4)
+			ep.Material     = Enum.Material.Neon
+			ep.Color        = Color3.fromRGB(50, 50, 55)
+			ep.Transparency = 0.4
+			ep.CanCollide   = false
+			ep.Anchored     = true
+			ep.CFrame       = CFrame.new(platePos)
+			ep.Parent       = baseData.folder
+			baseData.emptyPlates[slotIndex] = ep
+		end
+	end
+
+	return newSlots
 end
 
 -- ============================================================
