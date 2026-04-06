@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -629,6 +630,18 @@ PokedexButton.MouseButton1Click:Connect(function()
 end)
 
 -- ─────────────────────────────────────────────────────────
+-- Keyboard shortcuts: N = Shop, M = Pokédex
+-- ─────────────────────────────────────────────────────────
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode == Enum.KeyCode.N then
+		if OpenShopRemote then OpenShopRemote:FireServer() end
+	elseif input.KeyCode == Enum.KeyCode.M then
+		if OpenPokedexRemote then OpenPokedexRemote:FireServer() end
+	end
+end)
+
+-- ─────────────────────────────────────────────────────────
 -- 11. "E TO BUY" PROXIMITY HINT (bottom-center)
 -- ─────────────────────────────────────────────────────────
 local BuyHintFrame = makeDarkFrame(
@@ -696,10 +709,259 @@ RunService.Heartbeat:Connect(function()
 		return
 	end
 
-	local z = rootPart.Position.Z
-	if z >= -15 and z <= 15 then
+	-- Belt runs along Z; show hint when player is near X=0 (center road)
+	local x = rootPart.Position.X
+	if math.abs(x) < 20 then
 		showBuyHint()
 	else
 		hideBuyHint()
 	end
 end)
+
+-- ─────────────────────────────────────────────────────────
+-- 12. GACHA SPINNING WHEEL
+-- ─────────────────────────────────────────────────────────
+local GachaResultEvent = RemoteEvents and RemoteEvents:WaitForChild("GachaResult", 10)
+
+local RARITY_SLOTS = {
+	{ name = "Common",    color = Color3.fromRGB(160, 160, 160) },
+	{ name = "Uncommon",  color = Color3.fromRGB(50,  200, 80)  },
+	{ name = "Rare",      color = Color3.fromRGB(60,  120, 255) },
+	{ name = "Epic",      color = Color3.fromRGB(180, 0,   255) },
+	{ name = "Legendary", color = Color3.fromRGB(255, 200, 0)   },
+}
+local RARITY_INDEX_MAP = {}
+for i, r in ipairs(RARITY_SLOTS) do RARITY_INDEX_MAP[r.name] = i end
+
+-- Build wheel overlay (hidden by default)
+local WheelGui = Instance.new("ScreenGui")
+WheelGui.Name         = "GachaWheelGui"
+WheelGui.ResetOnSpawn = false
+WheelGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+WheelGui.Enabled      = false
+WheelGui.Parent       = PlayerGui
+
+local WheelOverlay = Instance.new("Frame")
+WheelOverlay.Size                   = UDim2.new(1, 0, 1, 0)
+WheelOverlay.BackgroundColor3       = Color3.fromRGB(0, 0, 0)
+WheelOverlay.BackgroundTransparency = 0.45
+WheelOverlay.BorderSizePixel        = 0
+WheelOverlay.ZIndex                 = 2
+WheelOverlay.Parent                 = WheelGui
+
+local WheelPanel = Instance.new("Frame")
+WheelPanel.Size             = UDim2.new(0, 500, 0, 320)
+WheelPanel.Position         = UDim2.new(0.5, -250, 0.5, -160)
+WheelPanel.BackgroundColor3 = Color3.fromRGB(16, 14, 28)
+WheelPanel.BorderSizePixel  = 0
+WheelPanel.ZIndex           = 3
+WheelPanel.Parent           = WheelGui
+local wpCorner = Instance.new("UICorner")
+wpCorner.CornerRadius = UDim.new(0, 18)
+wpCorner.Parent = WheelPanel
+local wpStroke = Instance.new("UIStroke")
+wpStroke.Color = Color3.fromRGB(200, 100, 255)
+wpStroke.Thickness = 2.5
+wpStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+wpStroke.Parent = WheelPanel
+
+local WheelTitle = Instance.new("TextLabel")
+WheelTitle.Size                   = UDim2.new(1, 0, 0, 48)
+WheelTitle.Position               = UDim2.new(0, 0, 0, 0)
+WheelTitle.BackgroundTransparency = 1
+WheelTitle.Text                   = "🎰  GACHA SPIN"
+WheelTitle.TextScaled             = true
+WheelTitle.Font                   = Enum.Font.GothamBold
+WheelTitle.TextColor3             = Color3.fromRGB(255, 220, 50)
+WheelTitle.ZIndex                 = 4
+WheelTitle.Parent                 = WheelPanel
+
+-- Reel viewport: clips the scrolling strip
+local ReelViewport = Instance.new("Frame")
+ReelViewport.Size             = UDim2.new(1, -40, 0, 90)
+ReelViewport.Position         = UDim2.new(0, 20, 0, 58)
+ReelViewport.BackgroundColor3 = Color3.fromRGB(5, 5, 10)
+ReelViewport.ClipsDescendants = true
+ReelViewport.BorderSizePixel  = 0
+ReelViewport.ZIndex           = 4
+ReelViewport.Parent           = WheelPanel
+local rvCorner = Instance.new("UICorner")
+rvCorner.CornerRadius = UDim.new(0, 10)
+rvCorner.Parent = ReelViewport
+
+-- Pointer indicator (centered triangle/bar over the reel)
+local Pointer = Instance.new("Frame")
+Pointer.Size             = UDim2.new(0, 4, 1, 0)
+Pointer.Position         = UDim2.new(0.5, -2, 0, 0)
+Pointer.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+Pointer.BorderSizePixel  = 0
+Pointer.ZIndex           = 6
+Pointer.Parent           = ReelViewport
+
+-- Scrolling reel strip (contains rarity slots side by side, wider than viewport)
+local SLOT_WIDTH  = 100
+local SLOT_HEIGHT = 88
+local NUM_COPIES  = 4  -- repeat rarities several times for seamless looping
+local ReelStrip = Instance.new("Frame")
+ReelStrip.BackgroundTransparency = 1
+ReelStrip.BorderSizePixel        = 0
+ReelStrip.ZIndex                 = 5
+ReelStrip.Parent                 = ReelViewport
+
+local slotParts = {}
+for copy = 0, NUM_COPIES - 1 do
+	for i, rarity in ipairs(RARITY_SLOTS) do
+		local idx = copy * #RARITY_SLOTS + i
+		local slot = Instance.new("Frame")
+		slot.Size             = UDim2.new(0, SLOT_WIDTH - 4, 0, SLOT_HEIGHT - 4)
+		slot.BackgroundColor3 = rarity.color
+		slot.BorderSizePixel  = 0
+		slot.ZIndex           = 5
+		slot.Parent           = ReelStrip
+		local sc = Instance.new("UICorner")
+		sc.CornerRadius = UDim.new(0, 8)
+		sc.Parent = slot
+
+		local slotLbl = Instance.new("TextLabel")
+		slotLbl.Size                   = UDim2.new(1, 0, 1, 0)
+		slotLbl.BackgroundTransparency = 1
+		slotLbl.Text                   = rarity.name
+		slotLbl.TextScaled             = true
+		slotLbl.Font                   = Enum.Font.GothamBold
+		slotLbl.TextColor3             = Color3.fromRGB(255, 255, 255)
+		slotLbl.TextStrokeTransparency = 0.3
+		slotLbl.ZIndex                 = 6
+		slotLbl.Parent                 = slot
+
+		slotParts[idx] = slot
+	end
+end
+
+local TOTAL_STRIP_WIDTH = #RARITY_SLOTS * NUM_COPIES * SLOT_WIDTH
+ReelStrip.Size = UDim2.new(0, TOTAL_STRIP_WIDTH, 0, SLOT_HEIGHT)
+
+-- Result display (appears after wheel stops)
+local WheelResult = Instance.new("Frame")
+WheelResult.Size             = UDim2.new(1, -40, 0, 80)
+WheelResult.Position         = UDim2.new(0, 20, 0, 160)
+WheelResult.BackgroundTransparency = 1
+WheelResult.BorderSizePixel  = 0
+WheelResult.ZIndex           = 4
+WheelResult.Visible          = false
+WheelResult.Parent           = WheelPanel
+
+local WheelResultLabel = Instance.new("TextLabel")
+WheelResultLabel.Size                   = UDim2.new(1, 0, 1, 0)
+WheelResultLabel.BackgroundTransparency = 1
+WheelResultLabel.Text                   = ""
+WheelResultLabel.TextScaled             = true
+WheelResultLabel.Font                   = Enum.Font.GothamBold
+WheelResultLabel.TextColor3             = Color3.fromRGB(255, 220, 50)
+WheelResultLabel.ZIndex                 = 5
+WheelResultLabel.Parent                 = WheelResult
+
+local WheelCloseBtn = Instance.new("TextButton")
+WheelCloseBtn.Size             = UDim2.new(0, 160, 0, 44)
+WheelCloseBtn.Position         = UDim2.new(0.5, -80, 0, 260)
+WheelCloseBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 100)
+WheelCloseBtn.BorderSizePixel  = 0
+WheelCloseBtn.Text             = "Continue"
+WheelCloseBtn.TextScaled       = true
+WheelCloseBtn.Font             = Enum.Font.GothamBold
+WheelCloseBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
+WheelCloseBtn.ZIndex           = 4
+WheelCloseBtn.Visible          = false
+WheelCloseBtn.Parent           = WheelPanel
+local wcbCorner = Instance.new("UICorner")
+wcbCorner.CornerRadius = UDim.new(0, 10)
+wcbCorner.Parent = WheelCloseBtn
+
+WheelCloseBtn.MouseButton1Click:Connect(function()
+	WheelGui.Enabled = false
+	WheelResult.Visible   = false
+	WheelCloseBtn.Visible = false
+end)
+
+-- Position all reel slots
+local function layoutReelStrip(offsetX)
+	for i, slot in ipairs(slotParts) do
+		local baseX = (i - 1) * SLOT_WIDTH + 2
+		slot.Position = UDim2.new(0, baseX + offsetX, 0, 2)
+	end
+end
+layoutReelStrip(0)
+
+-- Wheel spin state
+local wheelSpinning = false
+local wheelOffsetX  = 0
+
+-- Start the spin animation
+local function startGachaWheel()
+	if wheelSpinning then return end
+	wheelSpinning    = true
+	WheelGui.Enabled = true
+	WheelResult.Visible   = false
+	WheelCloseBtn.Visible = false
+	wheelOffsetX = 0
+end
+
+-- Stop the wheel on a specific rarity
+local function stopGachaWheel(resultData)
+	wheelSpinning = false
+
+	-- Snap to the target rarity slot in the last copy of the strip
+	local targetRarityIdx = RARITY_INDEX_MAP[resultData.rarity] or 1
+	-- Position so that the target slot is centered under the pointer
+	local viewportHalfW = 230  -- approx half of viewport width
+	local targetCopy = NUM_COPIES - 1  -- land on the last copy
+	local targetSlotIdx = targetCopy * #RARITY_SLOTS + targetRarityIdx
+	local targetCenterX = (targetSlotIdx - 1) * SLOT_WIDTH + SLOT_WIDTH / 2
+	local finalOffset = viewportHalfW - targetCenterX
+	layoutReelStrip(finalOffset)
+
+	-- Show result
+	local rc = Color3.fromRGB(255, 220, 50)
+	if resultData.rarity == "Common"    then rc = Color3.fromRGB(160, 160, 160)
+	elseif resultData.rarity == "Uncommon"  then rc = Color3.fromRGB(50, 200, 80)
+	elseif resultData.rarity == "Rare"      then rc = Color3.fromRGB(60, 120, 255)
+	elseif resultData.rarity == "Epic"      then rc = Color3.fromRGB(180, 0, 255)
+	elseif resultData.rarity == "Legendary" then rc = Color3.fromRGB(255, 200, 0)
+	end
+	WheelResultLabel.TextColor3 = rc
+	WheelResultLabel.Text       = "✨ " .. (resultData.rarity or "?") .. "\n" .. (resultData.name or "?") .. "  +" .. (resultData.income or 0) .. "$/s"
+	WheelResult.Visible   = true
+	WheelCloseBtn.Visible = true
+end
+
+-- Animate the reel strip while spinning
+local SPIN_SPEED_FAST = 600   -- px / second
+RunService.Heartbeat:Connect(function(dt)
+	if not wheelSpinning then return end
+	wheelOffsetX = wheelOffsetX - SPIN_SPEED_FAST * dt
+	-- Loop: when we've scrolled past one full repeat, reset
+	local loopWidth = #RARITY_SLOTS * SLOT_WIDTH
+	if wheelOffsetX < -loopWidth then
+		wheelOffsetX = wheelOffsetX + loopWidth
+	end
+	layoutReelStrip(wheelOffsetX)
+end)
+
+-- Listen for GachaResult from server
+if GachaResultEvent then
+	GachaResultEvent.OnClientEvent:Connect(function(resultData)
+		-- If wheel isn't showing (e.g. gacha pad touch without shop open), still show it
+		if not WheelGui.Enabled then
+			startGachaWheel()
+		end
+		-- Let it spin for 2s then land on result
+		task.delay(2, function()
+			stopGachaWheel(resultData)
+		end)
+	end)
+end
+
+-- Also hook into SpinGacha: start wheel whenever a spin is fired
+-- (This covers the shop SpinBtn path AND gacha pad path)
+local SpinGachaRemote = RemoteEvents and RemoteEvents:WaitForChild("SpinGacha", 10)
+-- We can't directly listen for client fires, but GachaResultEvent covers the response.
+-- The pad touch is server-only; wheel starts when GachaResult arrives.

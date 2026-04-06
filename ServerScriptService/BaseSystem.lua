@@ -671,56 +671,68 @@ function BaseSystem.lockBase(player, playerBases)
 
 	lockCooldowns[player.UserId] = now
 
-	local basePos     = baseData.position
-	local shieldFolder = Instance.new("Folder")
-	shieldFolder.Name   = "LockShield"
-	shieldFolder.Parent = workspace
+	local basePos  = baseData.position
+	local faceSign = baseData.faceSign
 
-	local panelCount = 6
-	local panelY     = basePos.Y + 4
-	local radius     = BASE_SIZE / 2 + 1
+	-- Build a physical door at the front entrance gap.
+	-- Front face X = bCX + faceSign * halfDepth = pos.X + faceSign * 11
+	local bCX        = basePos.X + faceSign * (-6)
+	local halfDepth  = BUILDING_DEPTH / 2   -- 17
+	local frontFaceX = bCX + faceSign * halfDepth   -- pos.X + faceSign * 11
+	local doorCenterY = basePos.Y + FLOOR_THICKNESS + WALL_HEIGHT / 2  -- mid-height of wall
 
-	for i = 1, panelCount do
-		local angle  = (2 * math.pi / panelCount) * (i - 1)
-		local panelX = basePos.X + radius * math.cos(angle)
-		local panelZ = basePos.Z + radius * math.sin(angle)
+	local doorFolder = Instance.new("Folder")
+	doorFolder.Name   = "LockDoor"
+	doorFolder.Parent = workspace
 
-		local panel = Instance.new("Part")
-		panel.Name        = "ShieldPanel" .. i
-		panel.Size        = Vector3.new(BASE_SIZE + 2, 8, 1)
-		panel.CFrame      = CFrame.new(panelX, panelY, panelZ) * CFrame.Angles(0, angle + math.pi / 2, 0)
-		panel.Anchored    = true
-		panel.CanCollide  = false
-		panel.Color       = Color3.fromRGB(0, 255, 255)
-		panel.Material    = Enum.Material.Neon
-		panel.Transparency = 0.5
-		panel.CastShadow  = false
-		panel.Parent      = shieldFolder
-	end
+	-- Main solid door panel spanning the entrance gap
+	local door = Instance.new("Part")
+	door.Name         = "EntranceDoor"
+	door.Size         = Vector3.new(WALL_THICKNESS, WALL_HEIGHT, ENTRANCE_GAP)
+	door.CFrame       = CFrame.new(frontFaceX, doorCenterY, basePos.Z)
+	door.Anchored     = true
+	door.CanCollide   = true
+	door.Color        = Color3.fromRGB(0, 200, 255)
+	door.Material     = Enum.Material.Neon
+	door.Transparency = 0.4
+	door.CastShadow   = false
+	door.Parent       = doorFolder
 
-	local glowCenter = Instance.new("Part")
-	glowCenter.Name        = "ShieldGlow"
-	glowCenter.Size        = Vector3.new(0.1, 0.1, 0.1)
-	glowCenter.CFrame      = CFrame.new(basePos.X, panelY, basePos.Z)
-	glowCenter.Anchored    = true
-	glowCenter.CanCollide  = false
-	glowCenter.Transparency = 1
-	glowCenter.Parent      = shieldFolder
+	-- Glow light on door
+	local doorLight = Instance.new("PointLight")
+	doorLight.Brightness = 2
+	doorLight.Range      = 20
+	doorLight.Color      = Color3.fromRGB(0, 220, 255)
+	doorLight.Parent     = door
 
-	local shieldLight = Instance.new("PointLight")
-	shieldLight.Brightness = 2
-	shieldLight.Range      = BASE_SIZE + 10
-	shieldLight.Color      = Color3.fromRGB(0, 255, 255)
-	shieldLight.Parent     = glowCenter
+	-- Owner passthrough: door becomes non-collidable for 1 second when owner touches it
+	local passThroughActive = false
+	door.Touched:Connect(function(hit)
+		local character = hit.Parent
+		if not character then return end
+		local touchPlayer = Players:GetPlayerFromCharacter(character)
+		if touchPlayer ~= player then return end
+		if passThroughActive then return end
+		passThroughActive = true
+		door.CanCollide   = false
+		door.Transparency = 0.8
+		task.delay(1.2, function()
+			if door and door.Parent then
+				door.CanCollide   = true
+				door.Transparency = 0.4
+			end
+			passThroughActive = false
+		end)
+	end)
 
-	baseData.lockShield = shieldFolder
+	baseData.lockShield = doorFolder
 	baseData.isLocked   = true
 	player:SetAttribute("BaseIsLocked", true)
 
-	evtNotification:FireClient(player, "Base locked for " .. LOCK_SHIELD_DURATION .. " seconds!", Color3.fromRGB(0, 220, 255))
+	evtNotification:FireClient(player, "Base locked for " .. LOCK_SHIELD_DURATION .. " seconds! Others cannot enter.", Color3.fromRGB(0, 220, 255))
 
 	task.delay(LOCK_SHIELD_DURATION, function()
-		if baseData.lockShield == shieldFolder then
+		if baseData.lockShield == doorFolder then
 			BaseSystem.unlockBase(player, playerBases)
 		end
 	end)

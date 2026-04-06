@@ -738,7 +738,12 @@ SpinBtn.MouseButton1Click:Connect(function()
 	SpinBtn.Text = "Spinning..."
 	SpinBtn.BackgroundColor3 = Color3.fromRGB(100, 20, 100)
 	SpinGachaEvent:FireServer()
-	task.delay(1, function()
+	-- Show gacha wheel in HUD (it listens for GachaResult to stop)
+	local wheelGui = player.PlayerGui:FindFirstChild("GachaWheelGui")
+	if wheelGui then
+		wheelGui.Enabled = true
+	end
+	task.delay(3.5, function()
 		gachaSpinning = false
 		SpinBtn.Text = "🎰  SPIN  ($" .. GACHA_COST .. ")"
 		SpinBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 180)

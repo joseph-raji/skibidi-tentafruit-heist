@@ -7,7 +7,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local StealSystem = {}
 
 local BASE_SIZE = 44
-local CARRY_OFFSET = Vector3.new(0, 7, 0)
+local CARRY_SIDE_OFFSET = 1.8  -- studs to the right of the carrier
 
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local evtBrainrotStolen = remoteEvents:WaitForChild("BrainrotStolen")
@@ -271,8 +271,11 @@ function StealSystem.onHeartbeat(playerBases, brainrotOwner, carrying, playerCol
 			continue
 		end
 
-		-- Move brainrot above carrier's head
-		brainrot.CFrame = CFrame.new(root.Position + CARRY_OFFSET)
+		-- Move brainrot beside carrier at ground level
+		local bodySize = brainrot:GetAttribute("BodySize") or 2
+		local rightVec = root.CFrame.RightVector
+		local sidePos  = root.Position + rightVec * (bodySize * 0.5 + CARRY_SIDE_OFFSET)
+		brainrot.CFrame = CFrame.new(sidePos.X, root.Position.Y - 2.5 + bodySize * 0.5, sidePos.Z)
 
 		-- Check if carrier is inside their own base
 		local baseData = playerBases[player]

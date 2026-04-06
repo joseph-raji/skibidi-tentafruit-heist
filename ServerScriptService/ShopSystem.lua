@@ -23,6 +23,7 @@ local NotificationEvent      = RemoteEvents:WaitForChild("Notification")
 local CollectionUpdatedEvent = RemoteEvents:WaitForChild("CollectionUpdated")
 local OpenFusionEvent        = RemoteEvents:WaitForChild("OpenFusion")
 local FuseOptionsEvent       = RemoteEvents:WaitForChild("FuseOptions")
+local GachaResultEvent       = RemoteEvents:WaitForChild("GachaResult")
 
 local ShopSystem = {}
 
@@ -301,6 +302,9 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		body.Parent     = model
 		model.PrimaryPart = body
 	end
+
+	-- Store body size so carry-beside code can read it without knowing brainrot type
+	body:SetAttribute("BodySize", s)
 
 	-- -----------------------------------------------------------------------
 	-- Glow (on body)
@@ -584,13 +588,24 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 					StealSystem.setupBrainrotTouchEvents(body, buyer, _playerBases, _brainrotOwner, _carrying, _playerCollection)
 				end
 
-				-- Arc-based flight: parabolic arc soars over base walls
-				local FLIGHT_SPEED = 18  -- studs / second
+				-- Ground-level walk: 2-segment path (belt → base entrance → slot)
+				local WALK_SPEED = 14  -- studs / second
 				local dest = Vector3.new(slotPos.X, slotPos.Y + brainrotData.size / 2, slotPos.Z)
 				local startPos = body.Position
-				local totalDist = math.max(1, (dest - startPos).Magnitude)
-				local ARC_HEIGHT = math.max(25, totalDist * 0.45)
-				local flightT = 0
+
+				-- Waypoint: just outside the base entrance at ground level
+				local bd2 = _playerBases[buyer]
+				local fs2  = bd2 and bd2.faceSign or 1
+				local bp2  = bd2 and bd2.position or dest
+				-- frontFaceX = bp2.X + fs2 * 11, entry waypoint 4 studs further out
+				local entryX  = bp2.X + fs2 * 15
+				local waypoint = Vector3.new(entryX, dest.Y, dest.Z)
+
+				local segment  = 1
+				local segStart = startPos
+				local segEnd   = waypoint
+				local segLen   = math.max(1, (segEnd - segStart).Magnitude)
+				local t        = 0
 				local conn
 				conn = RunService.Heartbeat:Connect(function(dt)
 					if not body or not body.Parent then
@@ -598,38 +613,44 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 						ShopSystem.releaseSlot(buyer, slotIndex)
 						return
 					end
-					-- If intercepted (another player is now carrying it), stop flight
 					if isBeingCarried(body) then
 						conn:Disconnect(); _flyingBodies[body] = nil
 						ShopSystem.releaseSlot(buyer, slotIndex)
 						return
 					end
-					-- If ownership changed (stolen during flight without carrying), stop
 					if _brainrotOwner[body] ~= buyer then
 						conn:Disconnect(); _flyingBodies[body] = nil
 						ShopSystem.releaseSlot(buyer, slotIndex)
 						return
 					end
-					flightT = flightT + (FLIGHT_SPEED * dt) / totalDist
-					if flightT >= 1 then
-						-- Arrived
-						conn:Disconnect(); _flyingBodies[body] = nil
-						body.CFrame = CFrame.new(dest); body.Anchored = true
-						if buyer and buyer.Parent then
-							ShopSystem.spawnBrainrot(brainrotData, dest, buyer, _brainrotOwner, slotIndex)
-							if not _playerCollection[buyer] then _playerCollection[buyer] = {} end
-							_playerCollection[buyer][brainrotData.id] = (_playerCollection[buyer][brainrotData.id] or 0) + 1
-							CollectionUpdatedEvent:FireClient(buyer, _playerCollection[buyer])
-							NotificationEvent:FireClient(buyer, "You received " .. brainrotData.name .. "!", Color3.fromRGB(100, 255, 100))
+					t = t + (WALK_SPEED * dt) / segLen
+					if t >= 1 then
+						if segment == 1 then
+							-- Advance to segment 2: entrance → slot
+							segment  = 2
+							segStart = waypoint
+							segEnd   = dest
+							segLen   = math.max(1, (segEnd - segStart).Magnitude)
+							t = 0
+							body.CFrame = CFrame.new(waypoint)
+						else
+							-- Arrived at slot
+							conn:Disconnect(); _flyingBodies[body] = nil
+							body.CFrame = CFrame.new(dest); body.Anchored = true
+							if buyer and buyer.Parent then
+								ShopSystem.spawnBrainrot(brainrotData, dest, buyer, _brainrotOwner, slotIndex)
+								if not _playerCollection[buyer] then _playerCollection[buyer] = {} end
+								_playerCollection[buyer][brainrotData.id] = (_playerCollection[buyer][brainrotData.id] or 0) + 1
+								CollectionUpdatedEvent:FireClient(buyer, _playerCollection[buyer])
+								NotificationEvent:FireClient(buyer, "You received " .. brainrotData.name .. "!", Color3.fromRGB(100, 255, 100))
+							end
+							local m = body.Parent
+							if m and m:IsA("Model") then m:Destroy() elseif body and body.Parent then body:Destroy() end
 						end
-						local m = body.Parent
-						if m and m:IsA("Model") then m:Destroy() elseif body and body.Parent then body:Destroy() end
 						return
 					end
-					-- Parabolic arc: lerp flat path + sin-based height bump
-					local flat = startPos:Lerp(dest, flightT)
-					local arcY = ARC_HEIGHT * math.sin(flightT * math.pi)
-					body.CFrame = CFrame.new(flat.X, flat.Y + arcY, flat.Z) * CFrame.Angles(0, tick() * 2, 0)
+					local pos = segStart:Lerp(segEnd, t)
+					body.CFrame = CFrame.new(pos) * CFrame.Angles(0, tick() * 2, 0)
 				end)
 			end)
 		end
@@ -777,6 +798,14 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 	-- Fire events
 	CollectionUpdatedEvent:FireClient(player, playerCollection[player])
 
+	-- Fire gacha result so client can land the wheel on the correct rarity
+	GachaResultEvent:FireClient(player, {
+		id     = result.id,
+		name   = result.name,
+		rarity = result.rarity,
+		income = result.income,
+	})
+
 	local rarityColor = RARITY_COLOR[result.rarity] or Color3.fromRGB(255, 255, 255)
 	NotificationEvent:FireClient(
 		player,
@@ -791,39 +820,38 @@ end
 -- Public: createShopPads  (now a conveyor belt shop)
 -- =========================================================================
 
-local BELT_LENGTH  = 80   -- studs long
-local BELT_WIDTH   = 8    -- studs wide
-local BELT_SPEED   = 7    -- studs per second
+local BELT_LENGTH  = 210  -- spans Z=-105 to Z=105 (all 8 bases)
+local BELT_WIDTH   = 8    -- studs wide along X
+local BELT_SPEED   = 7    -- studs per second (items move along +Z)
 local BELT_Y       = 0.5  -- height
-local BELT_START_X = -BELT_LENGTH / 2
-local BELT_END_X   =  BELT_LENGTH / 2
+local BELT_START_Z = -BELT_LENGTH / 2   -- -105
+local BELT_END_Z   =  BELT_LENGTH / 2   -- +105
 
 -- Number of stripes and their spacing (studs apart)
-local STRIPE_COUNT   = 8
+local STRIPE_COUNT   = 14
 local STRIPE_SPACING = BELT_LENGTH / STRIPE_COUNT
 
 function ShopSystem.createShopPads()
 
 	-- -----------------------------------------------------------------------
-	-- Carpet / belt base
+	-- Carpet / belt base — runs along Z axis to span all 8 houses
 	-- -----------------------------------------------------------------------
 	local belt = Instance.new("Part")
 	belt.Name        = "ShopBelt"
 	belt.Anchored    = true
-	belt.Size        = Vector3.new(BELT_LENGTH, 0.6, BELT_WIDTH)
+	belt.Size        = Vector3.new(BELT_WIDTH, 0.6, BELT_LENGTH)
 	belt.Position    = Vector3.new(0, BELT_Y, 0)
 	belt.BrickColor  = BrickColor.new("Bright red")
 	belt.Material    = Enum.Material.Fabric
 	belt.TopSurface  = Enum.SurfaceType.Smooth
 	belt.Parent      = workspace
 
-	-- Belt stripes (decorative arrows showing direction)
-	-- Stored so their positions can be animated each heartbeat.
+	-- Belt stripes (decorative, animate along Z to show movement direction)
 	local stripes = {}
 	for i = 0, STRIPE_COUNT - 1 do
 		local stripe = Instance.new("Part")
 		stripe.Anchored   = true
-		stripe.Size       = Vector3.new(2, 0.05, BELT_WIDTH - 1)
+		stripe.Size       = Vector3.new(BELT_WIDTH - 1, 0.05, 2)
 		stripe.BrickColor = BrickColor.new("Bright orange")
 		stripe.Material   = Enum.Material.Neon
 		stripe.CanCollide = false
@@ -831,82 +859,70 @@ function ShopSystem.createShopPads()
 		stripes[i + 1] = stripe
 	end
 
-	-- Animate stripes to simulate belt movement
+	-- Animate stripes scrolling along Z
 	local stripeOffset = 0
 	RunService.Heartbeat:Connect(function(dt)
 		stripeOffset = (stripeOffset + BELT_SPEED * dt) % STRIPE_SPACING
 		for i, stripe in ipairs(stripes) do
-			local baseX = BELT_START_X + (i - 1) * STRIPE_SPACING
-			local x = baseX + stripeOffset
-			-- Wrap around so stripes loop seamlessly within belt bounds
-			if x > BELT_END_X then
-				x = x - BELT_LENGTH
-			end
-			stripe.Position = Vector3.new(x, BELT_Y + 0.32, 0)
+			local baseZ = BELT_START_Z + (i - 1) * STRIPE_SPACING
+			local z = baseZ + stripeOffset
+			if z > BELT_END_Z then z = z - BELT_LENGTH end
+			stripe.Position = Vector3.new(0, BELT_Y + 0.32, z)
 		end
 	end)
 
 	-- -----------------------------------------------------------------------
-	-- Entry portal (glowing neon arch at belt start)
+	-- Entry portal (glowing neon arch at each end of belt — at Z extremes)
 	-- -----------------------------------------------------------------------
-	local function buildPortal(xPos, color)
-		-- Left pillar
+	local function buildPortal(zPos, color)
 		local pillarL = Instance.new("Part")
 		pillarL.Anchored   = true
 		pillarL.Size       = Vector3.new(0.6, 10, 0.6)
-		pillarL.Position   = Vector3.new(xPos, BELT_Y + 5, -BELT_WIDTH / 2 - 0.5)
+		pillarL.Position   = Vector3.new(-BELT_WIDTH / 2 - 0.5, BELT_Y + 5, zPos)
 		pillarL.BrickColor = BrickColor.new("Really black")
 		pillarL.Material   = Enum.Material.Neon
 		pillarL.CanCollide = false
 		pillarL.Parent     = workspace
 
-		-- Right pillar
 		local pillarR = Instance.new("Part")
 		pillarR.Anchored   = true
 		pillarR.Size       = Vector3.new(0.6, 10, 0.6)
-		pillarR.Position   = Vector3.new(xPos, BELT_Y + 5, BELT_WIDTH / 2 + 0.5)
+		pillarR.Position   = Vector3.new(BELT_WIDTH / 2 + 0.5, BELT_Y + 5, zPos)
 		pillarR.BrickColor = BrickColor.new("Really black")
 		pillarR.Material   = Enum.Material.Neon
 		pillarR.CanCollide = false
 		pillarR.Parent     = workspace
 
-		-- Arch crossbar
 		local arch = Instance.new("Part")
 		arch.Anchored   = true
-		arch.Size       = Vector3.new(0.6, 0.6, BELT_WIDTH + 2)
-		arch.Position   = Vector3.new(xPos, BELT_Y + 10.3, 0)
+		arch.Size       = Vector3.new(BELT_WIDTH + 2, 0.6, 0.6)
+		arch.Position   = Vector3.new(0, BELT_Y + 10.3, zPos)
 		arch.BrickColor = BrickColor.new("Really black")
 		arch.Material   = Enum.Material.Neon
 		arch.CanCollide = false
 		arch.Parent     = workspace
 
-		-- Glow light on arch
 		local archLight = Instance.new("PointLight")
 		archLight.Brightness = 4
 		archLight.Range      = 18
 		archLight.Color      = color
 		archLight.Parent     = arch
 
-		-- Pulse the glow color over time
 		RunService.Heartbeat:Connect(function()
 			if not arch or not arch.Parent then return end
-			local h   = (tick() * 0.4) % 1
-			local c   = Color3.fromHSV(h, 0.9, 1)
-			arch.Color       = c
-			pillarL.Color    = c
-			pillarR.Color    = c
-			archLight.Color  = c
+			local c = Color3.fromHSV((tick() * 0.4) % 1, 0.9, 1)
+			arch.Color = c; pillarL.Color = c; pillarR.Color = c; archLight.Color = c
 		end)
 	end
 
-	buildPortal(BELT_START_X - 1, Color3.fromRGB(0, 200, 255))
-	buildPortal(BELT_END_X   + 1, Color3.fromRGB(255, 80, 200))
+	buildPortal(BELT_START_Z - 1, Color3.fromRGB(0, 200, 255))
+	buildPortal(BELT_END_Z   + 1, Color3.fromRGB(255, 80, 200))
 
-	-- SHOP sign above belt start
+	-- SHOP sign at the north end of belt
 	local signPost = Instance.new("Part")
 	signPost.Anchored   = true
 	signPost.Size       = Vector3.new(0.3, 8, 0.3)
-	signPost.Position   = Vector3.new(BELT_START_X - 2, BELT_Y + 4, 0)
+	signPost.Position   = Vector3.new(BELT_WIDTH / 2 + 2, BELT_Y + 4, BELT_START_Z - 2)
 	signPost.BrickColor = BrickColor.new("Dark orange")
 	signPost.Material   = Enum.Material.SmoothPlastic
 	signPost.CanCollide = false
@@ -914,47 +930,44 @@ function ShopSystem.createShopPads()
 
 	local signBoard = Instance.new("Part")
 	signBoard.Anchored   = true
-	signBoard.Size       = Vector3.new(12, 4, 0.3)
-	signBoard.Position   = Vector3.new(BELT_START_X + 4, BELT_Y + 9, 0)
+	signBoard.Size       = Vector3.new(0.3, 4, 14)
+	signBoard.Position   = Vector3.new(BELT_WIDTH / 2 + 2, BELT_Y + 9, BELT_START_Z + 5)
 	signBoard.BrickColor = BrickColor.new("Really black")
 	signBoard.Material   = Enum.Material.SmoothPlastic
 	signBoard.CanCollide = false
 	signBoard.Parent     = workspace
 
 	local signGui = Instance.new("SurfaceGui")
-	signGui.Face   = Enum.NormalId.Front
+	signGui.Face   = Enum.NormalId.Right
 	signGui.Parent = signBoard
 	local signLabel = Instance.new("TextLabel")
 	signLabel.Size                   = UDim2.new(1, 0, 1, 0)
 	signLabel.BackgroundTransparency = 1
-	signLabel.Text                   = "🛒  BRAINROT SHOP\nHold E on one to buy!"
+	signLabel.Text                   = "🛒  BRAINROT SHOP\nPress E to buy!"
 	signLabel.TextScaled             = true
 	signLabel.Font                   = Enum.Font.GothamBold
 	signLabel.TextColor3             = Color3.fromRGB(255, 220, 50)
 	signLabel.Parent                 = signGui
 
 	-- -----------------------------------------------------------------------
-	-- Active conveyor brainrots (body part → true)
+	-- Active conveyor brainrots (body part → true) — move along +Z
 	-- -----------------------------------------------------------------------
 	local conveyorItems = {}
 
-	-- Move all conveyor brainrots each frame
 	RunService.Heartbeat:Connect(function(dt)
 		for body, _ in pairs(conveyorItems) do
 			if not body or not body.Parent then
 				conveyorItems[body] = nil
 				continue
 			end
-			-- Body was purchased and is flying to a base — stop conveyor movement
 			if _flyingBodies[body] then
 				conveyorItems[body] = nil
 				continue
 			end
-			local newX = body.Position.X + BELT_SPEED * dt
-			body.CFrame = CFrame.new(newX, body.Position.Y, body.Position.Z)
+			local newZ = body.Position.Z + BELT_SPEED * dt
+			body.CFrame = CFrame.new(body.Position.X, body.Position.Y, newZ)
 				* CFrame.Angles(0, tick() * 0.8, 0)
-			if newX >= BELT_END_X then
-				-- Reached end of belt: destroy the whole model
+			if newZ >= BELT_END_Z then
 				local model = body.Parent
 				conveyorItems[body] = nil
 				if model and model:IsA("Model") then
@@ -966,16 +979,13 @@ function ShopSystem.createShopPads()
 		end
 	end)
 
-	-- -----------------------------------------------------------------------
-	-- -----------------------------------------------------------------------
-	-- Single spawn loop: 1 brainrot every 2 seconds (weighted random by rarity)
-	-- -----------------------------------------------------------------------
+	-- Spawn 1 brainrot every 4 seconds at the start of the belt
 	task.spawn(function()
 		while true do
 			task.wait(4)
 			local chosen = BrainrotData.gachaRoll()
 			if chosen then
-				local spawnPos = Vector3.new(BELT_START_X, BELT_Y + chosen.size / 2 + 0.3, 0)
+				local spawnPos = Vector3.new(0, BELT_Y + chosen.size / 2 + 0.3, BELT_START_Z)
 				local body = ShopSystem.spawnBrainrot(chosen, spawnPos, nil, _brainrotOwner, nil)
 				if body then
 					conveyorItems[body] = true
@@ -985,14 +995,14 @@ function ShopSystem.createShopPads()
 	end)
 
 	-- -----------------------------------------------------------------------
-	-- GACHA pad — beside the belt
+	-- GACHA pad — on the west side of the belt, center
 	-- -----------------------------------------------------------------------
 	local padY = BELT_Y + 0.25
 	local gachaPad = Instance.new("Part")
 	gachaPad.Name      = "GachaPad"
 	gachaPad.Anchored  = true
 	gachaPad.Size      = Vector3.new(12, 0.5, 12)
-	gachaPad.Position  = Vector3.new(0, padY, 18)
+	gachaPad.Position  = Vector3.new(-18, padY, 0)
 	gachaPad.BrickColor = BrickColor.new("Hot pink")
 	gachaPad.Material  = Enum.Material.Neon
 	gachaPad.Parent    = workspace
@@ -1005,10 +1015,8 @@ function ShopSystem.createShopPads()
 
 	RunService.Heartbeat:Connect(function()
 		if not gachaPad or not gachaPad.Parent then return end
-		local h   = (tick() * 0.5) % 1
-		local c   = Color3.fromHSV(h, 1, 1)
-		gachaPad.Color   = c
-		gachaLight.Color = c
+		local c = Color3.fromHSV((tick() * 0.5) % 1, 1, 1)
+		gachaPad.Color = c; gachaLight.Color = c
 	end)
 
 	local gachaBB = Instance.new("BillboardGui")
@@ -1032,7 +1040,7 @@ function ShopSystem.createShopPads()
 		if not player then return end
 		if gachaDebounce[player] then return end
 		gachaDebounce[player] = true
-		task.delay(1, function() gachaDebounce[player] = nil end)
+		task.delay(3, function() gachaDebounce[player] = nil end)
 		ShopSystem.spinGacha(player, _playerBases, _brainrotOwner, _playerCollection)
 	end)
 end
@@ -1159,61 +1167,248 @@ function ShopSystem.handleFuseChoose(player, choiceIndex)
 	NotificationEvent:FireClient(player, "Fusion result: [" .. chosen.rarity .. "] " .. chosen.name .. "!", rarityColor)
 end
 
--- placeholder to keep old variable name from collision
-local _fusionQueueUnused = nil
+-- =========================================================================
+-- Physical Fusion Machine
+-- Players carry brainrots to 2 input pedestals (press E to deposit).
+-- When both slots are filled, 4 result pedestals appear.
+-- Press E on a result pedestal to claim it; the rest vanish.
+-- =========================================================================
+
+-- Per-player fusion state
+local _fusionDeposits = {}   -- [player] → { slot1=brainrotData/nil, slot2=brainrotData/nil }
+local _fusionResultParts = {} -- [player] → { Part, ... } result pedestals
+
+local MACHINE_X = 18   -- east side of belt
+local MACHINE_Z = 0    -- center of map
+local MACHINE_BASE_Y = BELT_Y + 0.25
+
+local function makePedestal(cx, cy, cz, colorRGB, labelText)
+	local ped = Instance.new("Part")
+	ped.Anchored   = true
+	ped.Size       = Vector3.new(4, 3, 4)
+	ped.Position   = Vector3.new(cx, cy, cz)
+	ped.Color      = colorRGB
+	ped.Material   = Enum.Material.SmoothPlastic
+	ped.CanCollide = true
+	ped.CastShadow = true
+	ped.Parent     = workspace
+
+	local top = Instance.new("Part")
+	top.Anchored   = true
+	top.Size       = Vector3.new(4.4, 0.3, 4.4)
+	top.Position   = Vector3.new(cx, cy + 1.65, cz)
+	top.Color      = Color3.fromRGB(255, 220, 50)
+	top.Material   = Enum.Material.Neon
+	top.CanCollide = false
+	top.CastShadow = false
+	top.Parent     = workspace
+
+	local bb = Instance.new("BillboardGui")
+	bb.Size        = UDim2.new(0, 180, 0, 55)
+	bb.StudsOffset = Vector3.new(0, 3.5, 0)
+	bb.Parent      = ped
+	local lbl = Instance.new("TextLabel")
+	lbl.Size                   = UDim2.new(1, 0, 1, 0)
+	lbl.BackgroundTransparency = 1
+	lbl.Text                   = labelText
+	lbl.TextScaled             = true
+	lbl.Font                   = Enum.Font.GothamBold
+	lbl.TextColor3             = Color3.fromRGB(255, 255, 255)
+	lbl.TextStrokeTransparency = 0.3
+	lbl.Parent                 = bb
+
+	return ped, top
+end
+
+local function destroyFusionResults(player)
+	local parts = _fusionResultParts[player]
+	if parts then
+		for _, p in ipairs(parts) do
+			if p and p.Parent then p:Destroy() end
+		end
+	end
+	_fusionResultParts[player] = nil
+end
+
+local function showFusionResults(player, options, baseY)
+	destroyFusionResults(player)
+	local parts = {}
+	local rarityColors = {
+		Common    = Color3.fromRGB(120, 120, 120),
+		Uncommon  = Color3.fromRGB(30, 160, 60),
+		Rare      = Color3.fromRGB(40, 80, 200),
+		Epic      = Color3.fromRGB(140, 0, 220),
+		Legendary = Color3.fromRGB(200, 140, 0),
+	}
+	-- Place 4 result pedestals in a row on the east side of the machine
+	local resultZOffsets = { -9, -3, 3, 9 }
+	for i, opt in ipairs(options) do
+		if not opt then continue end
+		local rz = MACHINE_Z + (resultZOffsets[i] or (i * 6 - 12))
+		local rColor = rarityColors[opt.rarity] or Color3.fromRGB(100, 100, 100)
+		local pedLabel = "[" .. (opt.rarity or "?") .. "]\n" .. (opt.name or "?")
+		local ped, top = makePedestal(MACHINE_X + 10, baseY + 1.5, rz, rColor, pedLabel)
+		top.Color = rColor
+
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText            = "Claim"
+		prompt.ObjectText            = opt.name or "Brainrot"
+		prompt.HoldDuration          = 0
+		prompt.MaxActivationDistance = 8
+		prompt.Parent                = ped
+
+		local iCopy = i
+		local optCopy = opt
+		prompt.Triggered:Connect(function(trigPlayer)
+			if trigPlayer ~= player then return end
+			destroyFusionResults(player)
+			_fusionDeposits[player] = nil
+			-- Spawn chosen brainrot
+			local slotIdx, slotPos = BaseSystem.getNextSlot(player, _playerBases)
+			if not slotIdx then
+				NotificationEvent:FireClient(player, "Base full! Free a slot first.", Color3.fromRGB(255, 180, 0))
+				return
+			end
+			local dest = Vector3.new(slotPos.X, slotPos.Y + optCopy.size / 2, slotPos.Z)
+			ShopSystem.spawnBrainrot(optCopy, dest, player, _brainrotOwner, slotIdx)
+			if not _playerCollection[player] then _playerCollection[player] = {} end
+			_playerCollection[player][optCopy.id] = (_playerCollection[player][optCopy.id] or 0) + 1
+			CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
+			local rc = RARITY_COLOR[optCopy.rarity] or Color3.fromRGB(255,255,255)
+			NotificationEvent:FireClient(player, "Fusion: [" .. optCopy.rarity .. "] " .. optCopy.name .. "!", rc)
+		end)
+
+		table.insert(parts, ped)
+		table.insert(parts, top)
+	end
+	_fusionResultParts[player] = parts
+end
 
 function ShopSystem.createFusionMachine()
-	local padY = BELT_Y + 0.25
+	local baseY = MACHINE_BASE_Y
 
-	local fusionPad = Instance.new("Part")
-	fusionPad.Name     = "FusionPad"
-	fusionPad.Anchored = true
-	fusionPad.Size     = Vector3.new(12, 0.5, 12)
-	fusionPad.Position = Vector3.new(0, padY, -20)
-	fusionPad.Material = Enum.Material.Neon
-	fusionPad.Parent   = workspace
+	-- Platform base
+	local platform = Instance.new("Part")
+	platform.Anchored  = true
+	platform.Size      = Vector3.new(16, 0.5, 24)
+	platform.Position  = Vector3.new(MACHINE_X, baseY, MACHINE_Z)
+	platform.Color     = Color3.fromRGB(40, 40, 50)
+	platform.Material  = Enum.Material.SmoothPlastic
+	platform.Parent    = workspace
+
+	-- Glowing center orb
+	local orb = Instance.new("Part")
+	orb.Name      = "FusionOrb"
+	orb.Shape     = Enum.PartType.Ball
+	orb.Anchored  = true
+	orb.Size      = Vector3.new(3, 3, 3)
+	orb.Position  = Vector3.new(MACHINE_X, baseY + 4, MACHINE_Z)
+	orb.Material  = Enum.Material.Neon
+	orb.CanCollide = false
+	orb.Parent    = workspace
 
 	RunService.Heartbeat:Connect(function()
-		if not fusionPad or not fusionPad.Parent then return end
-		local h = ((tick() * 0.35) + 0.55) % 1
-		fusionPad.Color = Color3.fromHSV(h, 1, 1)
+		if not orb or not orb.Parent then return end
+		orb.Color = Color3.fromHSV(((tick() * 0.5) + 0.6) % 1, 1, 1)
 	end)
 
-	local fusBB = Instance.new("BillboardGui")
-	fusBB.Size        = UDim2.new(0, 280, 0, 90)
-	fusBB.StudsOffset = Vector3.new(0, 7, 0)
-	fusBB.Parent      = fusionPad
+	-- Sign above
+	local bb = Instance.new("BillboardGui")
+	bb.Size        = UDim2.new(0, 300, 0, 80)
+	bb.StudsOffset = Vector3.new(0, 8, 0)
+	bb.Parent      = orb
+	local title = Instance.new("TextLabel")
+	title.Size = UDim2.new(1, 0, 0.5, 0)
+	title.BackgroundTransparency = 1
+	title.Text = "⚡ FUSION MACHINE"
+	title.TextScaled = true
+	title.Font = Enum.Font.GothamBold
+	title.TextColor3 = Color3.fromRGB(255, 255, 100)
+	title.Parent = bb
+	local hint = Instance.new("TextLabel")
+	hint.Size = UDim2.new(1, 0, 0.5, 0)
+	hint.Position = UDim2.new(0, 0, 0.5, 0)
+	hint.BackgroundTransparency = 1
+	hint.Text = "Carry brainrots to the 2 slots & press E"
+	hint.TextScaled = true
+	hint.Font = Enum.Font.Gotham
+	hint.TextColor3 = Color3.fromRGB(200, 200, 255)
+	hint.Parent = bb
 
-	local fusTitle = Instance.new("TextLabel")
-	fusTitle.Size                  = UDim2.new(1, 0, 0.5, 0)
-	fusTitle.BackgroundTransparency = 1
-	fusTitle.Text                  = "⚡ FUSION MACHINE"
-	fusTitle.TextScaled            = true
-	fusTitle.Font                  = Enum.Font.GothamBold
-	fusTitle.TextColor3            = Color3.fromRGB(255, 255, 100)
-	fusTitle.Parent                = fusBB
+	-- Two input pedestals
+	local slotColors = { Color3.fromRGB(30, 100, 200), Color3.fromRGB(200, 60, 30) }
+	local slotZOffsets = { -5, 5 }
+	local slotLabels = { "Slot 1\n(carry here)", "Slot 2\n(carry here)" }
 
-	local fusHint = Instance.new("TextLabel")
-	fusHint.Size                  = UDim2.new(1, 0, 0.5, 0)
-	fusHint.Position              = UDim2.new(0, 0, 0.5, 0)
-	fusHint.BackgroundTransparency = 1
-	fusHint.Text                  = "Press E to open Fusion UI"
-	fusHint.TextScaled            = true
-	fusHint.Font                  = Enum.Font.Gotham
-	fusHint.TextColor3            = Color3.fromRGB(200, 200, 255)
-	fusHint.Parent                = fusBB
+	for slotNum = 1, 2 do
+		local sz = MACHINE_Z + slotZOffsets[slotNum]
+		local ped, top = makePedestal(MACHINE_X, baseY + 1.5, sz, slotColors[slotNum], slotLabels[slotNum])
+		top.Color = slotColors[slotNum]
 
-	local fusPrompt = Instance.new("ProximityPrompt")
-	fusPrompt.ActionText            = "Fuse Brainrots"
-	fusPrompt.ObjectText            = "Fusion Machine"
-	fusPrompt.HoldDuration          = 0
-	fusPrompt.MaxActivationDistance = 12
-	fusPrompt.Parent                = fusionPad
+		local prompt = Instance.new("ProximityPrompt")
+		prompt.ActionText            = "Deposit Brainrot"
+		prompt.ObjectText            = "Fusion Slot " .. slotNum
+		prompt.HoldDuration          = 0
+		prompt.MaxActivationDistance = 8
+		prompt.Parent                = ped
 
-	fusPrompt.Triggered:Connect(function(trigPlayer)
-		if not trigPlayer or not trigPlayer.Parent then return end
-		OpenFusionEvent:FireClient(trigPlayer, _playerCollection[trigPlayer] or {})
-	end)
+		local slotNumCopy = slotNum
+		prompt.Triggered:Connect(function(trigPlayer)
+			-- Player must be carrying a brainrot they own
+			local carried = _carrying[trigPlayer]
+			if not carried then
+				NotificationEvent:FireClient(trigPlayer, "Carry a brainrot to this slot first!", Color3.fromRGB(255, 180, 0))
+				return
+			end
+			if _brainrotOwner[carried] ~= trigPlayer then
+				NotificationEvent:FireClient(trigPlayer, "You can only fuse your own brainrots!", Color3.fromRGB(255, 80, 80))
+				return
+			end
+
+			local bId   = carried:GetAttribute("BrainrotId") or ""
+			local bData = BrainrotData.getById(bId)
+			if not bData then
+				NotificationEvent:FireClient(trigPlayer, "Unknown brainrot!", Color3.fromRGB(255, 80, 80))
+				return
+			end
+
+			-- Initialise deposit table
+			if not _fusionDeposits[trigPlayer] then
+				_fusionDeposits[trigPlayer] = {}
+			end
+			local deposits = _fusionDeposits[trigPlayer]
+
+			-- Destroy the carried brainrot and free its slot
+			local slotIdx2 = carried:GetAttribute("SlotIndex")
+			if slotIdx2 then ShopSystem.releaseSlot(trigPlayer, slotIdx2) end
+			ShopSystem.removePlate(carried)
+			_brainrotOwner[carried] = nil
+			_carrying[trigPlayer] = nil
+			trigPlayer:SetAttribute("IsCarrying", false)
+			trigPlayer:SetAttribute("CarryingBrainrotName", "")
+			local m2 = carried.Parent
+			if m2 and m2:IsA("Model") then m2:Destroy() elseif carried and carried.Parent then carried:Destroy() end
+
+			-- Update collection
+			local col = _playerCollection[trigPlayer]
+			if col and col[bId] then
+				col[bId] = col[bId] - 1
+				if col[bId] <= 0 then col[bId] = nil end
+				CollectionUpdatedEvent:FireClient(trigPlayer, col)
+			end
+
+			deposits[slotNumCopy] = bData
+			NotificationEvent:FireClient(trigPlayer, "Deposited " .. bData.name .. " into slot " .. slotNumCopy .. "!", Color3.fromRGB(100, 200, 255))
+
+			-- Both slots filled → show results
+			if deposits[1] and deposits[2] then
+				local options = generateFusionOptions(deposits[1].id, deposits[2].id)
+				deposits[1] = nil; deposits[2] = nil
+				showFusionResults(trigPlayer, options, baseY)
+				NotificationEvent:FireClient(trigPlayer, "Fusion ready! Choose a result pedestal.", Color3.fromRGB(255, 220, 50))
+			end
+		end)
+	end
 end
 
 return ShopSystem

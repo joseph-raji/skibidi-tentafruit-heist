@@ -33,6 +33,7 @@ local eventNames = {
 	"FuseRequest",
 	"FuseOptions",
 	"FuseChoose",
+	"GachaResult",
 }
 
 for _, name in ipairs(eventNames) do
