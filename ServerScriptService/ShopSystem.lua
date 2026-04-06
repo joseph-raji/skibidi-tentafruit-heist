@@ -1026,7 +1026,7 @@ function ShopSystem.createShopPads()
 
 	local gachaBB = Instance.new("BillboardGui")
 	gachaBB.Size        = UDim2.new(0, 240, 0, 90)
-	gachaBB.StudsOffset = Vector3.new(0, 6, 0)
+	gachaBB.StudsOffset = Vector3.new(0, 14, 0)
 	gachaBB.Parent      = gachaPad
 	local gachaLbl = Instance.new("TextLabel")
 	gachaLbl.Size                   = UDim2.new(1, 0, 1, 0)
@@ -1038,54 +1038,113 @@ function ShopSystem.createShopPads()
 	gachaLbl.Font                   = Enum.Font.GothamBold
 	gachaLbl.Parent                 = gachaBB
 
-	-- 3D slot machine structure above the gacha pad
-	-- Vertical post (cylinder standing upright)
+	-- Prize wheel machine above the gacha pad
+	local MACHINE_X       = gachaPad.Position.X
+	local MACHINE_Z       = gachaPad.Position.Z
+	local WHEEL_CENTER_Y  = padY + 7
+	local WHEEL_CENTER    = Vector3.new(MACHINE_X, WHEEL_CENTER_Y, MACHINE_Z)
+	local WHEEL_RADIUS    = 4.5
+
+	-- 1. Metal vertical post
 	local post = Instance.new("Part")
-	post.Shape     = Enum.PartType.Cylinder
-	post.Size      = Vector3.new(1, 8, 1)
-	post.CFrame    = CFrame.new(gachaPad.Position + Vector3.new(0, padY + 4.25, 0))
-		* CFrame.Angles(0, 0, math.rad(90))
-	post.Material  = Enum.Material.Metal
-	post.BrickColor = BrickColor.new("Really black")
-	post.Anchored  = true
+	post.Shape      = Enum.PartType.Cylinder
+	post.Size       = Vector3.new(1.2, 8, 1.2)
+	post.CFrame     = CFrame.new(MACHINE_X, padY + 4, MACHINE_Z)
+	post.BrickColor = BrickColor.new("Dark grey metallic")
+	post.Material   = Enum.Material.Metal
 	post.CanCollide = false
-	post.Parent    = workspace
+	post.Anchored   = true
+	post.Parent     = workspace
 
-	-- Large neon sphere on top, cycling hue
-	local topSphere = Instance.new("Part")
-	topSphere.Shape     = Enum.PartType.Ball
-	topSphere.Size      = Vector3.new(4, 4, 4)
-	topSphere.Position  = Vector3.new(gachaPad.Position.X, padY + 10.5, gachaPad.Position.Z)
-	topSphere.Material  = Enum.Material.Neon
-	topSphere.Anchored  = true
-	topSphere.CanCollide = false
-	topSphere.Parent    = workspace
+	-- 2. Wheel disc (thin cylinder, face pointing toward +X / player side)
+	local disc = Instance.new("Part")
+	disc.Shape      = Enum.PartType.Cylinder
+	disc.Size       = Vector3.new(0.5, 11, 11)
+	disc.CFrame     = CFrame.new(WHEEL_CENTER) * CFrame.Angles(0, 0, math.pi / 2)
+	disc.Color      = Color3.fromRGB(25, 25, 30)
+	disc.Material   = Enum.Material.SmoothPlastic
+	disc.CanCollide = false
+	disc.Anchored   = true
+	disc.Parent     = workspace
 
-	RunService.Heartbeat:Connect(function()
-		if not topSphere or not topSphere.Parent then return end
-		topSphere.Color = Color3.fromHSV((tick() * 0.7) % 1, 1, 1)
-	end)
+	-- 3. Hub center sphere
+	local hub = Instance.new("Part")
+	hub.Shape      = Enum.PartType.Ball
+	hub.Size       = Vector3.new(2, 2, 2)
+	hub.Position   = WHEEL_CENTER
+	hub.Color      = Color3.fromRGB(255, 200, 0)
+	hub.Material   = Enum.Material.Metal
+	hub.CanCollide = false
+	hub.Anchored   = true
+	hub.Parent     = workspace
 
-	-- 3 horizontal reel bands (flat disc cylinders) on the post
-	local reelYOffsets = { 2.5, 5.0, 7.5 }
-	local reelParts = {}
-	for i, yOff in ipairs(reelYOffsets) do
-		local reel = Instance.new("Part")
-		reel.Shape     = Enum.PartType.Cylinder
-		reel.Size      = Vector3.new(0.2, 3.5, 3.5)
-		reel.CFrame    = CFrame.new(gachaPad.Position + Vector3.new(0, padY + yOff, 0))
-			* CFrame.Angles(0, 0, math.rad(90))
-		reel.Material  = Enum.Material.Neon
-		reel.Anchored  = true
-		reel.CanCollide = false
-		reel.Parent    = workspace
-		reelParts[i]   = reel
+	-- 4. Fixed red pointer arrow at the top of the wheel
+	local pointer = Instance.new("WedgePart")
+	pointer.Size      = Vector3.new(0.5, 2, 1)
+	pointer.CFrame    = CFrame.new(WHEEL_CENTER + Vector3.new(0, WHEEL_RADIUS + 2, 0)) * CFrame.Angles(0, 0, math.pi)
+	pointer.Color     = Color3.fromRGB(255, 40, 40)
+	pointer.Material  = Enum.Material.Neon
+	pointer.CanCollide = false
+	pointer.Anchored  = true
+	pointer.Parent    = workspace
+
+	-- 5. Five rarity segment paddles (animated)
+	local WHEEL_RARITY_COLORS = {
+		Color3.fromRGB(180, 180, 180),  -- Common
+		Color3.fromRGB(50,  200, 80),   -- Uncommon
+		Color3.fromRGB(60,  120, 255),  -- Rare
+		Color3.fromRGB(180, 0,   255),  -- Epic
+		Color3.fromRGB(255, 200, 0),    -- Legendary
+	}
+	local WHEEL_RARITY_NAMES = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
+
+	local wheelSegments = {}
+	local segBaseAngles = {}
+	for i = 1, 5 do
+		local baseAngle = (i - 1) * (2 * math.pi / 5)
+		segBaseAngles[i] = baseAngle
+
+		local seg = Instance.new("Part")
+		seg.Size      = Vector3.new(0.4, 3.8, 1.6)
+		seg.Color     = WHEEL_RARITY_COLORS[i]
+		seg.Material  = Enum.Material.Neon
+		seg.CanCollide = false
+		seg.Anchored  = true
+		seg.Parent    = workspace
+
+		local bb = Instance.new("BillboardGui")
+		bb.Size        = UDim2.new(0, 90, 0, 28)
+		bb.AlwaysOnTop = false
+		bb.Parent      = seg
+		local lbl = Instance.new("TextLabel")
+		lbl.Size                   = UDim2.new(1, 0, 1, 0)
+		lbl.BackgroundTransparency = 1
+		lbl.Text                   = WHEEL_RARITY_NAMES[i]
+		lbl.TextScaled             = true
+		lbl.Font                   = Enum.Font.GothamBold
+		lbl.TextColor3             = Color3.fromRGB(255, 255, 255)
+		lbl.TextStrokeTransparency = 0.3
+		lbl.Parent                 = bb
+
+		wheelSegments[i] = seg
 	end
 
-	RunService.Heartbeat:Connect(function()
-		for i, reel in ipairs(reelParts) do
-			if not reel or not reel.Parent then continue end
-			reel.Color = Color3.fromHSV(((tick() * 0.5) + i * 0.33) % 1, 1, 1)
+	-- 6. Animate the spinning wheel
+	local wheelAngle     = 0
+	local WHEEL_SPIN_SPEED = 1.2  -- radians per second
+	RunService.Heartbeat:Connect(function(dt)
+		wheelAngle = (wheelAngle + WHEEL_SPIN_SPEED * dt) % (2 * math.pi)
+		for i, seg in ipairs(wheelSegments) do
+			if not seg or not seg.Parent then continue end
+			local angle = segBaseAngles[i] + wheelAngle
+			local segY  = WHEEL_CENTER_Y + math.sin(angle) * WHEEL_RADIUS
+			local segZ  = MACHINE_Z      + math.cos(angle) * WHEEL_RADIUS
+			seg.CFrame  = CFrame.new(MACHINE_X, segY, segZ)
+				* CFrame.Angles(angle, 0, math.pi / 2)
+		end
+		-- Pulse the hub color
+		if hub and hub.Parent then
+			hub.Color = Color3.fromHSV((tick() * 0.6) % 1, 0.8, 1)
 		end
 	end)
 
@@ -1451,12 +1510,76 @@ function ShopSystem.createFusionMachine()
 					return
 				end
 				local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size / 2, slotPos.Z)
-				ShopSystem.spawnBrainrot(chosen, dest, trigPlayer, _brainrotOwner, slotIdx)
-				if not _playerCollection[trigPlayer] then _playerCollection[trigPlayer] = {} end
-				_playerCollection[trigPlayer][chosen.id] = (_playerCollection[trigPlayer][chosen.id] or 0) + 1
-				CollectionUpdatedEvent:FireClient(trigPlayer, _playerCollection[trigPlayer])
-				local rc = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
-				NotificationEvent:FireClient(trigPlayer, "Fusion: [" .. chosen.rarity .. "] " .. chosen.name .. "!", rc)
+
+				-- Spawn a temporary walking sphere at the machine
+				local fusionSphere = Instance.new("Part")
+				fusionSphere.Shape     = Enum.PartType.Ball
+				fusionSphere.Size      = Vector3.new(chosen.size, chosen.size, chosen.size)
+				fusionSphere.Color     = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 220, 50)
+				fusionSphere.Material  = Enum.Material.Neon
+				fusionSphere.Anchored  = true
+				fusionSphere.CanCollide = false
+				fusionSphere.Position  = Vector3.new(MACHINE_X, MACHINE_BASE_Y + 4, MACHINE_Z)
+				fusionSphere.Parent    = workspace
+				_flyingBodies[fusionSphere] = true
+
+				-- Flash the orb white then back to cycling
+				local orbRef = workspace:FindFirstChild("FusionOrb")
+				if orbRef then
+					orbRef.Color = Color3.fromRGB(255, 255, 255)
+					orbRef.Size  = Vector3.new(5, 5, 5)
+					task.delay(0.3, function()
+						if orbRef and orbRef.Parent then
+							orbRef.Size = Vector3.new(3, 3, 3)
+						end
+					end)
+				end
+
+				-- 3-segment walk path through base entrance
+				local bd  = _playerBases[trigPlayer]
+				local fs  = bd and bd.faceSign or 1
+				local bp  = bd and bd.position or dest
+				local frontFaceX = bp.X + fs * 11
+				local wp1 = Vector3.new(frontFaceX + fs * 2, dest.Y, bp.Z)
+				local wp2 = Vector3.new(frontFaceX - fs * 3, dest.Y, bp.Z)
+				local waypoints = {wp1, wp2, dest}
+				local segIdx  = 1
+				local segStartPos = fusionSphere.Position
+				local segEndPos   = waypoints[1]
+				local segLen  = math.max(1, (segEndPos - segStartPos).Magnitude)
+				local walkT   = 0
+				local FUSION_WALK_SPEED = 14
+				local walkConn
+				walkConn = RunService.Heartbeat:Connect(function(dt)
+					if not fusionSphere or not fusionSphere.Parent then
+						walkConn:Disconnect(); _flyingBodies[fusionSphere] = nil; return
+					end
+					walkT = walkT + (FUSION_WALK_SPEED * dt) / segLen
+					if walkT >= 1 then
+						if segIdx < #waypoints then
+							segIdx = segIdx + 1
+							segStartPos = waypoints[segIdx - 1]
+							segEndPos   = waypoints[segIdx]
+							segLen = math.max(1, (segEndPos - segStartPos).Magnitude)
+							walkT  = 0
+							fusionSphere.Position = segStartPos
+						else
+							walkConn:Disconnect(); _flyingBodies[fusionSphere] = nil
+							fusionSphere:Destroy()
+							if trigPlayer and trigPlayer.Parent then
+								ShopSystem.spawnBrainrot(chosen, dest, trigPlayer, _brainrotOwner, slotIdx)
+								if not _playerCollection[trigPlayer] then _playerCollection[trigPlayer] = {} end
+								_playerCollection[trigPlayer][chosen.id] = (_playerCollection[trigPlayer][chosen.id] or 0) + 1
+								CollectionUpdatedEvent:FireClient(trigPlayer, _playerCollection[trigPlayer])
+								local rc = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
+								NotificationEvent:FireClient(trigPlayer, "Fusion: [" .. chosen.rarity .. "] " .. chosen.name .. "!", rc)
+							end
+						end
+						return
+					end
+					fusionSphere.CFrame = CFrame.new(segStartPos:Lerp(segEndPos, walkT))
+						* CFrame.Angles(0, tick() * 3, 0)
+				end)
 			end
 		end)
 	end
