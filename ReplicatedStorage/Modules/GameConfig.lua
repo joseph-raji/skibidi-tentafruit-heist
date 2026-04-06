@@ -18,7 +18,7 @@ return {
 	GACHA_COST = 1500,
 
 	-- Total money required to trigger a rebirth.
-	REBIRTH_COST = 80000,
+	REBIRTH_COST = 5000,
 
 	-- Income multiplier gained per rebirth (stacks multiplicatively).
 	REBIRTH_MULTIPLIER = 1.5,

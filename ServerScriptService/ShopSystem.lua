@@ -1515,18 +1515,6 @@ function ShopSystem.createFusionMachine()
 				end
 				local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size / 2, slotPos.Z)
 
-				-- Spawn a temporary walking sphere at the machine
-				local fusionSphere = Instance.new("Part")
-				fusionSphere.Shape     = Enum.PartType.Ball
-				fusionSphere.Size      = Vector3.new(chosen.size, chosen.size, chosen.size)
-				fusionSphere.Color     = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 220, 50)
-				fusionSphere.Material  = Enum.Material.Neon
-				fusionSphere.Anchored  = true
-				fusionSphere.CanCollide = false
-				fusionSphere.Position  = Vector3.new(MACHINE_X, MACHINE_BASE_Y + 4, MACHINE_Z)
-				fusionSphere.Parent    = workspace
-				_flyingBodies[fusionSphere] = true
-
 				-- Flash the orb white then back to cycling
 				local orbRef = workspace:FindFirstChild("FusionOrb")
 				if orbRef then
@@ -1539,6 +1527,32 @@ function ShopSystem.createFusionMachine()
 					end)
 				end
 
+				-- Build the actual brainrot character at the machine so it walks to base
+				local walkStartPos = Vector3.new(MACHINE_X, dest.Y, MACHINE_Z)
+				local walkModel = Instance.new("Model")
+				walkModel.Name   = "FusionWalk_" .. chosen.name
+				walkModel.Parent = workspace
+				local walkBody
+				if CharacterBuilders then
+					walkBody = CharacterBuilders.build(chosen.id, walkStartPos, walkModel, chosen.size, chosen)
+				end
+				if not walkBody then
+					walkBody = Instance.new("Part")
+					walkBody.Name      = "Body"
+					walkBody.Shape     = Enum.PartType.Ball
+					walkBody.Material  = Enum.Material.Neon
+					walkBody.BrickColor = chosen.color
+					walkBody.Size      = Vector3.new(chosen.size, chosen.size, chosen.size)
+					walkBody.CFrame    = CFrame.new(walkStartPos)
+					walkBody.Anchored  = true
+					walkBody.CanCollide = false
+					walkBody.Parent    = walkModel
+					walkModel.PrimaryPart = walkBody
+				end
+				walkBody.Anchored  = true
+				walkBody.CanCollide = false
+				_flyingBodies[walkBody] = true
+
 				-- 3-segment walk path through base entrance
 				local bd  = _playerBases[trigPlayer]
 				local fs  = bd and bd.faceSign or 1
@@ -1548,15 +1562,15 @@ function ShopSystem.createFusionMachine()
 				local wp2 = Vector3.new(frontFaceX - fs * 3, dest.Y, bp.Z)
 				local waypoints = {wp1, wp2, dest}
 				local segIdx  = 1
-				local segStartPos = fusionSphere.Position
+				local segStartPos = walkStartPos
 				local segEndPos   = waypoints[1]
 				local segLen  = math.max(1, (segEndPos - segStartPos).Magnitude)
 				local walkT   = 0
 				local FUSION_WALK_SPEED = 14
 				local walkConn
 				walkConn = RunService.Heartbeat:Connect(function(dt)
-					if not fusionSphere or not fusionSphere.Parent then
-						walkConn:Disconnect(); _flyingBodies[fusionSphere] = nil; return
+					if not walkBody or not walkBody.Parent then
+						walkConn:Disconnect(); _flyingBodies[walkBody] = nil; return
 					end
 					walkT = walkT + (FUSION_WALK_SPEED * dt) / segLen
 					if walkT >= 1 then
@@ -1566,10 +1580,10 @@ function ShopSystem.createFusionMachine()
 							segEndPos   = waypoints[segIdx]
 							segLen = math.max(1, (segEndPos - segStartPos).Magnitude)
 							walkT  = 0
-							fusionSphere.Position = segStartPos
+							walkBody.CFrame = CFrame.new(segStartPos)
 						else
-							walkConn:Disconnect(); _flyingBodies[fusionSphere] = nil
-							fusionSphere:Destroy()
+							walkConn:Disconnect(); _flyingBodies[walkBody] = nil
+							walkModel:Destroy()
 							if trigPlayer and trigPlayer.Parent then
 								ShopSystem.spawnBrainrot(chosen, dest, trigPlayer, _brainrotOwner, slotIdx)
 								if not _playerCollection[trigPlayer] then _playerCollection[trigPlayer] = {} end
@@ -1581,8 +1595,7 @@ function ShopSystem.createFusionMachine()
 						end
 						return
 					end
-					fusionSphere.CFrame = CFrame.new(segStartPos:Lerp(segEndPos, walkT))
-						* CFrame.Angles(0, tick() * 3, 0)
+					walkBody.CFrame = CFrame.new(segStartPos:Lerp(segEndPos, walkT))
 				end)
 			end
 		end)
