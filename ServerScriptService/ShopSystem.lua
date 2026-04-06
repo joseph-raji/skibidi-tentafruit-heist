@@ -144,26 +144,30 @@ function ShopSystem.placeCarriedBrainrot(player, slotIndex)
 	player:SetAttribute("IsCarrying", false)
 	player:SetAttribute("CarryingBrainrotName", "")
 
-	-- Free old slot and remove its collect plate
+	-- Remove the collection plate tied to this brainrot.
+	-- The old slot was already freed (and its empty plate recreated) when the
+	-- player first picked up the brainrot in startCarrying → releaseSlot.
 	if oldSlot then
 		ShopSystem.removePlate(brainrot)
-		baseData.slotGrid[oldSlot] = false
-		-- Recreate empty plate for old slot with placement prompt
-		local oldPlatePos = baseData.platePositions and baseData.platePositions[oldSlot]
-		if oldPlatePos and baseData.folder and baseData.folder.Parent then
-			if not baseData.emptyPlates then baseData.emptyPlates = {} end
-			local ep = Instance.new("Part")
-			ep.Name         = "EmptySlotPlate_" .. oldSlot
-			ep.Size         = Vector3.new(4, 0.3, 4)
-			ep.Material     = Enum.Material.Neon
-			ep.Color        = Color3.fromRGB(50, 50, 55)
-			ep.Transparency = 0.4
-			ep.CanCollide   = false
-			ep.Anchored     = true
-			ep.CFrame       = CFrame.new(oldPlatePos)
-			ep.Parent       = baseData.folder
-			baseData.emptyPlates[oldSlot] = ep
-			addPlacementPrompt(ep, player, oldSlot)
+		-- Guard: if slot was somehow not freed yet (e.g. direct purchase path), free it now.
+		if baseData.slotGrid[oldSlot] then
+			baseData.slotGrid[oldSlot] = false
+			local oldPlatePos = baseData.platePositions and baseData.platePositions[oldSlot]
+			if oldPlatePos and baseData.folder and baseData.folder.Parent then
+				if not baseData.emptyPlates then baseData.emptyPlates = {} end
+				local ep = Instance.new("Part")
+				ep.Name         = "EmptySlotPlate_" .. oldSlot
+				ep.Size         = Vector3.new(4, 0.3, 4)
+				ep.Material     = Enum.Material.Neon
+				ep.Color        = Color3.fromRGB(50, 50, 55)
+				ep.Transparency = 0.4
+				ep.CanCollide   = false
+				ep.Anchored     = true
+				ep.CFrame       = CFrame.new(oldPlatePos)
+				ep.Parent       = baseData.folder
+				baseData.emptyPlates[oldSlot] = ep
+				addPlacementPrompt(ep, player, oldSlot)
+			end
 		end
 	end
 

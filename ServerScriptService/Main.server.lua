@@ -169,6 +169,7 @@ ProgressionSystem.setShopSystem(ShopSystem)
 ProgressionSystem.setCarrying(carrying)
 ShopSystem.setBaseSystem(BaseSystem)
 ShopSystem.setStealSystem(StealSystem)
+StealSystem.setShopSystem(ShopSystem)
 ProgressionSystem.setBaseSystem(BaseSystem)
 
 -- ============================================================

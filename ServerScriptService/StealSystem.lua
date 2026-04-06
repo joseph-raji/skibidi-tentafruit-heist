@@ -8,11 +8,17 @@ local StealSystem = {}
 
 local BASE_SIZE = 44
 local CARRY_SIDE_OFFSET = 1.8  -- studs to the right of the carrier
+local BELT_HALF_WIDTH   = 5    -- belt spans X=-8 to X=8; discard when |X| < 5
 
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
-local evtBrainrotStolen = remoteEvents:WaitForChild("BrainrotStolen")
-local evtBrainrotClaimed = remoteEvents:WaitForChild("BrainrotClaimed")
-local evtNotification = remoteEvents:WaitForChild("Notification")
+local evtBrainrotStolen     = remoteEvents:WaitForChild("BrainrotStolen")
+local evtBrainrotClaimed    = remoteEvents:WaitForChild("BrainrotClaimed")
+local evtNotification       = remoteEvents:WaitForChild("Notification")
+local evtCollectionUpdated  = remoteEvents:WaitForChild("CollectionUpdated")
+
+-- ShopSystem reference (set via StealSystem.setShopSystem)
+local _shopSystem = nil
+function StealSystem.setShopSystem(ss) _shopSystem = ss end
 
 -- Internal debounce table to prevent repeated touch triggers
 local touchDebounce = {}
@@ -71,7 +77,16 @@ function StealSystem.startCarrying(player, brainrot, playerBases, brainrotOwner,
 	player:SetAttribute("CarryingBrainrotName", brainrotName)
 
 	if isOwnBrainrot then
-		evtNotification:FireClient(player, "Picked up " .. brainrotName .. ". Walk back to your base!", Color3.fromRGB(200, 200, 255))
+		-- Immediately free the slot so the empty plate reappears and the player
+		-- can place the brainrot in any available slot (including the same one).
+		if _shopSystem then
+			local oldSlot = brainrot:GetAttribute("SlotIndex")
+			if oldSlot then
+				_shopSystem.removePlate(brainrot)
+				_shopSystem.releaseSlot(player, oldSlot)
+			end
+		end
+		evtNotification:FireClient(player, "Picked up " .. brainrotName .. ". Press E on any slot to place it!", Color3.fromRGB(200, 200, 255))
 	else
 		-- Notify victim (orange)
 		evtNotification:FireClient(victim, player.Name .. " is stealing your " .. brainrotName .. "!", Color3.fromRGB(255, 140, 0))
@@ -277,12 +292,51 @@ function StealSystem.onHeartbeat(playerBases, brainrotOwner, carrying, playerCol
 		local sidePos  = root.Position + rightVec * (bodySize * 0.5 + CARRY_SIDE_OFFSET)
 		brainrot.CFrame = CFrame.new(sidePos.X, root.Position.Y - 2.5 + bodySize * 0.5, sidePos.Z)
 
+		local rootPos = root.Position
+
+		-- Belt discard: owner walks own brainrot onto the belt → remove it
+		local beltDebounceKey = "belt_" .. tostring(player.UserId)
+		if brainrotOwner[brainrot] == player
+			and math.abs(rootPos.X) < BELT_HALF_WIDTH
+			and not touchDebounce[beltDebounceKey] then
+			touchDebounce[beltDebounceKey] = true
+			task.delay(1.5, function() touchDebounce[beltDebounceKey] = nil end)
+
+			local bId   = brainrot:GetAttribute("BrainrotId") or ""
+			local bName = brainrot:GetAttribute("BrainrotName") or "Brainrot"
+
+			-- Update collection count
+			if playerCollection[player] and bId ~= "" then
+				local count = (playerCollection[player][bId] or 1) - 1
+				if count <= 0 then
+					playerCollection[player][bId] = nil
+				else
+					playerCollection[player][bId] = count
+				end
+			end
+
+			brainrotOwner[brainrot] = nil
+			carrying[player] = nil
+			player:SetAttribute("IsCarrying", false)
+			player:SetAttribute("CarryingBrainrotName", "")
+
+			local m = brainrot.Parent
+			if m and m:IsA("Model") then
+				m:Destroy()
+			elseif brainrot and brainrot.Parent then
+				brainrot:Destroy()
+			end
+
+			evtCollectionUpdated:FireClient(player, playerCollection[player] or {})
+			evtNotification:FireClient(player, bName .. " discarded on the belt!", Color3.fromRGB(255, 160, 50))
+			continue
+		end
+
 		-- Check if carrier is inside their own base
 		local baseData = playerBases[player]
 		if not baseData then continue end
 
 		local basePos = baseData.position
-		local rootPos = root.Position
 		local halfBound = BASE_SIZE / 2 - 3
 
 		local insideX = math.abs(rootPos.X - basePos.X) < halfBound
