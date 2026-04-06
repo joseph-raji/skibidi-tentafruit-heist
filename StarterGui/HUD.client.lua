@@ -137,11 +137,14 @@ RunService.Heartbeat:Connect(function()
 	if now - lastTime >= 2 then
 		local currentMoney = LocalPlayer:GetAttribute("Money") or 0
 		local gained = currentMoney - lastMoney
-		if gained > 0 then
-			currentIncomeRate = math.floor(gained / (now - lastTime))
-		end
+		local elapsed = now - lastTime
 		lastMoney = currentMoney
 		lastTime = now
+		if gained > 0 then
+			currentIncomeRate = math.floor(gained / elapsed)
+		else
+			currentIncomeRate = 0
+		end
 		if incomeRateLabel then
 			incomeRateLabel.Text = "📈 " .. currentIncomeRate .. "$/s"
 		end

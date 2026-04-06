@@ -588,22 +588,27 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 					StealSystem.setupBrainrotTouchEvents(body, buyer, _playerBases, _brainrotOwner, _carrying, _playerCollection)
 				end
 
-				-- Ground-level walk: 2-segment path (belt → base entrance → slot)
+				-- Ground-level walk: 3-segment path
+			-- belt → just outside entrance (gap center) → just inside entrance → slot
 				local WALK_SPEED = 14  -- studs / second
 				local dest = Vector3.new(slotPos.X, slotPos.Y + brainrotData.size / 2, slotPos.Z)
 				local startPos = body.Position
+				local groundY = dest.Y
 
-				-- Waypoint: just outside the base entrance at ground level
 				local bd2 = _playerBases[buyer]
 				local fs2  = bd2 and bd2.faceSign or 1
 				local bp2  = bd2 and bd2.position or dest
-				-- frontFaceX = bp2.X + fs2 * 11, entry waypoint 4 studs further out
-				local entryX  = bp2.X + fs2 * 15
-				local waypoint = Vector3.new(entryX, dest.Y, dest.Z)
+				-- frontFaceX = basePos.X + faceSign*11
+				local frontFaceX = bp2.X + fs2 * 11
+				-- wp1: just outside the entrance gap, centered on base Z
+				local wp1 = Vector3.new(frontFaceX + fs2 * 2, groundY, bp2.Z)
+				-- wp2: just inside the entrance gap
+				local wp2 = Vector3.new(frontFaceX - fs2 * 3, groundY, bp2.Z)
 
+				local waypoints = { wp1, wp2, dest }
 				local segment  = 1
 				local segStart = startPos
-				local segEnd   = waypoint
+				local segEnd   = waypoints[1]
 				local segLen   = math.max(1, (segEnd - segStart).Magnitude)
 				local t        = 0
 				local conn
@@ -625,14 +630,14 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 					end
 					t = t + (WALK_SPEED * dt) / segLen
 					if t >= 1 then
-						if segment == 1 then
-							-- Advance to segment 2: entrance → slot
-							segment  = 2
-							segStart = waypoint
-							segEnd   = dest
+						if segment < #waypoints then
+							-- Advance to next segment
+							segment  = segment + 1
+							segStart = waypoints[segment - 1]
+							segEnd   = waypoints[segment]
 							segLen   = math.max(1, (segEnd - segStart).Magnitude)
 							t = 0
-							body.CFrame = CFrame.new(waypoint)
+							body.CFrame = CFrame.new(segStart)
 						else
 							-- Arrived at slot
 							conn:Disconnect(); _flyingBodies[body] = nil
@@ -1033,11 +1038,67 @@ function ShopSystem.createShopPads()
 	gachaLbl.Font                   = Enum.Font.GothamBold
 	gachaLbl.Parent                 = gachaBB
 
+	-- 3D slot machine structure above the gacha pad
+	-- Vertical post (cylinder standing upright)
+	local post = Instance.new("Part")
+	post.Shape     = Enum.PartType.Cylinder
+	post.Size      = Vector3.new(1, 8, 1)
+	post.CFrame    = CFrame.new(gachaPad.Position + Vector3.new(0, padY + 4.25, 0))
+		* CFrame.Angles(0, 0, math.rad(90))
+	post.Material  = Enum.Material.Metal
+	post.BrickColor = BrickColor.new("Really black")
+	post.Anchored  = true
+	post.CanCollide = false
+	post.Parent    = workspace
+
+	-- Large neon sphere on top, cycling hue
+	local topSphere = Instance.new("Part")
+	topSphere.Shape     = Enum.PartType.Ball
+	topSphere.Size      = Vector3.new(4, 4, 4)
+	topSphere.Position  = Vector3.new(gachaPad.Position.X, padY + 10.5, gachaPad.Position.Z)
+	topSphere.Material  = Enum.Material.Neon
+	topSphere.Anchored  = true
+	topSphere.CanCollide = false
+	topSphere.Parent    = workspace
+
+	RunService.Heartbeat:Connect(function()
+		if not topSphere or not topSphere.Parent then return end
+		topSphere.Color = Color3.fromHSV((tick() * 0.7) % 1, 1, 1)
+	end)
+
+	-- 3 horizontal reel bands (flat disc cylinders) on the post
+	local reelYOffsets = { 2.5, 5.0, 7.5 }
+	local reelParts = {}
+	for i, yOff in ipairs(reelYOffsets) do
+		local reel = Instance.new("Part")
+		reel.Shape     = Enum.PartType.Cylinder
+		reel.Size      = Vector3.new(0.2, 3.5, 3.5)
+		reel.CFrame    = CFrame.new(gachaPad.Position + Vector3.new(0, padY + yOff, 0))
+			* CFrame.Angles(0, 0, math.rad(90))
+		reel.Material  = Enum.Material.Neon
+		reel.Anchored  = true
+		reel.CanCollide = false
+		reel.Parent    = workspace
+		reelParts[i]   = reel
+	end
+
+	RunService.Heartbeat:Connect(function()
+		for i, reel in ipairs(reelParts) do
+			if not reel or not reel.Parent then continue end
+			reel.Color = Color3.fromHSV(((tick() * 0.5) + i * 0.33) % 1, 1, 1)
+		end
+	end)
+
+	-- ProximityPrompt instead of Touched
+	local gachaPrompt = Instance.new("ProximityPrompt")
+	gachaPrompt.ActionText            = "Spin Gacha ($150)"
+	gachaPrompt.ObjectText            = "GACHA MACHINE"
+	gachaPrompt.HoldDuration          = 0
+	gachaPrompt.MaxActivationDistance = 10
+	gachaPrompt.Parent                = gachaPad
+
 	local gachaDebounce = {}
-	gachaPad.Touched:Connect(function(hit)
-		local character = hit.Parent
-		local player = game.Players:GetPlayerFromCharacter(character)
-		if not player then return end
+	gachaPrompt.Triggered:Connect(function(player)
 		if gachaDebounce[player] then return end
 		gachaDebounce[player] = true
 		task.delay(3, function() gachaDebounce[player] = nil end)
@@ -1175,8 +1236,8 @@ end
 -- =========================================================================
 
 -- Per-player fusion state
-local _fusionDeposits = {}   -- [player] → { slot1=brainrotData/nil, slot2=brainrotData/nil }
-local _fusionResultParts = {} -- [player] → { Part, ... } result pedestals
+local _fusionDeposits  = {}   -- [player] → { slot1=brainrotData/nil, slot2=brainrotData/nil }
+local _fusionDisplays  = {}   -- [player] → { [slotNum] = Part }  glowing ball on pedestal top
 
 local MACHINE_X = 18   -- east side of belt
 local MACHINE_Z = 0    -- center of map
@@ -1220,68 +1281,14 @@ local function makePedestal(cx, cy, cz, colorRGB, labelText)
 	return ped, top
 end
 
-local function destroyFusionResults(player)
-	local parts = _fusionResultParts[player]
-	if parts then
-		for _, p in ipairs(parts) do
+local function destroyFusionDisplays(player)
+	local displays = _fusionDisplays[player]
+	if displays then
+		for _, p in pairs(displays) do
 			if p and p.Parent then p:Destroy() end
 		end
 	end
-	_fusionResultParts[player] = nil
-end
-
-local function showFusionResults(player, options, baseY)
-	destroyFusionResults(player)
-	local parts = {}
-	local rarityColors = {
-		Common    = Color3.fromRGB(120, 120, 120),
-		Uncommon  = Color3.fromRGB(30, 160, 60),
-		Rare      = Color3.fromRGB(40, 80, 200),
-		Epic      = Color3.fromRGB(140, 0, 220),
-		Legendary = Color3.fromRGB(200, 140, 0),
-	}
-	-- Place 4 result pedestals in a row on the east side of the machine
-	local resultZOffsets = { -9, -3, 3, 9 }
-	for i, opt in ipairs(options) do
-		if not opt then continue end
-		local rz = MACHINE_Z + (resultZOffsets[i] or (i * 6 - 12))
-		local rColor = rarityColors[opt.rarity] or Color3.fromRGB(100, 100, 100)
-		local pedLabel = "[" .. (opt.rarity or "?") .. "]\n" .. (opt.name or "?")
-		local ped, top = makePedestal(MACHINE_X + 10, baseY + 1.5, rz, rColor, pedLabel)
-		top.Color = rColor
-
-		local prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText            = "Claim"
-		prompt.ObjectText            = opt.name or "Brainrot"
-		prompt.HoldDuration          = 0
-		prompt.MaxActivationDistance = 8
-		prompt.Parent                = ped
-
-		local iCopy = i
-		local optCopy = opt
-		prompt.Triggered:Connect(function(trigPlayer)
-			if trigPlayer ~= player then return end
-			destroyFusionResults(player)
-			_fusionDeposits[player] = nil
-			-- Spawn chosen brainrot
-			local slotIdx, slotPos = BaseSystem.getNextSlot(player, _playerBases)
-			if not slotIdx then
-				NotificationEvent:FireClient(player, "Base full! Free a slot first.", Color3.fromRGB(255, 180, 0))
-				return
-			end
-			local dest = Vector3.new(slotPos.X, slotPos.Y + optCopy.size / 2, slotPos.Z)
-			ShopSystem.spawnBrainrot(optCopy, dest, player, _brainrotOwner, slotIdx)
-			if not _playerCollection[player] then _playerCollection[player] = {} end
-			_playerCollection[player][optCopy.id] = (_playerCollection[player][optCopy.id] or 0) + 1
-			CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
-			local rc = RARITY_COLOR[optCopy.rarity] or Color3.fromRGB(255,255,255)
-			NotificationEvent:FireClient(player, "Fusion: [" .. optCopy.rarity .. "] " .. optCopy.name .. "!", rc)
-		end)
-
-		table.insert(parts, ped)
-		table.insert(parts, top)
-	end
-	_fusionResultParts[player] = parts
+	_fusionDisplays[player] = nil
 end
 
 function ShopSystem.createFusionMachine()
@@ -1340,10 +1347,14 @@ function ShopSystem.createFusionMachine()
 	local slotZOffsets = { -5, 5 }
 	local slotLabels = { "Slot 1\n(carry here)", "Slot 2\n(carry here)" }
 
+	-- Store the top plate of each pedestal so we can place display balls on them
+	local slotTops = {}
+
 	for slotNum = 1, 2 do
 		local sz = MACHINE_Z + slotZOffsets[slotNum]
 		local ped, top = makePedestal(MACHINE_X, baseY + 1.5, sz, slotColors[slotNum], slotLabels[slotNum])
 		top.Color = slotColors[slotNum]
+		slotTops[slotNum] = top
 
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.ActionText            = "Deposit Brainrot"
@@ -1398,14 +1409,54 @@ function ShopSystem.createFusionMachine()
 			end
 
 			deposits[slotNumCopy] = bData
+
+			-- Spawn a glowing display ball on top of this slot's pedestal
+			if not _fusionDisplays[trigPlayer] then
+				_fusionDisplays[trigPlayer] = {}
+			end
+			local pedTop = slotTops[slotNumCopy]
+			if pedTop and pedTop.Parent then
+				local topPos = pedTop.Position
+				local rarityCol = RARITY_COLOR[bData.rarity] or Color3.fromRGB(255, 255, 255)
+				local ball = Instance.new("Part")
+				ball.Shape     = Enum.PartType.Ball
+				ball.Size      = Vector3.new(2, 2, 2)
+				ball.Material  = Enum.Material.Neon
+				ball.Color     = rarityCol
+				ball.Anchored  = true
+				ball.CanCollide = false
+				ball.Position  = Vector3.new(topPos.X, topPos.Y + 1.3, topPos.Z)
+				ball.Parent    = workspace
+				-- Destroy old display for this slot if any
+				if _fusionDisplays[trigPlayer][slotNumCopy] then
+					local old = _fusionDisplays[trigPlayer][slotNumCopy]
+					if old and old.Parent then old:Destroy() end
+				end
+				_fusionDisplays[trigPlayer][slotNumCopy] = ball
+			end
+
 			NotificationEvent:FireClient(trigPlayer, "Deposited " .. bData.name .. " into slot " .. slotNumCopy .. "!", Color3.fromRGB(100, 200, 255))
 
-			-- Both slots filled → show results
+			-- Both slots filled → auto-pick one random result and spawn it
 			if deposits[1] and deposits[2] then
 				local options = generateFusionOptions(deposits[1].id, deposits[2].id)
 				deposits[1] = nil; deposits[2] = nil
-				showFusionResults(trigPlayer, options, baseY)
-				NotificationEvent:FireClient(trigPlayer, "Fusion ready! Choose a result pedestal.", Color3.fromRGB(255, 220, 50))
+				-- Destroy display balls for both slots
+				destroyFusionDisplays(trigPlayer)
+				-- Pick one at random
+				local chosen = options[math.random(1, #options)]
+				local slotIdx, slotPos = BaseSystem.getNextSlot(trigPlayer, _playerBases)
+				if not slotIdx then
+					NotificationEvent:FireClient(trigPlayer, "Base full! Free a slot first.", Color3.fromRGB(255, 180, 0))
+					return
+				end
+				local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size / 2, slotPos.Z)
+				ShopSystem.spawnBrainrot(chosen, dest, trigPlayer, _brainrotOwner, slotIdx)
+				if not _playerCollection[trigPlayer] then _playerCollection[trigPlayer] = {} end
+				_playerCollection[trigPlayer][chosen.id] = (_playerCollection[trigPlayer][chosen.id] or 0) + 1
+				CollectionUpdatedEvent:FireClient(trigPlayer, _playerCollection[trigPlayer])
+				local rc = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
+				NotificationEvent:FireClient(trigPlayer, "Fusion: [" .. chosen.rarity .. "] " .. chosen.name .. "!", rc)
 			end
 		end)
 	end

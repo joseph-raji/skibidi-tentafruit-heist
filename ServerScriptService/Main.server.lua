@@ -277,7 +277,7 @@ local function onPlayerAdded(player)
 	leaderstats.Parent = player
 
 	local moneyValue = Instance.new("IntValue")
-	moneyValue.Name   = "Money"
+	moneyValue.Name   = "Cash"
 	moneyValue.Value  = GameConfig.STARTER_MONEY
 	moneyValue.Parent = leaderstats
 
