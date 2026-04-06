@@ -259,67 +259,39 @@ LocalPlayer:GetAttributeChangedSignal("RebirthCount"):Connect(updateRebirth)
 LocalPlayer:GetAttributeChangedSignal("Multiplier"):Connect(updateRebirth)
 
 -- ─────────────────────────────────────────────────────────
--- 4. BASE LOCK BUTTON (right side, middle)
+-- 4. REBIRTH BUTTON (right side, middle — replaces old Lock Base button)
 -- ─────────────────────────────────────────────────────────
-local LockFrame = makeDarkFrame(
-	"LockFrame",
+local RebirthBtnFrame = makeDarkFrame(
+	"RebirthBtnFrame",
 	UDim2.new(0, 160, 0, 58),
 	UDim2.new(1, -176, 0.5, -29),
 	ScreenGui
 )
-addStroke(LockFrame, Color3.fromRGB(80, 200, 255), 1.5)
+addStroke(RebirthBtnFrame, Color3.fromRGB(180, 80, 255), 1.5)
 
-local LockButton = Instance.new("TextButton")
-LockButton.Name = "LockButton"
-LockButton.Size = UDim2.new(1, 0, 1, 0)
-LockButton.BackgroundTransparency = 1
-LockButton.Text = "🔒 Lock Base"
-LockButton.TextScaled = true
-LockButton.Font = Enum.Font.GothamBold
-LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-LockButton.ZIndex = 3
-LockButton.Parent = LockFrame
+local RebirthActionBtn = Instance.new("TextButton")
+RebirthActionBtn.Name               = "RebirthButton"
+RebirthActionBtn.Size               = UDim2.new(1, 0, 1, 0)
+RebirthActionBtn.BackgroundTransparency = 1
+RebirthActionBtn.Text               = "🌀 Rebirth\n$8000"
+RebirthActionBtn.TextScaled         = true
+RebirthActionBtn.Font               = Enum.Font.GothamBold
+RebirthActionBtn.TextColor3         = Color3.fromRGB(200, 150, 255)
+RebirthActionBtn.ZIndex             = 3
+RebirthActionBtn.Parent             = RebirthBtnFrame
 
-local LOCK_COOLDOWN = 30
-local lockOnCooldown = false
-local lockCooldownConn
+local RebirthRemote = RemoteEvents and RemoteEvents:WaitForChild("Rebirth", 10)
+local rebirthCooldown = false
 
-local function setLockCooldown()
-	lockOnCooldown = true
-	LockButton.TextColor3 = Color3.fromRGB(140, 140, 140)
-	local function countdown(n)
-		if n <= 0 then
-			lockOnCooldown = false
-			LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-			local locked = LocalPlayer:GetAttribute("BaseIsLocked")
-			LockButton.Text = locked and "🔒 BASE LOCKED" or "🔒 Lock Base"
-			return
-		end
-		LockButton.Text = "⏳ Recharging: " .. n .. "s"
-		task.delay(1, function() countdown(n - 1) end)
-	end
-	countdown(LOCK_COOLDOWN)
-end
-
-local function updateLockVisual()
-	if lockOnCooldown then return end
-	local locked = LocalPlayer:GetAttribute("BaseIsLocked")
-	if locked then
-		LockButton.Text = "🔒 BASE LOCKED"
-		LockButton.TextColor3 = Color3.fromRGB(80, 230, 100)
-	else
-		LockButton.Text = "🔒 Lock Base"
-		LockButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-	end
-end
-
-updateLockVisual()
-LocalPlayer:GetAttributeChangedSignal("BaseIsLocked"):Connect(updateLockVisual)
-
-LockButton.MouseButton1Click:Connect(function()
-	if lockOnCooldown then return end
-	if LockBaseRemote then LockBaseRemote:FireServer() end
-	setLockCooldown()
+RebirthActionBtn.MouseButton1Click:Connect(function()
+	if rebirthCooldown then return end
+	rebirthCooldown = true
+	RebirthActionBtn.TextColor3 = Color3.fromRGB(120, 80, 160)
+	task.delay(3, function()
+		rebirthCooldown = false
+		RebirthActionBtn.TextColor3 = Color3.fromRGB(200, 150, 255)
+	end)
+	if RebirthRemote then RebirthRemote:FireServer() end
 end)
 
 -- ─────────────────────────────────────────────────────────

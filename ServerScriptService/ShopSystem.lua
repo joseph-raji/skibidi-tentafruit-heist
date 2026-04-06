@@ -19,8 +19,10 @@ if not ok then
 end
 
 local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
-local NotificationEvent    = RemoteEvents:WaitForChild("Notification")
+local NotificationEvent      = RemoteEvents:WaitForChild("Notification")
 local CollectionUpdatedEvent = RemoteEvents:WaitForChild("CollectionUpdated")
+local OpenFusionEvent        = RemoteEvents:WaitForChild("OpenFusion")
+local FuseOptionsEvent       = RemoteEvents:WaitForChild("FuseOptions")
 
 local ShopSystem = {}
 
@@ -582,9 +584,13 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 					StealSystem.setupBrainrotTouchEvents(body, buyer, _playerBases, _brainrotOwner, _carrying, _playerCollection)
 				end
 
-				-- Heartbeat-based flight so it can be intercepted
+				-- Arc-based flight: parabolic arc soars over base walls
 				local FLIGHT_SPEED = 18  -- studs / second
 				local dest = Vector3.new(slotPos.X, slotPos.Y + brainrotData.size / 2, slotPos.Z)
+				local startPos = body.Position
+				local totalDist = math.max(1, (dest - startPos).Magnitude)
+				local ARC_HEIGHT = math.max(25, totalDist * 0.45)
+				local flightT = 0
 				local conn
 				conn = RunService.Heartbeat:Connect(function(dt)
 					if not body or not body.Parent then
@@ -604,9 +610,8 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 						ShopSystem.releaseSlot(buyer, slotIndex)
 						return
 					end
-					local dir = dest - body.Position
-					local dist = dir.Magnitude
-					if dist < 1 then
+					flightT = flightT + (FLIGHT_SPEED * dt) / totalDist
+					if flightT >= 1 then
 						-- Arrived
 						conn:Disconnect(); _flyingBodies[body] = nil
 						body.CFrame = CFrame.new(dest); body.Anchored = true
@@ -621,8 +626,10 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 						if m and m:IsA("Model") then m:Destroy() elseif body and body.Parent then body:Destroy() end
 						return
 					end
-					local step = math.min(FLIGHT_SPEED * dt, dist)
-					body.CFrame = CFrame.new(body.Position + dir.Unit * step) * CFrame.Angles(0, tick() * 2, 0)
+					-- Parabolic arc: lerp flat path + sin-based height bump
+					local flat = startPos:Lerp(dest, flightT)
+					local arcY = ARC_HEIGHT * math.sin(flightT * math.pi)
+					body.CFrame = CFrame.new(flat.X, flat.Y + arcY, flat.Z) * CFrame.Angles(0, tick() * 2, 0)
 				end)
 			end)
 		end
@@ -1031,22 +1038,140 @@ function ShopSystem.createShopPads()
 end
 
 -- =========================================================================
--- Public: createFusionMachine
--- Fusion pad: carry two brainrots here to merge them into a stronger one.
+-- Fusion system (UI-based): pick 2 brainrots from collection, see 4 results
 -- =========================================================================
 
-local fusionQueue = {}  -- [player] → { part, income, name, id }
+local RARITY_INDEX = { Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5 }
+local INDEX_RARITY = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
+local _fusionPending = {}  -- [player] → list of 4 brainrotData options
+
+local function pickRandom(rarityName)
+	local list = BrainrotData.getByRarity(rarityName)
+	if not list or #list == 0 then return nil end
+	return list[math.random(1, #list)]
+end
+
+local function generateFusionOptions(id1, id2)
+	local d1 = BrainrotData.getById(id1)
+	local d2 = BrainrotData.getById(id2)
+	local tier1 = d1 and (RARITY_INDEX[d1.rarity] or 1) or 1
+	local tier2 = d2 and (RARITY_INDEX[d2.rarity] or 1) or 1
+	local avgTier = math.floor((tier1 + tier2) / 2)
+
+	local worseTier = math.max(1, avgTier - 1)
+	local opt1 = pickRandom(INDEX_RARITY[worseTier])
+	local opt2 = pickRandom(INDEX_RARITY[worseTier])
+	for _ = 1, 5 do
+		local candidate = pickRandom(INDEX_RARITY[worseTier])
+		if candidate and opt1 and candidate.id ~= opt1.id then opt2 = candidate; break end
+	end
+
+	local betterTier = math.min(5, avgTier + 1)
+	local opt3 = pickRandom(INDEX_RARITY[betterTier])
+	local opt4 = pickRandom("Legendary")
+	return { opt1 or opt3, opt2 or opt3, opt3, opt4 }
+end
+
+function ShopSystem.handleFuseRequest(player, id1, id2)
+	local collection = _playerCollection[player]
+	if not collection then
+		NotificationEvent:FireClient(player, "You have no brainrots to fuse!", Color3.fromRGB(255, 80, 80))
+		return
+	end
+	local count1 = collection[id1] or 0
+	local count2 = collection[id2] or 0
+	if id1 == id2 then
+		if count1 < 2 then
+			NotificationEvent:FireClient(player, "Need 2 copies to fuse the same brainrot!", Color3.fromRGB(255, 80, 80))
+			return
+		end
+	else
+		if count1 < 1 or count2 < 1 then
+			NotificationEvent:FireClient(player, "You don't own one of those brainrots!", Color3.fromRGB(255, 80, 80))
+			return
+		end
+	end
+
+	local toDestroy = {}
+	local need1, need2 = true, true
+	for brainrot, owner in pairs(_brainrotOwner) do
+		if owner == player and brainrot and brainrot.Parent then
+			local bId = brainrot:GetAttribute("BrainrotId")
+			if need1 and bId == id1 then
+				table.insert(toDestroy, brainrot); need1 = false
+			elseif need2 and bId == id2 then
+				table.insert(toDestroy, brainrot); need2 = false
+			end
+		end
+		if not need1 and not need2 then break end
+	end
+	if #toDestroy < 2 then
+		NotificationEvent:FireClient(player, "Couldn't find both brainrots in your base!", Color3.fromRGB(255, 80, 80))
+		return
+	end
+	for _, part in ipairs(toDestroy) do
+		local slotIdx = part:GetAttribute("SlotIndex")
+		if slotIdx then ShopSystem.releaseSlot(player, slotIdx) end
+		ShopSystem.removePlate(part)
+		_brainrotOwner[part] = nil
+		local m = part.Parent
+		if m and m:IsA("Model") then m:Destroy() elseif part and part.Parent then part:Destroy() end
+	end
+
+	collection[id1] = (collection[id1] or 1) - 1
+	if collection[id1] <= 0 then collection[id1] = nil end
+	if id1 ~= id2 then
+		collection[id2] = (collection[id2] or 1) - 1
+		if collection[id2] <= 0 then collection[id2] = nil end
+	end
+	CollectionUpdatedEvent:FireClient(player, collection)
+
+	local options = generateFusionOptions(id1, id2)
+	_fusionPending[player] = options
+	local clientOptions = {}
+	for _, opt in ipairs(options) do
+		if opt then
+			table.insert(clientOptions, { id = opt.id, name = opt.name, rarity = opt.rarity, income = opt.income })
+		end
+	end
+	FuseOptionsEvent:FireClient(player, clientOptions)
+end
+
+function ShopSystem.handleFuseChoose(player, choiceIndex)
+	local options = _fusionPending[player]
+	if not options or not options[choiceIndex] then
+		NotificationEvent:FireClient(player, "No pending fusion result!", Color3.fromRGB(255, 80, 80))
+		return
+	end
+	_fusionPending[player] = nil
+	local chosen = options[choiceIndex]
+	local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
+	if not slotIndex then
+		NotificationEvent:FireClient(player, "Base full! Free a slot first.", Color3.fromRGB(255, 180, 0))
+		return
+	end
+	local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size / 2, slotPos.Z)
+	ShopSystem.spawnBrainrot(chosen, dest, player, _brainrotOwner, slotIndex)
+	if not _playerCollection[player] then _playerCollection[player] = {} end
+	_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
+	CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
+	local rarityColor = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
+	NotificationEvent:FireClient(player, "Fusion result: [" .. chosen.rarity .. "] " .. chosen.name .. "!", rarityColor)
+end
+
+-- placeholder to keep old variable name from collision
+local _fusionQueueUnused = nil
 
 function ShopSystem.createFusionMachine()
 	local padY = BELT_Y + 0.25
 
 	local fusionPad = Instance.new("Part")
-	fusionPad.Name      = "FusionPad"
-	fusionPad.Anchored  = true
-	fusionPad.Size      = Vector3.new(12, 0.5, 12)
-	fusionPad.Position  = Vector3.new(50, padY, 0)
-	fusionPad.Material  = Enum.Material.Neon
-	fusionPad.Parent    = workspace
+	fusionPad.Name     = "FusionPad"
+	fusionPad.Anchored = true
+	fusionPad.Size     = Vector3.new(12, 0.5, 12)
+	fusionPad.Position = Vector3.new(0, padY, -20)
+	fusionPad.Material = Enum.Material.Neon
+	fusionPad.Parent   = workspace
 
 	RunService.Heartbeat:Connect(function()
 		if not fusionPad or not fusionPad.Parent then return end
@@ -1055,103 +1180,39 @@ function ShopSystem.createFusionMachine()
 	end)
 
 	local fusBB = Instance.new("BillboardGui")
-	fusBB.Size        = UDim2.new(0, 260, 0, 90)
+	fusBB.Size        = UDim2.new(0, 280, 0, 90)
 	fusBB.StudsOffset = Vector3.new(0, 7, 0)
 	fusBB.Parent      = fusionPad
 
 	local fusTitle = Instance.new("TextLabel")
-	fusTitle.Size = UDim2.new(1, 0, 0.5, 0)
+	fusTitle.Size                  = UDim2.new(1, 0, 0.5, 0)
 	fusTitle.BackgroundTransparency = 1
-	fusTitle.Text = "⚡ FUSION MACHINE"
-	fusTitle.TextScaled = true
-	fusTitle.Font = Enum.Font.GothamBold
-	fusTitle.TextColor3 = Color3.fromRGB(255, 255, 100)
-	fusTitle.Parent = fusBB
+	fusTitle.Text                  = "⚡ FUSION MACHINE"
+	fusTitle.TextScaled            = true
+	fusTitle.Font                  = Enum.Font.GothamBold
+	fusTitle.TextColor3            = Color3.fromRGB(255, 255, 100)
+	fusTitle.Parent                = fusBB
 
 	local fusHint = Instance.new("TextLabel")
-	fusHint.Size = UDim2.new(1, 0, 0.5, 0)
-	fusHint.Position = UDim2.new(0, 0, 0.5, 0)
+	fusHint.Size                  = UDim2.new(1, 0, 0.5, 0)
+	fusHint.Position              = UDim2.new(0, 0, 0.5, 0)
 	fusHint.BackgroundTransparency = 1
-	fusHint.Text = "Carry 2 brainrots here to fuse!"
-	fusHint.TextScaled = true
-	fusHint.Font = Enum.Font.Gotham
-	fusHint.TextColor3 = Color3.fromRGB(200, 200, 255)
-	fusHint.Parent = fusBB
+	fusHint.Text                  = "Press E to open Fusion UI"
+	fusHint.TextScaled            = true
+	fusHint.Font                  = Enum.Font.Gotham
+	fusHint.TextColor3            = Color3.fromRGB(200, 200, 255)
+	fusHint.Parent                = fusBB
 
-	local fusDebounce = {}
-	fusionPad.Touched:Connect(function(hit)
-		local character = hit.Parent
-		if not character then return end
-		local player = Players:GetPlayerFromCharacter(character)
-		if not player then return end
-		if fusDebounce[player] then return end
+	local fusPrompt = Instance.new("ProximityPrompt")
+	fusPrompt.ActionText            = "Fuse Brainrots"
+	fusPrompt.ObjectText            = "Fusion Machine"
+	fusPrompt.HoldDuration          = 0
+	fusPrompt.MaxActivationDistance = 12
+	fusPrompt.Parent                = fusionPad
 
-		local brainrot = _carrying[player]
-		if not brainrot then return end
-
-		fusDebounce[player] = true
-		task.delay(1.5, function() fusDebounce[player] = nil end)
-
-		local income = brainrot:GetAttribute("IncomePerSecond") or 1
-		local name   = brainrot:GetAttribute("BrainrotName") or "Brainrot"
-		local bId    = brainrot:GetAttribute("BrainrotId") or "unknown"
-
-		if not fusionQueue[player] then
-			-- Slot 1: park the brainrot above the machine
-			_carrying[player] = nil
-			player:SetAttribute("IsCarrying", false)
-			player:SetAttribute("CarryingBrainrotName", "")
-			brainrot.Anchored = true
-			brainrot.CFrame = CFrame.new(50, padY + 5, 0)
-			_brainrotOwner[brainrot] = player
-			fusionQueue[player] = { part = brainrot, income = income, name = name, id = bId }
-			NotificationEvent:FireClient(player, "Brainrot 1 loaded! Bring a second one to fuse.", Color3.fromRGB(100, 200, 255))
-		else
-			-- Slot 2: fuse!
-			local first = fusionQueue[player]
-			fusionQueue[player] = nil
-
-			_carrying[player] = nil
-			player:SetAttribute("IsCarrying", false)
-			player:SetAttribute("CarryingBrainrotName", "")
-
-			-- Destroy both parts
-			local firstPart = first.part
-			_brainrotOwner[firstPart] = nil
-			_brainrotOwner[brainrot]  = nil
-			local function destroyModel(part)
-				if not part or not part.Parent then return end
-				local m = part.Parent
-				if m and m:IsA("Model") then m:Destroy() else part:Destroy() end
-			end
-			destroyModel(firstPart)
-			destroyModel(brainrot)
-
-			-- Build fused brainrotData
-			local fusedIncome = first.income + income + 5
-			local n1 = first.name:sub(1, 6)
-			local n2 = name:sub(1, 6)
-			local fusedData = {
-				id        = "fused_" .. tostring(math.floor(tick())),
-				name      = n1 .. "-" .. n2,
-				income    = fusedIncome,
-				rarity    = "Legendary",
-				size      = 3,
-				cost      = nil,
-				color     = BrickColor.new("Bright yellow"),
-				glowColor = Color3.fromRGB(255, 220, 0),
-			}
-
-			-- Spawn in player's base
-			local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
-			if slotIndex and slotPos then
-				local dest = Vector3.new(slotPos.X, slotPos.Y + fusedData.size / 2, slotPos.Z)
-				ShopSystem.spawnBrainrot(fusedData, dest, player, _brainrotOwner, slotIndex)
-				NotificationEvent:FireClient(player, "FUSION! " .. fusedData.name .. " earns $" .. fusedIncome .. "/s!", Color3.fromRGB(255, 220, 0))
-			else
-				NotificationEvent:FireClient(player, "Base full — fusion failed! Free a slot first.", Color3.fromRGB(255, 80, 80))
-			end
-		end
+	fusPrompt.Triggered:Connect(function(trigPlayer)
+		if not trigPlayer or not trigPlayer.Parent then return end
+		OpenFusionEvent:FireClient(trigPlayer, _playerCollection[trigPlayer] or {})
 	end)
 end
 

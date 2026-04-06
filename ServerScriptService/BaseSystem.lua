@@ -540,6 +540,47 @@ function BaseSystem.createBase(player, position, playerBases)
 		emptyPlates    = emptyPlates,
 	}
 
+	-- ── Lock pad in center of base ──────────────────────────────────────
+	-- Owner steps on it to activate the base shield (replaces HUD button).
+	local lockPad = Instance.new("Part")
+	lockPad.Name         = "LockPad"
+	lockPad.Size         = Vector3.new(8, 0.3, 8)
+	lockPad.Material     = Enum.Material.Neon
+	lockPad.Color        = Color3.fromRGB(0, 200, 255)
+	lockPad.CanCollide   = true
+	lockPad.Anchored     = true
+	lockPad.CastShadow   = false
+	lockPad.Transparency = 0.3
+	lockPad.CFrame       = CFrame.new(position.X, position.Y + 2.3, position.Z)
+	lockPad.Parent       = folder
+
+	local lockBB = Instance.new("BillboardGui")
+	lockBB.Size        = UDim2.new(0, 180, 0, 55)
+	lockBB.StudsOffset = Vector3.new(0, 3, 0)
+	lockBB.Parent      = lockPad
+
+	local lockLabel = Instance.new("TextLabel")
+	lockLabel.Size                   = UDim2.new(1, 0, 1, 0)
+	lockLabel.BackgroundTransparency = 1
+	lockLabel.Text                   = "🔒 LOCK BASE"
+	lockLabel.TextScaled             = true
+	lockLabel.Font                   = Enum.Font.GothamBold
+	lockLabel.TextColor3             = Color3.fromRGB(255, 255, 255)
+	lockLabel.TextStrokeTransparency = 0
+	lockLabel.Parent                 = lockBB
+
+	local lockTouchDebounce = false
+	lockPad.Touched:Connect(function(hit)
+		local character = hit.Parent
+		if not character then return end
+		local touchPlayer = Players:GetPlayerFromCharacter(character)
+		if not touchPlayer or touchPlayer ~= player then return end
+		if lockTouchDebounce then return end
+		lockTouchDebounce = true
+		task.delay(LOCK_COOLDOWN, function() lockTouchDebounce = false end)
+		BaseSystem.lockBase(player, playerBases)
+	end)
+
 	return folder
 end
 

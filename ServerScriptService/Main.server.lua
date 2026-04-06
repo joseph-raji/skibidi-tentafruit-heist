@@ -29,6 +29,10 @@ local eventNames = {
 	"OpenShop",
 	"OpenPokedex",
 	"BuyItem",
+	"OpenFusion",
+	"FuseRequest",
+	"FuseOptions",
+	"FuseChoose",
 }
 
 for _, name in ipairs(eventNames) do
@@ -178,7 +182,7 @@ end
 -- ============================================================
 ShopSystem.createShopPads()
 ShopSystem.createFusionMachine()
-ProgressionSystem.setupRebirthPad(playerBases)
+-- Rebirth is handled via the HUD button; no physical pad needed
 -- ItemsSystem.createItemsShop()  -- physical shop removed; buy equipment via the Shop UI button
 
 -- ============================================================
@@ -239,6 +243,18 @@ end)
 RemoteEvents.BuyItem.OnServerEvent:Connect(function(player, itemId)
 	if not player or not itemId then return end
 	ItemsSystem.buyItem(player, itemId)
+end)
+
+-- Handle fusion request (client sends 2 brainrot IDs to fuse)
+RemoteEvents.FuseRequest.OnServerEvent:Connect(function(player, id1, id2)
+	if not player or not id1 or not id2 then return end
+	ShopSystem.handleFuseRequest(player, id1, id2)
+end)
+
+-- Handle fusion choice (client picks 1 of 4 result options by index)
+RemoteEvents.FuseChoose.OnServerEvent:Connect(function(player, choiceIndex)
+	if not player or not choiceIndex then return end
+	ShopSystem.handleFuseChoose(player, choiceIndex)
 end)
 
 -- ============================================================
