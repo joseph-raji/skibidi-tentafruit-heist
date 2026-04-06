@@ -6,7 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local StealSystem = {}
 
-local BASE_SIZE = 44
+local BASE_SIZE = 52
 local CARRY_SIDE_OFFSET = 1.8  -- studs to the right of the carrier
 
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")

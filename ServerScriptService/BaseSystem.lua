@@ -11,9 +11,9 @@ local BaseSystem = {}
 -- Constants
 -- ============================================================
 
-local BASE_SIZE        = 50    -- plot footprint (square)
-local BUILDING_DEPTH   = 34   -- along depth axis (X for left/right houses)
-local BUILDING_WIDTH   = 28   -- along Z axis
+local BASE_SIZE        = 58    -- plot footprint (square)
+local BUILDING_DEPTH   = 40   -- along depth axis (X for left/right houses)
+local BUILDING_WIDTH   = 34   -- along Z axis
 local WALL_HEIGHT      = 10   -- wall height per floor
 local FLOOR_THICKNESS  = 2    -- floor slab thickness
 local ROOF_OVERHANG    = 3    -- roof overhang on each side
@@ -95,7 +95,7 @@ end
 --   Right plate: Z = pos.Z + 4.5
 -- ============================================================
 
-local ROW_OFFSETS = {-16, -8, 0, 8, 16}  -- 8-stud spacing prevents visual crowding
+local ROW_OFFSETS = {-14, -7, 0, 7, 14}  -- 7-stud spacing, fits inside enlarged building
 
 local function computeAllSlotPositions(pos)
 	local faceSign = getFaceSign(pos)

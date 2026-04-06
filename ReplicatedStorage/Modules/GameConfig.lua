@@ -58,8 +58,8 @@ return {
 	FLOOR_HEIGHT_STEP = 12,
 
 	-- Building dimensions inside the house plot
-	BUILDING_DEPTH = 34,   -- along the axis facing the road (X for left/right houses)
-	BUILDING_WIDTH = 28,   -- along the Z axis
+	BUILDING_DEPTH = 40,   -- along the axis facing the road (X for left/right houses)
+	BUILDING_WIDTH = 34,   -- along the Z axis
 
 	-- Yard depth (space between building front and plot edge facing road)
 	YARD_DEPTH = 14,

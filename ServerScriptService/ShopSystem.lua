@@ -605,8 +605,8 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 				local bd2 = _playerBases[buyer]
 				local fs2  = bd2 and bd2.faceSign or 1
 				local bp2  = bd2 and bd2.position or dest
-				-- frontFaceX = basePos.X + faceSign*11
-				local frontFaceX = bp2.X + fs2 * 11
+				-- frontFaceX = basePos.X + faceSign*14  (halfDepth=20, center offset=6 → 20-6=14)
+				local frontFaceX = bp2.X + fs2 * 14
 				-- wp1: just outside the entrance gap, centered on base Z
 				local wp1 = Vector3.new(frontFaceX + fs2 * 2, groundY, bp2.Z)
 				-- wp2: just inside the entrance gap
@@ -846,7 +846,7 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 	local bd  = _playerBases[player]
 	local fs  = bd and bd.faceSign or 1
 	local bp  = bd and bd.position or dest
-	local frontFaceX = bp.X + fs * 11
+	local frontFaceX = bp.X + fs * 14
 	local wp1 = Vector3.new(frontFaceX + fs * 2, dest.Y, bp.Z)
 	local wp2 = Vector3.new(frontFaceX - fs * 3, dest.Y, bp.Z)
 	local waypoints   = {wp1, wp2, dest}
@@ -1618,7 +1618,7 @@ function ShopSystem.createFusionMachine()
 				local bd  = _playerBases[trigPlayer]
 				local fs  = bd and bd.faceSign or 1
 				local bp  = bd and bd.position or dest
-				local frontFaceX = bp.X + fs * 11
+				local frontFaceX = bp.X + fs * 14
 				local wp1 = Vector3.new(frontFaceX + fs * 2, dest.Y, bp.Z)
 				local wp2 = Vector3.new(frontFaceX - fs * 3, dest.Y, bp.Z)
 				local waypoints = {wp1, wp2, dest}
