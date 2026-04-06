@@ -325,6 +325,10 @@ local function onPlayerAdded(player)
 		if not character then return end
 		BaseSystem.teleportToBase(player, pos)
 		CombatSystem.giveBatToPlayer(player, batTool)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.WalkSpeed = 24  -- 1.5x default (16)
+		end
 	end
 
 	player.CharacterAdded:Connect(onCharacterAdded)

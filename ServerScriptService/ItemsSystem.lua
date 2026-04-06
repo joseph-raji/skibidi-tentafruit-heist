@@ -22,16 +22,16 @@ local _carrying    = {}
 -- =========================================================================
 
 local ITEMS = {
-	{ id = "power_bat",      name = "Power Bat",        category = "weapon",   cost = 500,  icon = "🏏", color = BrickColor.new("Bright orange"),       description = "2x range, stuns enemies 2s" },
-	{ id = "rocket_bat",     name = "Rocket Bat",        category = "weapon",   cost = 2500, icon = "🚀", color = BrickColor.new("Bright red"),           description = "AOE blast — drops ALL carriers nearby" },
-	{ id = "grappling_hook", name = "Grappling Hook",    category = "mobility", cost = 1500, icon = "🪝", color = BrickColor.new("Medium stone grey"),    description = "Shoot forward and zip to that point" },
-	{ id = "speed_boots",    name = "Speed Boots",        category = "mobility", cost = 600,  icon = "👟", color = BrickColor.new("Bright blue"),          description = "50% speed boost for 20 seconds (consumable)" },
-	{ id = "invis_cap",      name = "Invisibility Cap",  category = "stealth",  cost = 1000, icon = "🪄", color = BrickColor.new("White"),                description = "Turn invisible for 10 seconds (consumable)" },
-	{ id = "spike_trap",     name = "Spike Trap",         category = "trap",     cost = 350,  icon = "⚡", color = BrickColor.new("Dark grey"),            description = "Slows any enemy who steps on it" },
-	{ id = "alarm_trap",     name = "Alarm Trap",          category = "trap",     cost = 450,  icon = "🔔", color = BrickColor.new("Bright yellow"),       description = "Notifies you when enemy enters your base" },
-	{ id = "freeze_trap",    name = "Freeze Trap",         category = "trap",     cost = 900,  icon = "❄️", color = BrickColor.new("Bright bluish green"),  description = "Anchors enemy in place for 3 seconds" },
-	{ id = "bouncer_trap",   name = "Bouncer",             category = "trap",     cost = 1200, icon = "🌀", color = BrickColor.new("Hot pink"),             description = "Launches intruders out of your base" },
-	{ id = "shield_bubble",  name = "Shield Bubble",       category = "defense",  cost = 800,  icon = "🛡️", color = BrickColor.new("Cyan"),                description = "Absorbs one bat hit (consumable)" },
+	{ id = "power_bat",      name = "Power Bat",        category = "weapon",   cost = 5000,  icon = "🏏", color = BrickColor.new("Bright orange"),       description = "2x range, stuns enemies 2s" },
+	{ id = "rocket_bat",     name = "Rocket Bat",        category = "weapon",   cost = 25000, icon = "🚀", color = BrickColor.new("Bright red"),           description = "AOE blast — drops ALL carriers nearby" },
+	{ id = "grappling_hook", name = "Grappling Hook",    category = "mobility", cost = 15000, icon = "🪝", color = BrickColor.new("Medium stone grey"),    description = "Shoot forward and zip to that point" },
+	{ id = "speed_boots",    name = "Speed Boots",        category = "mobility", cost = 6000,  icon = "👟", color = BrickColor.new("Bright blue"),          description = "50% speed boost for 20 seconds (consumable)" },
+	{ id = "invis_cap",      name = "Invisibility Cap",  category = "stealth",  cost = 10000, icon = "🪄", color = BrickColor.new("White"),                description = "Turn invisible for 10 seconds (consumable)" },
+	{ id = "spike_trap",     name = "Spike Trap",         category = "trap",     cost = 3500,  icon = "⚡", color = BrickColor.new("Dark grey"),            description = "Slows any enemy who steps on it" },
+	{ id = "alarm_trap",     name = "Alarm Trap",          category = "trap",     cost = 4500,  icon = "🔔", color = BrickColor.new("Bright yellow"),       description = "Notifies you when enemy enters your base" },
+	{ id = "freeze_trap",    name = "Freeze Trap",         category = "trap",     cost = 9000,  icon = "❄️", color = BrickColor.new("Bright bluish green"),  description = "Anchors enemy in place for 3 seconds" },
+	{ id = "bouncer_trap",   name = "Bouncer",             category = "trap",     cost = 12000, icon = "🌀", color = BrickColor.new("Hot pink"),             description = "Launches intruders out of your base" },
+	{ id = "shield_bubble",  name = "Shield Bubble",       category = "defense",  cost = 8000,  icon = "🛡️", color = BrickColor.new("Cyan"),                description = "Absorbs one bat hit (consumable)" },
 }
 
 -- Fast lookup by id

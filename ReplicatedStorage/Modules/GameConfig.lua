@@ -15,10 +15,10 @@ return {
 	LOCK_COOLDOWN = 30,
 
 	-- Cost in money for a single gacha spin.
-	GACHA_COST = 150,
+	GACHA_COST = 1500,
 
 	-- Total money required to trigger a rebirth.
-	REBIRTH_COST = 8000,
+	REBIRTH_COST = 80000,
 
 	-- Income multiplier gained per rebirth (stacks multiplicatively).
 	REBIRTH_MULTIPLIER = 1.5,
@@ -33,7 +33,7 @@ return {
 	BAT_COOLDOWN = 1.5,
 
 	-- Money a new player starts with.
-	STARTER_MONEY = 100,
+	STARTER_MONEY = 1000,
 
 	-- Seconds between each income tick.
 	INCOME_TICK = 1,
