@@ -415,7 +415,9 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	end
 
 	-- -----------------------------------------------------------------------
-		-- -----------------------------------------------------------------------
+	-- Pressure plate (owned) vs buy prompt (conveyor)
+	-- -----------------------------------------------------------------------
+	if owner then
 		-- Pressure plate — flat pad at the slot's plate position
 		-- -----------------------------------------------------------------------
 		local platePos = position  -- fallback to spawn position
