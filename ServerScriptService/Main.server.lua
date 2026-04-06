@@ -34,6 +34,7 @@ local eventNames = {
 	"FuseOptions",
 	"FuseChoose",
 	"GachaResult",
+	"SellBrainrot",
 }
 
 for _, name in ipairs(eventNames) do
@@ -257,6 +258,12 @@ end)
 RemoteEvents.FuseChoose.OnServerEvent:Connect(function(player, choiceIndex)
 	if not player or not choiceIndex then return end
 	ShopSystem.handleFuseChoose(player, choiceIndex)
+end)
+
+-- Sell carried brainrot (player held F for 2 seconds)
+RemoteEvents.SellBrainrot.OnServerEvent:Connect(function(player)
+	if not player then return end
+	StealSystem.sellBrainrot(player, playerBases, brainrotOwner, carrying, playerCollection)
 end)
 
 -- ============================================================

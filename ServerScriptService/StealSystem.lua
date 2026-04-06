@@ -8,7 +8,6 @@ local StealSystem = {}
 
 local BASE_SIZE = 44
 local CARRY_SIDE_OFFSET = 1.8  -- studs to the right of the carrier
-local BELT_HALF_WIDTH   = 5    -- belt spans X=-8 to X=8; discard when |X| < 5
 
 local remoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents")
 local evtBrainrotStolen     = remoteEvents:WaitForChild("BrainrotStolen")
@@ -294,44 +293,6 @@ function StealSystem.onHeartbeat(playerBases, brainrotOwner, carrying, playerCol
 
 		local rootPos = root.Position
 
-		-- Belt discard: owner walks own brainrot onto the belt → remove it
-		local beltDebounceKey = "belt_" .. tostring(player.UserId)
-		if brainrotOwner[brainrot] == player
-			and math.abs(rootPos.X) < BELT_HALF_WIDTH
-			and not touchDebounce[beltDebounceKey] then
-			touchDebounce[beltDebounceKey] = true
-			task.delay(1.5, function() touchDebounce[beltDebounceKey] = nil end)
-
-			local bId   = brainrot:GetAttribute("BrainrotId") or ""
-			local bName = brainrot:GetAttribute("BrainrotName") or "Brainrot"
-
-			-- Update collection count
-			if playerCollection[player] and bId ~= "" then
-				local count = (playerCollection[player][bId] or 1) - 1
-				if count <= 0 then
-					playerCollection[player][bId] = nil
-				else
-					playerCollection[player][bId] = count
-				end
-			end
-
-			brainrotOwner[brainrot] = nil
-			carrying[player] = nil
-			player:SetAttribute("IsCarrying", false)
-			player:SetAttribute("CarryingBrainrotName", "")
-
-			local m = brainrot.Parent
-			if m and m:IsA("Model") then
-				m:Destroy()
-			elseif brainrot and brainrot.Parent then
-				brainrot:Destroy()
-			end
-
-			evtCollectionUpdated:FireClient(player, playerCollection[player] or {})
-			evtNotification:FireClient(player, bName .. " discarded on the belt!", Color3.fromRGB(255, 160, 50))
-			continue
-		end
-
 		-- Check if carrier is inside their own base
 		local baseData = playerBases[player]
 		if not baseData then continue end
@@ -349,6 +310,45 @@ function StealSystem.onHeartbeat(playerBases, brainrotOwner, carrying, playerCol
 			end
 		end
 	end
+end
+
+-- =========================================================================
+-- Public: sellBrainrot
+-- Called when a player holds F for 2 seconds to discard their carried brainrot.
+-- =========================================================================
+
+function StealSystem.sellBrainrot(player, playerBases, brainrotOwner, carrying, playerCollection)
+	local brainrot = carrying[player]
+	if not brainrot then return end
+	if brainrotOwner[brainrot] ~= player then return end  -- can only sell own brainrots
+
+	local bId   = brainrot:GetAttribute("BrainrotId") or ""
+	local bName = brainrot:GetAttribute("BrainrotName") or "Brainrot"
+
+	-- Update collection count
+	if playerCollection[player] and bId ~= "" then
+		local count = (playerCollection[player][bId] or 1) - 1
+		if count <= 0 then
+			playerCollection[player][bId] = nil
+		else
+			playerCollection[player][bId] = count
+		end
+	end
+
+	brainrotOwner[brainrot] = nil
+	carrying[player] = nil
+	player:SetAttribute("IsCarrying", false)
+	player:SetAttribute("CarryingBrainrotName", "")
+
+	local m = brainrot.Parent
+	if m and m:IsA("Model") then
+		m:Destroy()
+	elseif brainrot and brainrot.Parent then
+		brainrot:Destroy()
+	end
+
+	evtCollectionUpdated:FireClient(player, playerCollection[player] or {})
+	evtNotification:FireClient(player, bName .. " discarded!", Color3.fromRGB(255, 160, 50))
 end
 
 return StealSystem

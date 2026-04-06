@@ -50,7 +50,9 @@ local _brainrotToPlate = {}   -- body Part → plate Part
 local _platePrompt     = {}   -- plate Part → ProximityPrompt
 local _flyingBodies    = {}   -- body Part → true, skip bobbing during flight to base
 
-local GACHA_COST = 150
+local GACHA_COST = 0          -- Free spins
+local GACHA_COOLDOWN = 1800   -- 30 minutes in seconds
+local _gachaCooldown = {}     -- [player] → last spin timestamp
 
 -- =========================================================================
 -- Rarity colors for UI labels
@@ -774,40 +776,39 @@ end
 -- Public: spinGacha
 -- =========================================================================
 
-function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollection)
-	local currentMoney = player:GetAttribute("Money") or 0
-	if currentMoney < GACHA_COST then
-		NotificationEvent:FireClient(player, "Need $" .. GACHA_COST .. " for a GACHA spin!", Color3.fromRGB(255, 80, 80))
-		return nil
-	end
+local GACHA_X = -18  -- gacha machine X position
+local GACHA_Z = 0    -- gacha machine Z position
 
-	-- Check slot limit before spending money
+function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollection)
+	-- 30-minute cooldown check
+	local lastSpin = _gachaCooldown[player]
+	if lastSpin then
+		local elapsed = tick() - lastSpin
+		if elapsed < GACHA_COOLDOWN then
+			local remaining = math.ceil(GACHA_COOLDOWN - elapsed)
+			local mins = math.floor(remaining / 60)
+			local secs = remaining % 60
+			NotificationEvent:FireClient(player,
+				string.format("Gacha on cooldown! %d:%02d remaining.", mins, secs),
+				Color3.fromRGB(255, 80, 80))
+			return nil
+		end
+	end
+	_gachaCooldown[player] = tick()
+
+	-- Check slot limit
 	local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
 	if not slotIndex then
 		NotificationEvent:FireClient(player, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
+		_gachaCooldown[player] = nil  -- don't consume cooldown if base is full
 		return nil
 	end
 
-	-- Deduct cost
-	player:SetAttribute("Money", currentMoney - GACHA_COST)
-
 	-- Roll
 	local result = BrainrotData.gachaRoll()
+	local dest = Vector3.new(slotPos.X, slotPos.Y + result.size / 2, slotPos.Z)
 
-	-- Spawn at slot surface + half brainrot height so it rests on the floor
-	local spawnPos = Vector3.new(slotPos.X, slotPos.Y + result.size / 2, slotPos.Z)
-	ShopSystem.spawnBrainrot(result, spawnPos, player, brainrotOwner, slotIndex)
-
-	-- Update collection
-	if not playerCollection[player] then
-		playerCollection[player] = {}
-	end
-	playerCollection[player][result.id] = (playerCollection[player][result.id] or 0) + 1
-
-	-- Fire events
-	CollectionUpdatedEvent:FireClient(player, playerCollection[player])
-
-	-- Fire gacha result so client can land the wheel on the correct rarity
+	-- Fire gacha result so client wheel animation can play
 	GachaResultEvent:FireClient(player, {
 		id     = result.id,
 		name   = result.name,
@@ -815,12 +816,75 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 		income = result.income,
 	})
 
-	local rarityColor = RARITY_COLOR[result.rarity] or Color3.fromRGB(255, 255, 255)
-	NotificationEvent:FireClient(
-		player,
-		"You got [" .. result.rarity .. "]: " .. result.name .. "!",
-		rarityColor
-	)
+	-- Build actual brainrot character at the machine and walk it to base
+	local walkStartPos = Vector3.new(GACHA_X, dest.Y, GACHA_Z)
+	local walkModel = Instance.new("Model")
+	walkModel.Name   = "GachaWalk_" .. result.name
+	walkModel.Parent = workspace
+	local walkBody
+	if CharacterBuilders then
+		walkBody = CharacterBuilders.build(result.id, walkStartPos, walkModel, result.size, result)
+	end
+	if not walkBody then
+		walkBody = Instance.new("Part")
+		walkBody.Name       = "Body"
+		walkBody.Shape      = Enum.PartType.Ball
+		walkBody.Material   = Enum.Material.Neon
+		walkBody.BrickColor = result.color
+		walkBody.Size       = Vector3.new(result.size, result.size, result.size)
+		walkBody.CFrame     = CFrame.new(walkStartPos)
+		walkBody.Anchored   = true
+		walkBody.CanCollide = false
+		walkBody.Parent     = walkModel
+		walkModel.PrimaryPart = walkBody
+	end
+	walkBody.Anchored   = true
+	walkBody.CanCollide = false
+	_flyingBodies[walkBody] = true
+
+	local bd  = _playerBases[player]
+	local fs  = bd and bd.faceSign or 1
+	local bp  = bd and bd.position or dest
+	local frontFaceX = bp.X + fs * 11
+	local wp1 = Vector3.new(frontFaceX + fs * 2, dest.Y, bp.Z)
+	local wp2 = Vector3.new(frontFaceX - fs * 3, dest.Y, bp.Z)
+	local waypoints   = {wp1, wp2, dest}
+	local segIdx      = 1
+	local segStartPos = walkStartPos
+	local segEndPos   = waypoints[1]
+	local segLen      = math.max(1, (segEndPos - segStartPos).Magnitude)
+	local walkT       = 0
+	local WALK_SPEED  = 14
+	local walkConn
+	walkConn = RunService.Heartbeat:Connect(function(dt)
+		if not walkBody or not walkBody.Parent then
+			walkConn:Disconnect(); _flyingBodies[walkBody] = nil; return
+		end
+		walkT = walkT + (WALK_SPEED * dt) / segLen
+		if walkT >= 1 then
+			if segIdx < #waypoints then
+				segIdx      = segIdx + 1
+				segStartPos = waypoints[segIdx - 1]
+				segEndPos   = waypoints[segIdx]
+				segLen      = math.max(1, (segEndPos - segStartPos).Magnitude)
+				walkT       = 0
+				walkBody.CFrame = CFrame.new(segStartPos)
+			else
+				walkConn:Disconnect(); _flyingBodies[walkBody] = nil
+				walkModel:Destroy()
+				if player and player.Parent then
+					ShopSystem.spawnBrainrot(result, dest, player, brainrotOwner, slotIndex)
+					if not playerCollection[player] then playerCollection[player] = {} end
+					playerCollection[player][result.id] = (playerCollection[player][result.id] or 0) + 1
+					CollectionUpdatedEvent:FireClient(player, playerCollection[player])
+					local rc = RARITY_COLOR[result.rarity] or Color3.fromRGB(255, 255, 255)
+					NotificationEvent:FireClient(player, "Gacha: [" .. result.rarity .. "] " .. result.name .. "!", rc)
+				end
+			end
+			return
+		end
+		walkBody.CFrame = CFrame.new(segStartPos:Lerp(segEndPos, walkT))
+	end)
 
 	return result
 end
@@ -1154,17 +1218,13 @@ function ShopSystem.createShopPads()
 
 	-- ProximityPrompt instead of Touched
 	local gachaPrompt = Instance.new("ProximityPrompt")
-	gachaPrompt.ActionText            = "Spin Gacha ($150)"
-	gachaPrompt.ObjectText            = "GACHA MACHINE"
+	gachaPrompt.ActionText            = "Spin Gacha (FREE)"
+	gachaPrompt.ObjectText            = "GACHA MACHINE — 30 min cooldown"
 	gachaPrompt.HoldDuration          = 0
 	gachaPrompt.MaxActivationDistance = 10
 	gachaPrompt.Parent                = gachaPad
 
-	local gachaDebounce = {}
 	gachaPrompt.Triggered:Connect(function(player)
-		if gachaDebounce[player] then return end
-		gachaDebounce[player] = true
-		task.delay(3, function() gachaDebounce[player] = nil end)
 		ShopSystem.spinGacha(player, _playerBases, _brainrotOwner, _playerCollection)
 	end)
 end

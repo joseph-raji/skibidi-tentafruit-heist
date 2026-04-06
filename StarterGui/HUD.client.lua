@@ -27,6 +27,7 @@ local RebirthCompleteEvent = RemoteEvents and RemoteEvents:WaitForChild("Rebirth
 local LockBaseRemote      = RemoteEvents and RemoteEvents:WaitForChild("LockBase", 10)
 local OpenShopRemote      = RemoteEvents and RemoteEvents:WaitForChild("OpenShop", 10)
 local OpenPokedexRemote   = RemoteEvents and RemoteEvents:WaitForChild("OpenPokedex", 10)
+local SellBrainrotRemote  = RemoteEvents and RemoteEvents:WaitForChild("SellBrainrot", 10)
 
 -- Helper: create UICorner
 local function addCorner(parent, radius)
@@ -641,6 +642,89 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		if OpenShopRemote then OpenShopRemote:FireServer() end
 	elseif input.KeyCode == Enum.KeyCode.M then
 		if OpenPokedexRemote then OpenPokedexRemote:FireServer() end
+	end
+end)
+
+-- ─────────────────────────────────────────────────────────
+-- F-hold to sell carried brainrot (2-second hold)
+-- ─────────────────────────────────────────────────────────
+local SELL_HOLD_DURATION = 2
+
+-- Sell progress bar UI
+local SellFrame = Instance.new("Frame")
+SellFrame.Name              = "SellFrame"
+SellFrame.Size              = UDim2.new(0, 260, 0, 52)
+SellFrame.Position          = UDim2.new(0.5, -130, 0.82, 0)
+SellFrame.BackgroundColor3  = Color3.fromRGB(20, 20, 20)
+SellFrame.BackgroundTransparency = 0.3
+SellFrame.BorderSizePixel   = 0
+SellFrame.Visible           = false
+SellFrame.ZIndex            = 10
+SellFrame.Parent            = ScreenGui
+addCorner(SellFrame, 8)
+
+local SellLabel = Instance.new("TextLabel")
+SellLabel.Size               = UDim2.new(1, 0, 0.45, 0)
+SellLabel.Position           = UDim2.new(0, 0, 0, 0)
+SellLabel.BackgroundTransparency = 1
+SellLabel.Text               = "HOLD F — DISCARD BRAINROT"
+SellLabel.TextScaled         = true
+SellLabel.Font               = Enum.Font.GothamBold
+SellLabel.TextColor3         = Color3.fromRGB(255, 160, 50)
+SellLabel.ZIndex             = 11
+SellLabel.Parent             = SellFrame
+
+local SellBarBg = Instance.new("Frame")
+SellBarBg.Size              = UDim2.new(0.92, 0, 0.35, 0)
+SellBarBg.Position          = UDim2.new(0.04, 0, 0.58, 0)
+SellBarBg.BackgroundColor3  = Color3.fromRGB(60, 60, 60)
+SellBarBg.BorderSizePixel   = 0
+SellBarBg.ZIndex            = 11
+SellBarBg.Parent            = SellFrame
+addCorner(SellBarBg, 5)
+
+local SellBarFill = Instance.new("Frame")
+SellBarFill.Size            = UDim2.new(0, 0, 1, 0)
+SellBarFill.BackgroundColor3 = Color3.fromRGB(255, 120, 30)
+SellBarFill.BorderSizePixel = 0
+SellBarFill.ZIndex          = 12
+SellBarFill.Parent          = SellBarBg
+addCorner(SellBarFill, 5)
+
+local sellHoldStart = nil
+local sellHoldConn  = nil
+
+local function cancelSell()
+	sellHoldStart = nil
+	if sellHoldConn then sellHoldConn:Disconnect(); sellHoldConn = nil end
+	SellFrame.Visible = false
+	SellBarFill.Size  = UDim2.new(0, 0, 1, 0)
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then return end
+	if input.KeyCode ~= Enum.KeyCode.F then return end
+	if not LocalPlayer:GetAttribute("IsCarrying") then return end
+	if sellHoldStart then return end  -- already holding
+
+	sellHoldStart     = tick()
+	SellFrame.Visible = true
+
+	sellHoldConn = RunService.Heartbeat:Connect(function()
+		if not sellHoldStart then cancelSell(); return end
+		local elapsed = tick() - sellHoldStart
+		local frac    = math.min(elapsed / SELL_HOLD_DURATION, 1)
+		SellBarFill.Size = UDim2.new(frac, 0, 1, 0)
+		if elapsed >= SELL_HOLD_DURATION then
+			cancelSell()
+			if SellBrainrotRemote then SellBrainrotRemote:FireServer() end
+		end
+	end)
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.F then
+		cancelSell()
 	end
 end)
 
