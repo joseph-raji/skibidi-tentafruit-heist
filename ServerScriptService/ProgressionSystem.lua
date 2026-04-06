@@ -128,8 +128,9 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	local newRebirthCount = rebirthCount + 1
 	player:SetAttribute("RebirthCount", newRebirthCount)
 
-	-- Multiplier: 1 + (rebirthCount * 0.5), so each rebirth adds +50%
-	local newMultiplier = 1 + (newRebirthCount * 0.5)
+	-- Multiplier: 1 + (rebirthCount * 0.1), so each rebirth adds +10%
+	-- Example: rebirth 1 → 1.1x, rebirth 2 → 1.2x, rebirth 10 → 2.0x
+	local newMultiplier = 1 + (newRebirthCount * 0.1)
 	player:SetAttribute("MoneyMultiplier", newMultiplier)
 
 	-- Grant 1 additional slot per rebirth; BaseSystem.grantSlot handles floor unlocking
@@ -142,7 +143,7 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	evtRebirthComplete:FireClient(player, newMultiplier)
 	evtNotification:FireClient(
 		player,
-		"REBIRTH! You are now x" .. string.format("%.1f", newMultiplier) .. ". Income boosted!",
+		"REBIRTH! Income x" .. string.format("%.1f", newMultiplier) .. " (+" .. newRebirthCount * 10 .. "%)!",
 		Color3.fromRGB(255, 185, 0)
 	)
 end
