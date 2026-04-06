@@ -8,7 +8,7 @@ local Workspace = game:GetService("Workspace")
 local ProgressionSystem = {}
 
 -- Config
-local REBIRTH_COST = 8000
+local REBIRTH_COST = 5000
 local REBIRTH_MULTIPLIER = 1.5
 local MAX_REBIRTHS = 10
 local INCOME_INTERVAL = 1
@@ -124,7 +124,7 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	playerCollection[player] = {}
 
 	-- Apply rebirth effects
-	player:SetAttribute("Money", 100)
+	player:SetAttribute("Money", 1000)
 	local newRebirthCount = rebirthCount + 1
 	player:SetAttribute("RebirthCount", newRebirthCount)
 

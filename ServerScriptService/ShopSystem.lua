@@ -403,6 +403,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		body:SetAttribute("IncomePerSecond", brainrotData.income)
 		body:SetAttribute("BrainrotId", brainrotData.id)
 		body:SetAttribute("BrainrotName", brainrotData.name)
+		body:SetAttribute("OwnerName", owner.Name)
 		-- Store the slot index so it can be freed when this brainrot is removed
 		if slotIndex then
 			body:SetAttribute("SlotIndex", slotIndex)

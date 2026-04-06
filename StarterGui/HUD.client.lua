@@ -128,27 +128,31 @@ incomeRateLabel.TextTransparency = 0.25
 incomeRateLabel.ZIndex = 2
 incomeRateLabel.Parent = MoneyFrame
 
--- Income rate tracking
-local lastMoney = LocalPlayer:GetAttribute("Money") or 0
-local lastTime = tick()
-local currentIncomeRate = 0
-
+-- Income rate: sum IncomePerSecond from all brainrots owned by this player.
+-- Recalculate every second by scanning workspace for owned brainrot bodies.
+local lastIncomeCheck = 0
 RunService.Heartbeat:Connect(function()
 	local now = tick()
-	if now - lastTime >= 2 then
-		local currentMoney = LocalPlayer:GetAttribute("Money") or 0
-		local gained = currentMoney - lastMoney
-		local elapsed = now - lastTime
-		lastMoney = currentMoney
-		lastTime = now
-		if gained > 0 then
-			currentIncomeRate = math.floor(gained / elapsed)
-		else
-			currentIncomeRate = 0
+	if now - lastIncomeCheck < 1 then return end
+	lastIncomeCheck = now
+
+	local total = 0
+	local multiplier = LocalPlayer:GetAttribute("MoneyMultiplier") or 1
+	for _, obj in ipairs(workspace:GetDescendants()) do
+		if obj:IsA("BasePart") and obj.Name == "Body" then
+			local income = obj:GetAttribute("IncomePerSecond")
+			if income and income > 0 then
+				-- Check this brainrot belongs to the local player via owner attribute
+				local ownerName = obj:GetAttribute("OwnerName")
+				if ownerName == LocalPlayer.Name then
+					total = total + income
+				end
+			end
 		end
-		if incomeRateLabel then
-			incomeRateLabel.Text = "📈 " .. currentIncomeRate .. "$/s"
-		end
+	end
+	total = math.floor(total * multiplier)
+	if incomeRateLabel then
+		incomeRateLabel.Text = "📈 " .. total .. "$/s"
 	end
 end)
 
