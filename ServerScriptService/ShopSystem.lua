@@ -1012,7 +1012,14 @@ function ShopSystem.createShopPads()
 	task.spawn(function()
 		while true do
 			task.wait(4)
-			local chosen = SkinData.gachaRoll()
+			-- Only show purchasable skins on the carpet (not gacha-only)
+			local purchasable = {}
+			for _, entry in ipairs(SkinData.list) do
+				if entry.cost then
+					table.insert(purchasable, entry)
+				end
+			end
+			local chosen = purchasable[math.random(1, #purchasable)]
 			if chosen then
 				local spawnPos = Vector3.new(0, BELT_Y + chosen.size / 2 + 0.3, BELT_START_Z)
 				local body = ShopSystem.spawnSkin(chosen, spawnPos, nil, _skinOwner, nil)
