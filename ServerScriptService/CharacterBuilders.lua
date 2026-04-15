@@ -9,6 +9,12 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 	local clone = template:Clone()
 	clone.Parent = model
 
+	-- Ensure PrimaryPart is set (Roblox requires it for SetPrimaryPartCFrame)
+	if not clone.PrimaryPart then
+		clone.PrimaryPart = clone:FindFirstChildWhichIsA("MeshPart", true)
+			or clone:FindFirstChildWhichIsA("BasePart", true)
+	end
+
 	-- Scale to match the skin's size parameter (s = studs tall for the full character)
 	local extents = clone:GetExtentsSize()
 	local currentHeight = math.max(extents.X, extents.Y, extents.Z)
