@@ -345,10 +345,17 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local halfDepth = BUILDING_DEPTH / 2
 	local halfWidth = BUILDING_WIDTH / 2
 
-	-- Back wall
-	makePart(folder, "WallBack" .. floorNum,
-		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, BUILDING_WIDTH),
-		CFrame.new(bCX - faceSign * halfDepth, wallY, pos.Z),
+	-- Back wall: two segments with a central gap for ladder entry
+	local LADDER_GAP = 6
+	local backSegW   = (BUILDING_WIDTH - LADDER_GAP) / 2
+	local backWallX  = bCX - faceSign * halfDepth
+	makePart(folder, "WallBackL" .. floorNum,
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, backSegW),
+		CFrame.new(backWallX, wallY, pos.Z - LADDER_GAP/2 - backSegW/2),
+		WALL_COLOR, 0, Enum.Material.Concrete, true)
+	makePart(folder, "WallBackR" .. floorNum,
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, backSegW),
+		CFrame.new(backWallX, wallY, pos.Z + LADDER_GAP/2 + backSegW/2),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
 	-- Left wall
@@ -386,30 +393,21 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 		CFrame.new(bCX, roofY, pos.Z),
 		ROOF_COLOR, 0, Enum.Material.SmoothPlastic, true)
 
-	-- Walkable staircase: 6 steps, each 2 studs tall x 4 studs deep, 12 studs wide
-	-- Placed at the back of the building, rising from the previous floor to this floor
-	local prevFloorY  = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
-	local STEP_HEIGHT = 2
-	local STEP_DEPTH  = 2
-	local STEP_COUNT  = 9   -- 9 x 2 = 18 studs ≈ FLOOR_HEIGHT_STEP(17)
-	local STAIR_WIDTH = ENTRANCE_GAP  -- 12 studs, centered at pos.Z
+	-- External climbable ladder (TrussPart) on the back exterior, aligned with the wall gap
+	local prevFloorY   = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
+	local ladderHeight = (floorGroundY - prevFloorY) + 4  -- 4 studs above this floor so player can step off
+	local ladderCenterY = prevFloorY + ladderHeight / 2
+	local ladderX      = backWallX - faceSign * 2   -- 2 studs outside the back wall
 
-	-- Back of staircase anchors at back wall inner face (1 stud inside back wall)
-	local stairBackX = bCX - faceSign * (halfDepth - 1)
-
-	for step = 1, STEP_COUNT do
-		local stepTopY    = prevFloorY + step * STEP_HEIGHT
-		local stepCenterY = stepTopY - STEP_HEIGHT / 2
-		-- step=1 is closest to back wall, step=6 is furthest (toward front/center)
-		local stepCenterX = stairBackX + faceSign * ((step - 1) * STEP_DEPTH + STEP_DEPTH / 2)
-
-		makePart(
-			folder, "Stair" .. floorNum .. "_" .. step,
-			Vector3.new(STEP_DEPTH, STEP_HEIGHT, STAIR_WIDTH),
-			CFrame.new(stepCenterX, stepCenterY, pos.Z),
-			Color3.fromRGB(90, 90, 95), 0, Enum.Material.SmoothPlastic, true
-		)
-	end
+	local ladder = Instance.new("TrussPart")
+	ladder.Name       = "Ladder" .. floorNum
+	ladder.Size       = Vector3.new(2, ladderHeight, 2)
+	ladder.CFrame     = CFrame.new(ladderX, ladderCenterY, pos.Z)
+	ladder.Anchored   = true
+	ladder.CanCollide = false
+	ladder.BrickColor = BrickColor.new("Dark stone grey")
+	ladder.Material   = Enum.Material.Metal
+	ladder.Parent     = folder
 end
 
 -- ============================================================

@@ -27,7 +27,7 @@ local FuseChooseEvent   = RE:WaitForChild("FuseChoose")
 -- ============================================================
 
 local GACHA_COST   = 150
-local REBIRTH_COST = 10000
+local REBIRTH_COST = 50
 
 -- Equipment items (mirrors ItemsSystem.ITEMS)
 local ITEMS = {

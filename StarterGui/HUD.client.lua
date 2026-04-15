@@ -139,10 +139,9 @@ RunService.Heartbeat:Connect(function()
 	local total = 0
 	local multiplier = LocalPlayer:GetAttribute("MoneyMultiplier") or 1
 	for _, obj in ipairs(workspace:GetDescendants()) do
-		if obj:IsA("BasePart") and obj.Name == "Body" then
+		if obj:IsA("BasePart") then
 			local income = obj:GetAttribute("IncomePerSecond")
 			if income and income > 0 then
-				-- Check this skin belongs to the local player via owner attribute
 				local ownerName = obj:GetAttribute("OwnerName")
 				if ownerName == LocalPlayer.Name then
 					total = total + income
@@ -282,7 +281,7 @@ local RebirthActionBtn = Instance.new("TextButton")
 RebirthActionBtn.Name               = "RebirthButton"
 RebirthActionBtn.Size               = UDim2.new(1, 0, 1, 0)
 RebirthActionBtn.BackgroundTransparency = 1
-RebirthActionBtn.Text               = "🌀 Rebirth\n$8000"
+RebirthActionBtn.Text               = "🌀 Rebirth\n$50"
 RebirthActionBtn.TextScaled         = true
 RebirthActionBtn.Font               = Enum.Font.GothamBold
 RebirthActionBtn.TextColor3         = Color3.fromRGB(200, 150, 255)

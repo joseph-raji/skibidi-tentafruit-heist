@@ -377,11 +377,11 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 		rarityLabel.Font            = Enum.Font.GothamBold
 		rarityLabel.Parent          = billboard
 	else
-		-- Conveyor shop item: name + price only (details in Pokédex)
-		billboard.Size = UDim2.new(0, 180, 0, 60)
+		-- Conveyor shop item: name + price + rarity
+		billboard.Size = UDim2.new(0, 180, 0, 80)
 
 		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Size            = UDim2.new(1, 0, 0.5, 0)
+		nameLabel.Size            = UDim2.new(1, 0, 0.38, 0)
 		nameLabel.Position        = UDim2.new(0, 0, 0, 0)
 		nameLabel.BackgroundTransparency = 1
 		nameLabel.Text            = skinData.name
@@ -392,8 +392,8 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 		nameLabel.Parent          = billboard
 
 		local costLabel = Instance.new("TextLabel")
-		costLabel.Size            = UDim2.new(1, 0, 0.5, 0)
-		costLabel.Position        = UDim2.new(0, 0, 0.5, 0)
+		costLabel.Size            = UDim2.new(1, 0, 0.35, 0)
+		costLabel.Position        = UDim2.new(0, 0, 0.38, 0)
 		costLabel.BackgroundTransparency = 1
 		costLabel.Text            = skinData.cost and ("$" .. skinData.cost) or "GACHA ONLY"
 		costLabel.TextColor3      = Color3.fromRGB(255, 220, 0)
@@ -401,6 +401,17 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 		costLabel.TextScaled      = true
 		costLabel.Font            = Enum.Font.GothamBold
 		costLabel.Parent          = billboard
+
+		local rarityLabel = Instance.new("TextLabel")
+		rarityLabel.Size            = UDim2.new(1, 0, 0.27, 0)
+		rarityLabel.Position        = UDim2.new(0, 0, 0.73, 0)
+		rarityLabel.BackgroundTransparency = 1
+		rarityLabel.Text            = skinData.rarity or ""
+		rarityLabel.TextColor3      = RARITY_COLOR[skinData.rarity] or Color3.fromRGB(255, 255, 255)
+		rarityLabel.TextStrokeTransparency = 0.3
+		rarityLabel.TextScaled      = true
+		rarityLabel.Font            = Enum.Font.GothamBold
+		rarityLabel.Parent          = billboard
 	end
 
 	-- -----------------------------------------------------------------------
