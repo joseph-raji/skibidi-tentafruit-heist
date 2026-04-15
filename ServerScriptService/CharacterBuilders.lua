@@ -4,9 +4,8 @@
 
 local CharacterBuilders = {}
 
-local skinTemplates = game:GetService("ReplicatedStorage"):WaitForChild("SkinTemplates")
-
 local function buildFromImportedMesh(pos, model, s, templateName)
+	local skinTemplates = game:GetService("ReplicatedStorage"):WaitForChild("SkinTemplates")
 	local template = skinTemplates:WaitForChild(templateName)
 	local clone = template:Clone()
 	clone.Parent = model
