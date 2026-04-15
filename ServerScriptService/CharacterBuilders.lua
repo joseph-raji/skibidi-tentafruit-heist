@@ -1,8 +1,30 @@
 -- CharacterBuilders.lua
--- ModuleScript: Builds humanoid fruit characters for each brainrot ID.
+-- ModuleScript: Builds humanoid fruit characters for each skin ID.
 -- Returns the torso Part (body / PrimaryPart) for each character.
 
 local CharacterBuilders = {}
+
+local skinTemplates = game:GetService("ReplicatedStorage"):WaitForChild("SkinTemplates")
+
+local function buildFromImportedMesh(pos, model, s, templateName)
+	local template = skinTemplates:WaitForChild(templateName)
+	local clone = template:Clone()
+	clone.Parent = model
+	if clone.PrimaryPart then
+		clone:SetPrimaryPartCFrame(CFrame.new(pos))
+	end
+	model.PrimaryPart = clone.PrimaryPart
+	local animController = clone:FindFirstChildOfClass("AnimationController")
+		or clone:FindFirstChildOfClass("Humanoid")
+	if animController then
+		local anim = clone:FindFirstChildOfClass("Animation")
+		if anim then
+			local track = animController:LoadAnimation(anim)
+			track:Play()
+		end
+	end
+	return clone.PrimaryPart
+end
 
 -- ============================================================
 -- Shared helpers
@@ -107,23 +129,9 @@ local DGRYA  = BrickColor.new("Dark grey")
 -- ============================================================
 local builders = {}
 
--- fraise_jr (Common): red sphere head, 3 green leaf fan, white seeds
+-- fraise_jr (Common): custom imported mesh (FraiseSkin)
 builders["fraise_jr"] = function(pos, model, s)
-	local tor = buildBase(pos, model, s, RED, DRED)
-	local hc  = pos + Vector3.new(0, s * 0.75, 0)
-	local hs  = s * 0.7
-	p(model, tor, B, SMP, RED, Vector3.new(hs, hs, hs), CFrame.new(hc))
-	addEyes(tor, hc, hs, model)
-	for i = 1, 3 do
-		p(model, tor, BLK, SMP, GRN, Vector3.new(s*0.1, s*0.38, s*0.08),
-			CFrame.new(hc + Vector3.new(0, hs*0.52, 0)) * CFrame.Angles(0, 0, math.rad(-20 + (i-1)*20)))
-	end
-	for i = 1, 4 do
-		local a = math.rad((i-1) * 90)
-		p(model, tor, B, SMP, WHT, Vector3.new(s*0.08, s*0.08, s*0.08),
-			CFrame.new(hc + Vector3.new(math.cos(a)*hs*0.35, hs*0.06, hs*0.44)))
-	end
-	return tor
+	return buildFromImportedMesh(pos, model, s, "FraiseSkin")
 end
 
 -- banane_bro (Common): yellow tilted cylinder head, brown tips
@@ -388,33 +396,9 @@ builders["papaye_pro"] = function(pos, model, s)
 	return tor
 end
 
--- fraise_supreme (Epic): red sphere, diamond gems, Neon crown, angel wings
+-- fraise_supreme (Epic): custom imported mesh (FraiseSkin)
 builders["fraise_supreme"] = function(pos, model, s)
-	local tor = buildBase(pos, model, s, RED, DRED)
-	local hc  = pos + Vector3.new(0, s * 0.78, 0)
-	local hs  = s * 0.74
-	p(model, tor, B, SMP, RED, Vector3.new(hs, hs, hs), CFrame.new(hc))
-	addEyes(tor, hc, hs, model)
-	for i = 1, 8 do
-		local a = math.rad((i-1) * 45)
-		p(model, tor, B, GLS, PNK, Vector3.new(s*0.1, s*0.1, s*0.1),
-			CFrame.new(hc + Vector3.new(math.cos(a)*hs*0.44, math.sin(a)*hs*0.18, hs*0.4)))
-	end
-	p(model, tor, CYL, NEO, YEL, Vector3.new(s*0.1, hs*1.08, hs*1.08),
-		CFrame.new(hc + Vector3.new(0, hs*0.56, 0)) * CFrame.Angles(0, 0, math.rad(90)))
-	for i = 1, 5 do
-		local a = math.rad((i-1) * 72)
-		p(model, tor, CYL, NEO, YEL, Vector3.new(s*0.1, s*0.44, s*0.1),
-			CFrame.new(hc + Vector3.new(math.cos(a)*hs*0.44, hs*0.68, math.sin(a)*hs*0.44)))
-	end
-	for _, side in ipairs({-1, 1}) do
-		for tier = 1, 2 do
-			p(model, tor, BLK, NEO, WHT, Vector3.new(s*0.06, s*(0.5-tier*0.1), s*(0.7-tier*0.15)),
-				CFrame.new(pos + Vector3.new(side*s*(0.5+s*0.1), s*(0.28+tier*0.18), -s*0.18))
-					* CFrame.Angles(0, math.rad(side*20), math.rad(side*(25+tier*12))), 0.2)
-		end
-	end
-	return tor
+	return buildFromImportedMesh(pos, model, s, "FraiseSkin")
 end
 
 -- banane_doom (Epic): yellow elongated head, black visor, red slits, shoulder spikes
@@ -537,35 +521,9 @@ builders["mangue_cosmique"] = function(pos, model, s)
 	return tor
 end
 
--- fraise_omega (Legendary): Neon pink sphere, omega symbol, 3 halos, 4 wings
+-- fraise_omega (Legendary): custom imported mesh (FraiseSkin)
 builders["fraise_omega"] = function(pos, model, s)
-	local tor = buildBase(pos, model, s, PNK, DRED)
-	local hc  = pos + Vector3.new(0, s * 0.8, 0)
-	local hs  = s * 0.76
-	p(model, tor, B, NEO, PNK, Vector3.new(hs, hs, hs), CFrame.new(hc))
-	addEyes(tor, hc, hs, model)
-	for _, side in ipairs({-1, 1}) do
-		p(model, tor, CYL, NEO, WHT, Vector3.new(s*0.06, hs*0.5, hs*0.5),
-			CFrame.new(hc + Vector3.new(side*hs*0.22, -hs*0.12, hs*0.4))
-				* CFrame.Angles(0, 0, math.rad(90)))
-	end
-	for i = 1, 3 do
-		p(model, tor, CYL, NEO, YEL, Vector3.new(s*0.07, hs*(1.15-i*0.08), hs*(1.15-i*0.08)),
-			CFrame.new(hc + Vector3.new(0, hs*(0.72+i*0.04), 0))
-				* CFrame.Angles(math.rad(i*15), 0, math.rad(90)), (i-1)*0.2)
-	end
-	for _, side in ipairs({-1, 1}) do
-		for tier = 1, 2 do
-			p(model, tor, BLK, NEO, PNK, Vector3.new(s*0.07, s*(0.52-tier*0.06), s*(0.38-tier*0.12)),
-				CFrame.new(pos + Vector3.new(side*s*(0.52+tier*0.18), s*0.3, -s*0.12))
-					* CFrame.Angles(0, math.rad(side*18), math.rad(side*(30+tier*18))), 0.25)
-		end
-	end
-	for i = 1, 3 do
-		p(model, tor, BLK, NEO, WHT, Vector3.new(s*0.54, s*0.06, s*0.05),
-			CFrame.new(pos + Vector3.new(0, s*(0.04+(i-1)*0.22), s*0.24)))
-	end
-	return tor
+	return buildFromImportedMesh(pos, model, s, "FraiseSkin")
 end
 
 -- banane_fantome (Legendary): semi-transparent ghost, wisps, tail chain, blue halo
@@ -712,11 +670,11 @@ end
 -- ============================================================
 -- Generic fallback
 -- ============================================================
-function CharacterBuilders.generic(pos, model, s, brainrotData)
-	local tor = buildBase(pos, model, s, brainrotData.color, brainrotData.color)
+function CharacterBuilders.generic(pos, model, s, skinData)
+	local tor = buildBase(pos, model, s, skinData.color, skinData.color)
 	local hc  = pos + Vector3.new(0, s * 0.76, 0)
 	local hs  = s * 0.68
-	p(model, tor, B, SMP, brainrotData.color, Vector3.new(hs, hs, hs), CFrame.new(hc))
+	p(model, tor, B, SMP, skinData.color, Vector3.new(hs, hs, hs), CFrame.new(hc))
 	addEyes(tor, hc, hs, model)
 	return tor
 end
@@ -724,12 +682,12 @@ end
 -- ============================================================
 -- Dispatcher
 -- ============================================================
-function CharacterBuilders.build(brainrotId, position, model, s, brainrotData)
-	local builder = builders[brainrotId]
+function CharacterBuilders.build(skinId, position, model, s, skinData)
+	local builder = builders[skinId]
 	if builder then
 		return builder(position, model, s)
 	end
-	return CharacterBuilders.generic(position, model, s, brainrotData)
+	return CharacterBuilders.generic(position, model, s, skinData)
 end
 
 return CharacterBuilders
