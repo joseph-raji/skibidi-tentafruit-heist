@@ -8,6 +8,14 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 	local template = game:GetService("ReplicatedStorage"):WaitForChild(templateName)
 	local clone = template:Clone()
 	clone.Parent = model
+
+	-- Scale to match the skin's size parameter (s = studs tall for the full character)
+	local extents = clone:GetExtentsSize()
+	local currentHeight = math.max(extents.X, extents.Y, extents.Z)
+	if currentHeight > 0 then
+		clone:ScaleTo(s * 2 / currentHeight)
+	end
+
 	if clone.PrimaryPart then
 		clone:SetPrimaryPartCFrame(CFrame.new(pos))
 	end
