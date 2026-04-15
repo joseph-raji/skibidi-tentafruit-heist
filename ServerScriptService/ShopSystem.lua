@@ -617,29 +617,7 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 	-- -----------------------------------------------------------------------
 	-- Bobbing and spinning animation
 	-- -----------------------------------------------------------------------
-	local baseY      = position.Y
-	local timeOffset = math.random() * math.pi * 2
-	local BOB_AMP    = 0.4
-	local BOB_SPEED  = 2
-	local SPIN_SPEED = 0.6
-
-	RunService.Heartbeat:Connect(function(dt)
-		if not body or not body.Parent then return end
-		if isBeingCarried(body) then return end
-		if _flyingBodies[body] then return end
-
-		local t     = tick() + timeOffset
-		local bobY  = math.sin(t * BOB_SPEED) * BOB_AMP
-		local angle = (tick() * SPIN_SPEED) % (2 * math.pi)
-
-		-- Use SetPrimaryPartCFrame so the ENTIRE model moves together (critical for
-		-- imported FBX skins where body is just one part of a multi-part model)
-		model:SetPrimaryPartCFrame(CFrame.new(
-			body.Position.X,
-			(body:GetAttribute("BaseY") or baseY) + bobY,
-			body.Position.Z
-		) * CFrame.Angles(0, angle, 0))
-	end)
+	-- Placed skins are fully static — no bob, no spin.
 
 	return body
 end
@@ -843,7 +821,7 @@ end
 -- =========================================================================
 
 local BELT_LENGTH  = 210  -- spans Z=-105 to Z=105 (all 8 bases)
-local BELT_WIDTH   = 16   -- studs wide along X
+local BELT_WIDTH   = 30   -- studs wide along X
 local BELT_SPEED   = 7    -- studs per second (items move along +Z)
 local BELT_Y       = 0.5  -- height
 local BELT_START_Z = -BELT_LENGTH / 2   -- -105
