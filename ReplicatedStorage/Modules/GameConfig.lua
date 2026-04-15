@@ -26,7 +26,7 @@ return {
 	-- Maximum number of rebirths a player can perform.
 	MAX_REBIRTHS = 10,
 
-	-- Height above the player's head at which a carried brainrot floats (studs).
+	-- Height above the player's head at which a carried skin floats (studs).
 	CARRY_DROP_HEIGHT = 5.5,
 
 	-- Minimum seconds between bat swing actions.
@@ -44,7 +44,7 @@ return {
 	-- Z position of the items shop in the world (center road, offset along Z).
 	ITEMS_SHOP_Z = 0,
 
-	-- Number of brainrot slots on each side of the aisle per floor
+	-- Number of skin slots on each side of the aisle per floor
 	FLOOR_SLOT_SIDE_COUNT = 5,   -- 5 left + 5 right = 10 per floor
 
 	-- Max number of house floors a player can unlock

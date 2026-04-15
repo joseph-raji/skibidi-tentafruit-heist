@@ -19,7 +19,7 @@ local DEFAULTS = {
 	money      = 50,
 	rebirths   = 0,
 	multiplier = 1,
-	brainrotIds = {},
+	skinIds = {},
 }
 
 local DataStore = {}
@@ -30,7 +30,7 @@ function DataStore.loadPlayer(player)
 			money      = DEFAULTS.money,
 			rebirths   = DEFAULTS.rebirths,
 			multiplier = DEFAULTS.multiplier,
-			brainrotIds = {},
+			skinIds = {},
 		}
 	end
 
@@ -45,7 +45,7 @@ function DataStore.loadPlayer(player)
 			money      = DEFAULTS.money,
 			rebirths   = DEFAULTS.rebirths,
 			multiplier = DEFAULTS.multiplier,
-			brainrotIds = {},
+			skinIds = {},
 		}
 	end
 
@@ -54,7 +54,7 @@ function DataStore.loadPlayer(player)
 			money      = DEFAULTS.money,
 			rebirths   = DEFAULTS.rebirths,
 			multiplier = DEFAULTS.multiplier,
-			brainrotIds = {},
+			skinIds = {},
 		}
 	end
 
@@ -62,21 +62,21 @@ function DataStore.loadPlayer(player)
 		money      = result.money      or DEFAULTS.money,
 		rebirths   = result.rebirths   or DEFAULTS.rebirths,
 		multiplier = result.multiplier or DEFAULTS.multiplier,
-		brainrotIds = result.brainrotIds or {},
+		skinIds = result.skinIds or {},
 	}
 end
 
-function DataStore.savePlayer(player, brainrotOwner)
+function DataStore.savePlayer(player, skinOwner)
 	if not storeReady then return end
 
 	local key = "player_" .. player.UserId
 
-	local brainrotIds = {}
-	for part, owner in pairs(brainrotOwner) do
+	local skinIds = {}
+	for part, owner in pairs(skinOwner) do
 		if owner == player then
-			local id = part:GetAttribute("BrainrotId")
+			local id = part:GetAttribute("SkinId")
 			if id then
-				table.insert(brainrotIds, id)
+				table.insert(skinIds, id)
 			end
 		end
 	end
@@ -85,7 +85,7 @@ function DataStore.savePlayer(player, brainrotOwner)
 		money      = player:GetAttribute("Money")          or DEFAULTS.money,
 		rebirths   = player:GetAttribute("RebirthCount")   or DEFAULTS.rebirths,
 		multiplier = player:GetAttribute("MoneyMultiplier") or DEFAULTS.multiplier,
-		brainrotIds = brainrotIds,
+		skinIds = skinIds,
 	}
 
 	local ok, err = pcall(function()
@@ -97,13 +97,13 @@ function DataStore.savePlayer(player, brainrotOwner)
 	end
 end
 
-function DataStore.setupAutoSave(brainrotOwner)
+function DataStore.setupAutoSave(skinOwner)
 	if not storeReady then return end
 	task.spawn(function()
 		while true do
 			task.wait(60)
 			for _, player in ipairs(Players:GetPlayers()) do
-				DataStore.savePlayer(player, brainrotOwner)
+				DataStore.savePlayer(player, skinOwner)
 			end
 		end
 	end)

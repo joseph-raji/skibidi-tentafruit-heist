@@ -9,7 +9,7 @@ local TweenService = game:GetService("TweenService")
 local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
 
-local BrainrotData = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("BrainrotData"))
+local SkinData = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("SkinData"))
 
 local RE = ReplicatedStorage:WaitForChild("RemoteEvents")
 local OpenShopEvent     = RE:WaitForChild("OpenShop")
@@ -265,7 +265,7 @@ ContentArea.ZIndex                 = 7
 ContentArea.Parent                 = Panel
 
 -- ============================================================
--- TAB 1: BRAINROT INFO
+-- TAB 1: SKIN INFO
 -- ============================================================
 
 local InfoPage = Instance.new("Frame")
@@ -276,7 +276,7 @@ InfoPage.ZIndex                 = 7
 InfoPage.Parent                 = ContentArea
 
 -- Hint text
-local HintLabel = label(InfoPage, "Buy equipment below — get brainrots on the red carpet!", 13, Color3.fromRGB(140, 220, 140))
+local HintLabel = label(InfoPage, "Buy equipment below — get skins on the red carpet!", 13, Color3.fromRGB(140, 220, 140))
 HintLabel.Size     = UDim2.new(1, 0, 0, 22)
 HintLabel.Position = UDim2.new(0, 0, 0, 0)
 HintLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -630,7 +630,7 @@ ConfirmBar.Parent                 = StatsPage
 corner(ConfirmBar, 8)
 stroke(ConfirmBar, Color3.fromRGB(140, 60, 220), 1.5)
 
-local ConfirmLabel = label(ConfirmBar, "Are you sure? This resets your brainrots!", 12, Color3.fromRGB(255, 200, 80))
+local ConfirmLabel = label(ConfirmBar, "Are you sure? This resets your skins!", 12, Color3.fromRGB(255, 200, 80))
 ConfirmLabel.Size     = UDim2.new(1, 0, 0, 18)
 ConfirmLabel.Position = UDim2.new(0, 0, 0, 4)
 ConfirmLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -804,7 +804,7 @@ end)
 -- ============================================================
 
 local fusionOpen       = false
-local fusionSelected   = {}   -- up to 2 selected brainrot IDs
+local fusionSelected   = {}   -- up to 2 selected skin IDs
 
 -- Fusion ScreenGui
 local FusionGui = Instance.new("ScreenGui")
@@ -1049,7 +1049,7 @@ local function updateSelectionLabels()
 	local id1 = fusionSelected[1]
 	local id2 = fusionSelected[2]
 	if id1 then
-		local d = BrainrotData.getById(id1)
+		local d = SkinData.getById(id1)
 		FusSlot1Label.Text      = "Slot 1: " .. (d and d.name or id1)
 		FusSlot1Label.TextColor3 = Color3.fromRGB(100, 255, 180)
 	else
@@ -1057,7 +1057,7 @@ local function updateSelectionLabels()
 		FusSlot1Label.TextColor3 = Color3.fromRGB(180, 180, 220)
 	end
 	if id2 then
-		local d = BrainrotData.getById(id2)
+		local d = SkinData.getById(id2)
 		FusSlot2Label.Text      = "Slot 2: " .. (d and d.name or id2)
 		FusSlot2Label.TextColor3 = Color3.fromRGB(100, 255, 180)
 	else
@@ -1076,9 +1076,9 @@ local function buildFusionList(collectionData)
 
 	local order = 0
 	local hasAny = false
-	for brainrotId, count in pairs(collectionData) do
+	for skinId, count in pairs(collectionData) do
 		if type(count) == "number" and count > 0 then
-			local def = BrainrotData.getById(brainrotId)
+			local def = SkinData.getById(skinId)
 			if def then
 				hasAny = true
 				order = order + 1
@@ -1118,7 +1118,7 @@ local function buildFusionList(collectionData)
 				rarL.ZIndex                 = 54
 				rarL.Parent                 = row
 
-				local id = brainrotId
+				local id = skinId
 				row.MouseButton1Click:Connect(function()
 					-- Toggle selection
 					if fusionSelected[1] == id and fusionSelected[2] == id then
@@ -1143,7 +1143,7 @@ local function buildFusionList(collectionData)
 					end
 				end)
 
-				fusRowById[brainrotId] = row
+				fusRowById[skinId] = row
 			end
 		end
 	end
@@ -1152,7 +1152,7 @@ local function buildFusionList(collectionData)
 		local empty = Instance.new("TextLabel")
 		empty.Size                   = UDim2.new(1, 0, 0, 44)
 		empty.BackgroundTransparency = 1
-		empty.Text                   = "You have no brainrots to fuse!"
+		empty.Text                   = "You have no skins to fuse!"
 		empty.TextScaled             = true
 		empty.Font                   = Enum.Font.Gotham
 		empty.TextColor3             = Color3.fromRGB(160, 160, 180)

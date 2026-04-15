@@ -1,10 +1,10 @@
--- BrainrotData.lua
--- ModuleScript: All brainrot definitions for Skibidi Tentafruit Heist
+-- SkinData.lua
+-- ModuleScript: All skin definitions for Skibidi Tentafruit Heist
 -- 25 fruit anthropomorph characters across 5 rarity tiers (5 per tier)
 
-local BrainrotData = {}
+local SkinData = {}
 
-BrainrotData.list = {
+SkinData.list = {
 
 	-- =====================================================================
 	-- COMMON (5) — income 50-80/s, cost 500-800, dropWeight 50, size 3
@@ -356,9 +356,9 @@ BrainrotData.list = {
 -- Helper functions
 -- =========================================================================
 
--- Returns the brainrot entry matching the given id, or nil if not found.
-function BrainrotData.getById(id)
-	for _, entry in ipairs(BrainrotData.list) do
+-- Returns the skin entry matching the given id, or nil if not found.
+function SkinData.getById(id)
+	for _, entry in ipairs(SkinData.list) do
 		if entry.id == id then
 			return entry
 		end
@@ -366,10 +366,10 @@ function BrainrotData.getById(id)
 	return nil
 end
 
--- Returns a list of all brainrot entries with the given rarity string.
-function BrainrotData.getByRarity(rarity)
+-- Returns a list of all skin entries with the given rarity string.
+function SkinData.getByRarity(rarity)
 	local result = {}
-	for _, entry in ipairs(BrainrotData.list) do
+	for _, entry in ipairs(SkinData.list) do
 		if entry.rarity == rarity then
 			table.insert(result, entry)
 		end
@@ -377,17 +377,17 @@ function BrainrotData.getByRarity(rarity)
 	return result
 end
 
--- Performs a weighted gacha roll and returns one brainrot entry.
+-- Performs a weighted gacha roll and returns one skin entry.
 -- Uses each entry's dropWeight field to build a cumulative distribution.
-function BrainrotData.gachaRoll()
+function SkinData.gachaRoll()
 	local totalWeight = 0
-	for _, entry in ipairs(BrainrotData.list) do
+	for _, entry in ipairs(SkinData.list) do
 		totalWeight = totalWeight + entry.dropWeight
 	end
 
 	local roll = math.random(1, totalWeight)
 	local cumulative = 0
-	for _, entry in ipairs(BrainrotData.list) do
+	for _, entry in ipairs(SkinData.list) do
 		cumulative = cumulative + entry.dropWeight
 		if roll <= cumulative then
 			return entry
@@ -395,12 +395,12 @@ function BrainrotData.gachaRoll()
 	end
 
 	-- Fallback: return the last entry (should never be reached)
-	return BrainrotData.list[#BrainrotData.list]
+	return SkinData.list[#SkinData.list]
 end
 
--- Returns all brainrot entries.
-function BrainrotData.getAll()
-	return BrainrotData.list
+-- Returns all skin entries.
+function SkinData.getAll()
+	return SkinData.list
 end
 
-return BrainrotData
+return SkinData

@@ -1,12 +1,12 @@
 -- ShopSystem.lua
--- ModuleScript: Shop, gacha rolls, and brainrot spawning for Skibidi Tentafruit Heist
+-- ModuleScript: Shop, gacha rolls, and skin spawning for Skibidi Tentafruit Heist
 
 local RunService      = game:GetService("RunService")
 local Players         = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService    = game:GetService("TweenService")
 
-local BrainrotData  = require(ReplicatedStorage.Modules.BrainrotData)
+local SkinData  = require(ReplicatedStorage.Modules.SkinData)
 local GameConfig    = require(ReplicatedStorage.Modules.GameConfig)
 
 local CharacterBuilders
@@ -32,7 +32,7 @@ local ShopSystem = {}
 -- =========================================================================
 
 local _playerBases      = {}
-local _brainrotOwner    = {}
+local _skinOwner    = {}
 local _playerCollection = {}
 local _carrying         = {}
 
@@ -45,8 +45,8 @@ local StealSystem = nil
 function ShopSystem.setStealSystem(ss) StealSystem = ss end
 
 -- Pressure plate tracking tables
-local _plateToBrainrot = {}   -- plate Part → body Part
-local _brainrotToPlate = {}   -- body Part → plate Part
+local _plateToSkin = {}   -- plate Part → body Part
+local _skinToPlate = {}   -- body Part → plate Part
 local _platePrompt     = {}   -- plate Part → ProximityPrompt
 local _flyingBodies    = {}   -- body Part → true, skip bobbing during flight to base
 
@@ -70,9 +70,9 @@ local RARITY_COLOR = {
 -- Internal helpers
 -- =========================================================================
 
-local function isBeingCarried(brainrotPart)
+local function isBeingCarried(skinPart)
 	for _, carried in pairs(_carrying) do
-		if carried == brainrotPart then
+		if carried == skinPart then
 			return true
 		end
 	end
@@ -94,7 +94,7 @@ local function addPlacementPrompt(emptyPlate, owner, slotIndex)
 	prompt.Parent                = emptyPlate
 	prompt.Triggered:Connect(function(trigPlayer)
 		if trigPlayer ~= owner then return end
-		ShopSystem.placeCarriedBrainrot(trigPlayer, slotIndex)
+		ShopSystem.placeCarriedSkin(trigPlayer, slotIndex)
 	end)
 end
 
@@ -115,14 +115,14 @@ function ShopSystem.initBasePlates(player)
 end
 
 -- =========================================================================
--- Public: placeCarriedBrainrot
--- Moves the player's currently-carried brainrot to a target slot.
+-- Public: placeCarriedSkin
+-- Moves the player's currently-carried skin to a target slot.
 -- =========================================================================
 
-function ShopSystem.placeCarriedBrainrot(player, slotIndex)
-	local brainrot = _carrying[player]
-	if not brainrot then return end
-	if _brainrotOwner[brainrot] ~= player then return end
+function ShopSystem.placeCarriedSkin(player, slotIndex)
+	local skin = _carrying[player]
+	if not skin then return end
+	if _skinOwner[skin] ~= player then return end
 
 	local baseData = _playerBases[player]
 	if not baseData then return end
@@ -136,21 +136,21 @@ function ShopSystem.placeCarriedBrainrot(player, slotIndex)
 	if not slotPos then return end
 
 	-- Read all attributes before destroying the model
-	local bId    = brainrot:GetAttribute("BrainrotId") or ""
-	local bName  = brainrot:GetAttribute("BrainrotName") or "Brainrot"
-	local income = brainrot:GetAttribute("IncomePerSecond") or 1
-	local oldSlot = brainrot:GetAttribute("SlotIndex")
+	local bId    = skin:GetAttribute("SkinId") or ""
+	local bName  = skin:GetAttribute("SkinName") or "Skin"
+	local income = skin:GetAttribute("IncomePerSecond") or 1
+	local oldSlot = skin:GetAttribute("SlotIndex")
 
 	-- Clear carrying state
 	_carrying[player] = nil
 	player:SetAttribute("IsCarrying", false)
-	player:SetAttribute("CarryingBrainrotName", "")
+	player:SetAttribute("CarryingSkinName", "")
 
-	-- Remove the collection plate tied to this brainrot.
+	-- Remove the collection plate tied to this skin.
 	-- The old slot was already freed (and its empty plate recreated) when the
-	-- player first picked up the brainrot in startCarrying → releaseSlot.
+	-- player first picked up the skin in startCarrying → releaseSlot.
 	if oldSlot then
-		ShopSystem.removePlate(brainrot)
+		ShopSystem.removePlate(skin)
 		-- Guard: if slot was somehow not freed yet (e.g. direct purchase path), free it now.
 		if baseData.slotGrid[oldSlot] then
 			baseData.slotGrid[oldSlot] = false
@@ -174,14 +174,14 @@ function ShopSystem.placeCarriedBrainrot(player, slotIndex)
 	end
 
 	-- Destroy old model
-	_brainrotOwner[brainrot] = nil
-	local m = brainrot.Parent
-	if m and m:IsA("Model") then m:Destroy() elseif brainrot and brainrot.Parent then brainrot:Destroy() end
+	_skinOwner[skin] = nil
+	local m = skin.Parent
+	if m and m:IsA("Model") then m:Destroy() elseif skin and skin.Parent then skin:Destroy() end
 
-	-- Resolve brainrot data (fallback for fused/ad-hoc brainrots)
-	local brainrotData = BrainrotData.getById(bId)
-	if not brainrotData then
-		brainrotData = {
+	-- Resolve skin data (fallback for fused/ad-hoc skins)
+	local skinData = SkinData.getById(bId)
+	if not skinData then
+		skinData = {
 			id = bId, name = bName, income = income,
 			rarity = "Legendary", size = 2, cost = nil,
 			color = BrickColor.new("Bright yellow"),
@@ -190,14 +190,14 @@ function ShopSystem.placeCarriedBrainrot(player, slotIndex)
 	end
 
 	-- Spawn at new slot position
-	local dest = Vector3.new(slotPos.X, slotPos.Y + brainrotData.size / 2, slotPos.Z)
-	ShopSystem.spawnBrainrot(brainrotData, dest, player, _brainrotOwner, slotIndex)
+	local dest = Vector3.new(slotPos.X, slotPos.Y + skinData.size / 2, slotPos.Z)
+	ShopSystem.spawnSkin(skinData, dest, player, _skinOwner, slotIndex)
 	NotificationEvent:FireClient(player, bName .. " moved to slot " .. slotIndex .. "!", Color3.fromRGB(200, 200, 255))
 end
 
 -- =========================================================================
 -- Public: releaseSlot
--- Frees the slot for a player when a brainrot is removed or stolen.
+-- Frees the slot for a player when a skin is removed or stolen.
 -- =========================================================================
 
 function ShopSystem.releaseSlot(player, slotIndex)
@@ -231,9 +231,9 @@ end
 -- Public: init
 -- =========================================================================
 
-function ShopSystem.init(playerBases, brainrotOwner, playerCollection)
+function ShopSystem.init(playerBases, skinOwner, playerCollection)
 	_playerBases      = playerBases
-	_brainrotOwner    = brainrotOwner
+	_skinOwner    = skinOwner
 	_playerCollection = playerCollection
 end
 
@@ -242,12 +242,12 @@ function ShopSystem.setCarrying(carryingTable)
 end
 
 -- =========================================================================
--- Internal: count brainrots currently owned by a player
+-- Internal: count skins currently owned by a player
 -- =========================================================================
 
-local function countPlayerBrainrots(player, brainrotOwner)
+local function countPlayerSkins(player, skinOwner)
 	local count = 0
-	for _, owner in pairs(brainrotOwner) do
+	for _, owner in pairs(skinOwner) do
 		if owner == player then
 			count = count + 1
 		end
@@ -257,33 +257,33 @@ end
 
 -- =========================================================================
 -- Public: removePlate
--- Cleans up the pressure plate associated with a brainrot body.
+-- Cleans up the pressure plate associated with a skin body.
 -- =========================================================================
 
 function ShopSystem.removePlate(body)
-	local plate = _brainrotToPlate[body]
+	local plate = _skinToPlate[body]
 	if plate and plate.Parent then
 		plate:Destroy()
 	end
-	_brainrotToPlate[body] = nil
+	_skinToPlate[body] = nil
 	if plate then
-		_plateToBrainrot[plate] = nil
+		_plateToSkin[plate] = nil
 		_platePrompt[plate] = nil
 	end
 end
 
 -- =========================================================================
--- Public: spawnBrainrot
+-- Public: spawnSkin
 -- =========================================================================
 
-function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, slotIndex)
-	local s = brainrotData.size  -- base size unit
+function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
+	local s = skinData.size  -- base size unit
 
 	-- -----------------------------------------------------------------------
 	-- Model container
 	-- -----------------------------------------------------------------------
 	local model = Instance.new("Model")
-	model.Name = "BrainrotChar_" .. brainrotData.name
+	model.Name = "SkinChar_" .. skinData.name
 	model.Parent = workspace
 
 	-- -----------------------------------------------------------------------
@@ -291,7 +291,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	-- -----------------------------------------------------------------------
 	local body
 	if CharacterBuilders then
-		body = CharacterBuilders.build(brainrotData.id, position, model, s, brainrotData)
+		body = CharacterBuilders.build(skinData.id, position, model, s, skinData)
 	end
 	if not body then
 		-- Fallback: simple sphere so the game never crashes
@@ -299,7 +299,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		body.Name       = "Body"
 		body.Shape      = Enum.PartType.Ball
 		body.Material   = Enum.Material.Neon
-		body.BrickColor = brainrotData.color
+		body.BrickColor = skinData.color
 		body.Size       = Vector3.new(s, s, s)
 		body.CFrame     = CFrame.new(position)
 		body.Anchored   = true
@@ -309,7 +309,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		model.PrimaryPart = body
 	end
 
-	-- Store body size so carry-beside code can read it without knowing brainrot type
+	-- Store body size so carry-beside code can read it without knowing skin type
 	body:SetAttribute("BodySize", s)
 
 	-- -----------------------------------------------------------------------
@@ -318,7 +318,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	local light = Instance.new("PointLight")
 	light.Brightness = 2
 	light.Range      = 12
-	light.Color      = brainrotData.glowColor
+	light.Color      = skinData.glowColor
 	light.Parent     = body
 
 	-- -----------------------------------------------------------------------
@@ -333,14 +333,14 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	billboard.Parent        = body
 
 	if owner then
-		-- Owned brainrot: 3-row billboard (name / income / rarity)
+		-- Owned skin: 3-row billboard (name / income / rarity)
 		billboard.Size = UDim2.new(0, 160, 0, 70)
 
 		local nameLabel = Instance.new("TextLabel")
 		nameLabel.Size            = UDim2.new(1, 0, 0.38, 0)
 		nameLabel.Position        = UDim2.new(0, 0, 0, 0)
 		nameLabel.BackgroundTransparency = 1
-		nameLabel.Text            = brainrotData.name
+		nameLabel.Text            = skinData.name
 		nameLabel.TextColor3      = Color3.fromRGB(255, 255, 255)
 		nameLabel.TextStrokeTransparency = 0.4
 		nameLabel.TextScaled      = true
@@ -351,7 +351,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		incomeLabel.Size            = UDim2.new(1, 0, 0.37, 0)
 		incomeLabel.Position        = UDim2.new(0, 0, 0.38, 0)
 		incomeLabel.BackgroundTransparency = 1
-		incomeLabel.Text            = "$" .. brainrotData.income .. "/s"
+		incomeLabel.Text            = "$" .. skinData.income .. "/s"
 		incomeLabel.TextColor3      = Color3.fromRGB(100, 255, 100)
 		incomeLabel.TextStrokeTransparency = 0.4
 		incomeLabel.TextScaled      = true
@@ -362,8 +362,8 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		rarityLabel.Size            = UDim2.new(1, 0, 0.25, 0)
 		rarityLabel.Position        = UDim2.new(0, 0, 0.75, 0)
 		rarityLabel.BackgroundTransparency = 1
-		rarityLabel.Text            = brainrotData.rarity
-		rarityLabel.TextColor3      = RARITY_COLOR[brainrotData.rarity] or Color3.fromRGB(255, 255, 255)
+		rarityLabel.Text            = skinData.rarity
+		rarityLabel.TextColor3      = RARITY_COLOR[skinData.rarity] or Color3.fromRGB(255, 255, 255)
 		rarityLabel.TextStrokeTransparency = 0.4
 		rarityLabel.TextScaled      = true
 		rarityLabel.Font            = Enum.Font.GothamBold
@@ -376,7 +376,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		nameLabel.Size            = UDim2.new(1, 0, 0.5, 0)
 		nameLabel.Position        = UDim2.new(0, 0, 0, 0)
 		nameLabel.BackgroundTransparency = 1
-		nameLabel.Text            = brainrotData.name
+		nameLabel.Text            = skinData.name
 		nameLabel.TextColor3      = Color3.fromRGB(255, 255, 255)
 		nameLabel.TextStrokeTransparency = 0.4
 		nameLabel.TextScaled      = true
@@ -387,7 +387,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		costLabel.Size            = UDim2.new(1, 0, 0.5, 0)
 		costLabel.Position        = UDim2.new(0, 0, 0.5, 0)
 		costLabel.BackgroundTransparency = 1
-		costLabel.Text            = brainrotData.cost and ("$" .. brainrotData.cost) or "GACHA ONLY"
+		costLabel.Text            = skinData.cost and ("$" .. skinData.cost) or "GACHA ONLY"
 		costLabel.TextColor3      = Color3.fromRGB(255, 220, 0)
 		costLabel.TextStrokeTransparency = 0.2
 		costLabel.TextScaled      = true
@@ -399,18 +399,18 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 	-- Register ownership on the body (PrimaryPart)
 	-- -----------------------------------------------------------------------
 	if owner then
-		brainrotOwner[body] = owner
-		body:SetAttribute("IncomePerSecond", brainrotData.income)
-		body:SetAttribute("BrainrotId", brainrotData.id)
-		body:SetAttribute("BrainrotName", brainrotData.name)
+		skinOwner[body] = owner
+		body:SetAttribute("IncomePerSecond", skinData.income)
+		body:SetAttribute("SkinId", skinData.id)
+		body:SetAttribute("SkinName", skinData.name)
 		body:SetAttribute("OwnerName", owner.Name)
-		-- Store the slot index so it can be freed when this brainrot is removed
+		-- Store the slot index so it can be freed when this skin is removed
 		if slotIndex then
 			body:SetAttribute("SlotIndex", slotIndex)
 		end
 		-- Set up E-to-steal ProximityPrompt and touch interactions
 		if StealSystem then
-			StealSystem.setupBrainrotTouchEvents(body, owner, _playerBases, _brainrotOwner, _carrying, _playerCollection)
+			StealSystem.setupSkinTouchEvents(body, owner, _playerBases, _skinOwner, _carrying, _playerCollection)
 		end
 	end
 
@@ -461,8 +461,8 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		plateLabel.Parent                 = plateBB
 
 		-- Link plate and body
-		_plateToBrainrot[plate] = body
-		_brainrotToPlate[body]  = plate
+		_plateToSkin[plate] = body
+		_skinToPlate[body]  = plate
 
 		-- Walk over the plate to collect money automatically
 		plate.CanCollide = true
@@ -473,7 +473,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 			if not character then return end
 			local trigPlayer = Players:GetPlayerFromCharacter(character)
 			if not trigPlayer then return end
-			if _brainrotOwner[body] ~= trigPlayer then return end
+			if _skinOwner[body] ~= trigPlayer then return end
 			if collectDebounce[trigPlayer] then return end
 
 			local money = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
@@ -502,12 +502,12 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 		end)
 	else
 		-- -----------------------------------------------------------------------
-		-- Conveyor brainrot: fly to buyer's base when purchased
+		-- Conveyor skin: fly to buyer's base when purchased
 		-- -----------------------------------------------------------------------
-		if brainrotData.cost then
+		if skinData.cost then
 			local prompt = Instance.new("ProximityPrompt")
-			prompt.ActionText          = "Buy  $" .. brainrotData.cost
-			prompt.ObjectText          = brainrotData.name
+			prompt.ActionText          = "Buy  $" .. skinData.cost
+			prompt.ObjectText          = skinData.name
 			prompt.HoldDuration        = 0
 			prompt.MaxActivationDistance = 8
 			prompt.Parent              = body
@@ -515,8 +515,8 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 			prompt.Triggered:Connect(function(buyer)
 				-- Check money
 				local money = buyer:GetAttribute("Money") or 0
-				if money < brainrotData.cost then
-					NotificationEvent:FireClient(buyer, "Not enough money! Need $" .. brainrotData.cost, Color3.fromRGB(255, 80, 80))
+				if money < skinData.cost then
+					NotificationEvent:FireClient(buyer, "Not enough money! Need $" .. skinData.cost, Color3.fromRGB(255, 80, 80))
 					return
 				end
 				-- Check slot
@@ -526,23 +526,23 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 					return
 				end
 				-- Deduct money; disable prompt so only one person buys this instance
-				buyer:SetAttribute("Money", money - brainrotData.cost)
+				buyer:SetAttribute("Money", money - skinData.cost)
 				prompt:Destroy()
 				-- Mark as flying so conveyor stops moving it
 				_flyingBodies[body] = true
 				-- Assign temp ownership so others can steal it mid-flight
-				_brainrotOwner[body] = buyer
-				body:SetAttribute("IncomePerSecond", brainrotData.income)
-				body:SetAttribute("BrainrotId",      brainrotData.id)
-				body:SetAttribute("BrainrotName",    brainrotData.name)
+				_skinOwner[body] = buyer
+				body:SetAttribute("IncomePerSecond", skinData.income)
+				body:SetAttribute("SkinId",      skinData.id)
+				body:SetAttribute("SkinName",    skinData.name)
 				if StealSystem then
-					StealSystem.setupBrainrotTouchEvents(body, buyer, _playerBases, _brainrotOwner, _carrying, _playerCollection)
+					StealSystem.setupSkinTouchEvents(body, buyer, _playerBases, _skinOwner, _carrying, _playerCollection)
 				end
 
 				-- Ground-level walk: 3-segment path
 			-- belt → just outside entrance (gap center) → just inside entrance → slot
 				local WALK_SPEED = 14  -- studs / second
-				local dest = Vector3.new(slotPos.X, slotPos.Y + brainrotData.size / 2, slotPos.Z)
+				local dest = Vector3.new(slotPos.X, slotPos.Y + skinData.size / 2, slotPos.Z)
 				local startPos = body.Position
 				local groundY = dest.Y
 
@@ -574,7 +574,7 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 						ShopSystem.releaseSlot(buyer, slotIndex)
 						return
 					end
-					if _brainrotOwner[body] ~= buyer then
+					if _skinOwner[body] ~= buyer then
 						conn:Disconnect(); _flyingBodies[body] = nil
 						ShopSystem.releaseSlot(buyer, slotIndex)
 						return
@@ -594,11 +594,11 @@ function ShopSystem.spawnBrainrot(brainrotData, position, owner, brainrotOwner, 
 							conn:Disconnect(); _flyingBodies[body] = nil
 							body.CFrame = CFrame.new(dest); body.Anchored = true
 							if buyer and buyer.Parent then
-								ShopSystem.spawnBrainrot(brainrotData, dest, buyer, _brainrotOwner, slotIndex)
+								ShopSystem.spawnSkin(skinData, dest, buyer, _skinOwner, slotIndex)
 								if not _playerCollection[buyer] then _playerCollection[buyer] = {} end
-								_playerCollection[buyer][brainrotData.id] = (_playerCollection[buyer][brainrotData.id] or 0) + 1
+								_playerCollection[buyer][skinData.id] = (_playerCollection[buyer][skinData.id] or 0) + 1
 								CollectionUpdatedEvent:FireClient(buyer, _playerCollection[buyer])
-								NotificationEvent:FireClient(buyer, "You received " .. brainrotData.name .. "!", Color3.fromRGB(100, 255, 100))
+								NotificationEvent:FireClient(buyer, "You received " .. skinData.name .. "!", Color3.fromRGB(100, 255, 100))
 							end
 							local m = body.Parent
 							if m and m:IsA("Model") then m:Destroy() elseif body and body.Parent then body:Destroy() end
@@ -649,7 +649,7 @@ RunService.Heartbeat:Connect(function()
 	local now = tick()
 	if now - lastPlateUpdate < 1 then return end
 	lastPlateUpdate = now
-	for plate, body in pairs(_plateToBrainrot) do
+	for plate, body in pairs(_plateToSkin) do
 		if plate.Parent and body.Parent then
 			local amt = math.floor(body:GetAttribute("AccumulatedMoney") or 0)
 			local amtText = "$" .. amt
@@ -661,26 +661,26 @@ RunService.Heartbeat:Connect(function()
 			-- Dim when empty, bright when has money
 			plate.Color = amt > 0 and Color3.fromRGB(0, 200, 80) or Color3.fromRGB(30, 80, 30)
 		else
-			-- Brainrot or plate was destroyed, clean up
-			_plateToBrainrot[plate] = nil
-			if body then _brainrotToPlate[body] = nil end
+			-- Skin or plate was destroyed, clean up
+			_plateToSkin[plate] = nil
+			if body then _skinToPlate[body] = nil end
 		end
 	end
 end)
 
 -- =========================================================================
--- Public: buyBrainrot
+-- Public: buySkin
 -- =========================================================================
 
-function ShopSystem.buyBrainrot(player, brainrotId, playerBases, brainrotOwner, playerCollection)
-	local data = BrainrotData.getById(brainrotId)
+function ShopSystem.buySkin(player, skinId, playerBases, skinOwner, playerCollection)
+	local data = SkinData.getById(skinId)
 	if not data then
-		warn("ShopSystem.buyBrainrot: unknown brainrotId", brainrotId)
+		warn("ShopSystem.buySkin: unknown skinId", skinId)
 		return false
 	end
 
 	if data.cost == nil then
-		NotificationEvent:FireClient(player, "This brainrot can only be obtained from the GACHA!", Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "This skin can only be obtained from the GACHA!", Color3.fromRGB(255, 80, 80))
 		return false
 	end
 
@@ -700,15 +700,15 @@ function ShopSystem.buyBrainrot(player, brainrotId, playerBases, brainrotOwner, 
 	-- Deduct money
 	player:SetAttribute("Money", currentMoney - data.cost)
 
-	-- Spawn at slot surface + half brainrot height so it rests on the floor
+	-- Spawn at slot surface + half skin height so it rests on the floor
 	local spawnPos = Vector3.new(slotPos.X, slotPos.Y + data.size / 2, slotPos.Z)
-	ShopSystem.spawnBrainrot(data, spawnPos, player, brainrotOwner, slotIndex)
+	ShopSystem.spawnSkin(data, spawnPos, player, skinOwner, slotIndex)
 
 	-- Update collection
 	if not playerCollection[player] then
 		playerCollection[player] = {}
 	end
-	playerCollection[player][brainrotId] = (playerCollection[player][brainrotId] or 0) + 1
+	playerCollection[player][skinId] = (playerCollection[player][skinId] or 0) + 1
 
 	-- Fire events
 	CollectionUpdatedEvent:FireClient(player, playerCollection[player])
@@ -724,7 +724,7 @@ end
 local GACHA_X = -18  -- gacha machine X position
 local GACHA_Z = 0    -- gacha machine Z position
 
-function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollection)
+function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 	-- 30-minute cooldown check
 	local lastSpin = _gachaCooldown[player]
 	if lastSpin then
@@ -750,7 +750,7 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 	end
 
 	-- Roll
-	local result = BrainrotData.gachaRoll()
+	local result = SkinData.gachaRoll()
 	local dest = Vector3.new(slotPos.X, slotPos.Y + result.size / 2, slotPos.Z)
 
 	-- Fire gacha result so client wheel animation can play
@@ -761,7 +761,7 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 		income = result.income,
 	})
 
-	-- Build actual brainrot character at the machine and walk it to base
+	-- Build actual skin character at the machine and walk it to base
 	local walkStartPos = Vector3.new(GACHA_X, dest.Y, GACHA_Z)
 	local walkModel = Instance.new("Model")
 	walkModel.Name   = "GachaWalk_" .. result.name
@@ -818,7 +818,7 @@ function ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollecti
 				walkConn:Disconnect(); _flyingBodies[walkBody] = nil
 				walkModel:Destroy()
 				if player and player.Parent then
-					ShopSystem.spawnBrainrot(result, dest, player, brainrotOwner, slotIndex)
+					ShopSystem.spawnSkin(result, dest, player, skinOwner, slotIndex)
 					if not playerCollection[player] then playerCollection[player] = {} end
 					playerCollection[player][result.id] = (playerCollection[player][result.id] or 0) + 1
 					CollectionUpdatedEvent:FireClient(player, playerCollection[player])
@@ -961,14 +961,14 @@ function ShopSystem.createShopPads()
 	local signLabel = Instance.new("TextLabel")
 	signLabel.Size                   = UDim2.new(1, 0, 1, 0)
 	signLabel.BackgroundTransparency = 1
-	signLabel.Text                   = "🛒  BRAINROT SHOP\nPress E to buy!"
+	signLabel.Text                   = "🛒  SKIN SHOP\nPress E to buy!"
 	signLabel.TextScaled             = true
 	signLabel.Font                   = Enum.Font.GothamBold
 	signLabel.TextColor3             = Color3.fromRGB(255, 220, 50)
 	signLabel.Parent                 = signGui
 
 	-- -----------------------------------------------------------------------
-	-- Active conveyor brainrots (body part → true) — move along +Z
+	-- Active conveyor skins (body part → true) — move along +Z
 	-- -----------------------------------------------------------------------
 	local conveyorItems = {}
 
@@ -997,14 +997,14 @@ function ShopSystem.createShopPads()
 		end
 	end)
 
-	-- Spawn 1 brainrot every 4 seconds at the start of the belt
+	-- Spawn 1 skin every 4 seconds at the start of the belt
 	task.spawn(function()
 		while true do
 			task.wait(4)
-			local chosen = BrainrotData.gachaRoll()
+			local chosen = SkinData.gachaRoll()
 			if chosen then
 				local spawnPos = Vector3.new(0, BELT_Y + chosen.size / 2 + 0.3, BELT_START_Z)
-				local body = ShopSystem.spawnBrainrot(chosen, spawnPos, nil, _brainrotOwner, nil)
+				local body = ShopSystem.spawnSkin(chosen, spawnPos, nil, _skinOwner, nil)
 				if body then
 					conveyorItems[body] = true
 				end
@@ -1170,27 +1170,27 @@ function ShopSystem.createShopPads()
 	gachaPrompt.Parent                = gachaPad
 
 	gachaPrompt.Triggered:Connect(function(player)
-		ShopSystem.spinGacha(player, _playerBases, _brainrotOwner, _playerCollection)
+		ShopSystem.spinGacha(player, _playerBases, _skinOwner, _playerCollection)
 	end)
 end
 
 -- =========================================================================
--- Fusion system (UI-based): pick 2 brainrots from collection, see 4 results
+-- Fusion system (UI-based): pick 2 skins from collection, see 4 results
 -- =========================================================================
 
 local RARITY_INDEX = { Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5 }
 local INDEX_RARITY = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
-local _fusionPending = {}  -- [player] → list of 4 brainrotData options
+local _fusionPending = {}  -- [player] → list of 4 skinData options
 
 local function pickRandom(rarityName)
-	local list = BrainrotData.getByRarity(rarityName)
+	local list = SkinData.getByRarity(rarityName)
 	if not list or #list == 0 then return nil end
 	return list[math.random(1, #list)]
 end
 
 local function generateFusionOptions(id1, id2)
-	local d1 = BrainrotData.getById(id1)
-	local d2 = BrainrotData.getById(id2)
+	local d1 = SkinData.getById(id1)
+	local d2 = SkinData.getById(id2)
 	local tier1 = d1 and (RARITY_INDEX[d1.rarity] or 1) or 1
 	local tier2 = d2 and (RARITY_INDEX[d2.rarity] or 1) or 1
 	local avgTier = math.floor((tier1 + tier2) / 2)
@@ -1212,45 +1212,45 @@ end
 function ShopSystem.handleFuseRequest(player, id1, id2)
 	local collection = _playerCollection[player]
 	if not collection then
-		NotificationEvent:FireClient(player, "You have no brainrots to fuse!", Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "You have no skins to fuse!", Color3.fromRGB(255, 80, 80))
 		return
 	end
 	local count1 = collection[id1] or 0
 	local count2 = collection[id2] or 0
 	if id1 == id2 then
 		if count1 < 2 then
-			NotificationEvent:FireClient(player, "Need 2 copies to fuse the same brainrot!", Color3.fromRGB(255, 80, 80))
+			NotificationEvent:FireClient(player, "Need 2 copies to fuse the same skin!", Color3.fromRGB(255, 80, 80))
 			return
 		end
 	else
 		if count1 < 1 or count2 < 1 then
-			NotificationEvent:FireClient(player, "You don't own one of those brainrots!", Color3.fromRGB(255, 80, 80))
+			NotificationEvent:FireClient(player, "You don't own one of those skins!", Color3.fromRGB(255, 80, 80))
 			return
 		end
 	end
 
 	local toDestroy = {}
 	local need1, need2 = true, true
-	for brainrot, owner in pairs(_brainrotOwner) do
-		if owner == player and brainrot and brainrot.Parent then
-			local bId = brainrot:GetAttribute("BrainrotId")
+	for skin, owner in pairs(_skinOwner) do
+		if owner == player and skin and skin.Parent then
+			local bId = skin:GetAttribute("SkinId")
 			if need1 and bId == id1 then
-				table.insert(toDestroy, brainrot); need1 = false
+				table.insert(toDestroy, skin); need1 = false
 			elseif need2 and bId == id2 then
-				table.insert(toDestroy, brainrot); need2 = false
+				table.insert(toDestroy, skin); need2 = false
 			end
 		end
 		if not need1 and not need2 then break end
 	end
 	if #toDestroy < 2 then
-		NotificationEvent:FireClient(player, "Couldn't find both brainrots in your base!", Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "Couldn't find both skins in your base!", Color3.fromRGB(255, 80, 80))
 		return
 	end
 	for _, part in ipairs(toDestroy) do
 		local slotIdx = part:GetAttribute("SlotIndex")
 		if slotIdx then ShopSystem.releaseSlot(player, slotIdx) end
 		ShopSystem.removePlate(part)
-		_brainrotOwner[part] = nil
+		_skinOwner[part] = nil
 		local m = part.Parent
 		if m and m:IsA("Model") then m:Destroy() elseif part and part.Parent then part:Destroy() end
 	end
@@ -1288,7 +1288,7 @@ function ShopSystem.handleFuseChoose(player, choiceIndex)
 		return
 	end
 	local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size / 2, slotPos.Z)
-	ShopSystem.spawnBrainrot(chosen, dest, player, _brainrotOwner, slotIndex)
+	ShopSystem.spawnSkin(chosen, dest, player, _skinOwner, slotIndex)
 	if not _playerCollection[player] then _playerCollection[player] = {} end
 	_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
 	CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
@@ -1298,13 +1298,13 @@ end
 
 -- =========================================================================
 -- Physical Fusion Machine
--- Players carry brainrots to 2 input pedestals (press E to deposit).
+-- Players carry skins to 2 input pedestals (press E to deposit).
 -- When both slots are filled, 4 result pedestals appear.
 -- Press E on a result pedestal to claim it; the rest vanish.
 -- =========================================================================
 
 -- Per-player fusion state
-local _fusionDeposits  = {}   -- [player] → { slot1=brainrotData/nil, slot2=brainrotData/nil }
+local _fusionDeposits  = {}   -- [player] → { slot1=skinData/nil, slot2=skinData/nil }
 local _fusionDisplays  = {}   -- [player] → { [slotNum] = Part }  glowing ball on pedestal top
 
 local MACHINE_X = 18   -- east side of belt
@@ -1404,7 +1404,7 @@ function ShopSystem.createFusionMachine()
 	hint.Size = UDim2.new(1, 0, 0.5, 0)
 	hint.Position = UDim2.new(0, 0, 0.5, 0)
 	hint.BackgroundTransparency = 1
-	hint.Text = "Carry brainrots to the 2 slots & press E"
+	hint.Text = "Carry skins to the 2 slots & press E"
 	hint.TextScaled = true
 	hint.Font = Enum.Font.Gotham
 	hint.TextColor3 = Color3.fromRGB(200, 200, 255)
@@ -1425,7 +1425,7 @@ function ShopSystem.createFusionMachine()
 		slotTops[slotNum] = top
 
 		local prompt = Instance.new("ProximityPrompt")
-		prompt.ActionText            = "Deposit Brainrot"
+		prompt.ActionText            = "Deposit Skin"
 		prompt.ObjectText            = "Fusion Slot " .. slotNum
 		prompt.HoldDuration          = 0
 		prompt.MaxActivationDistance = 8
@@ -1433,21 +1433,21 @@ function ShopSystem.createFusionMachine()
 
 		local slotNumCopy = slotNum
 		prompt.Triggered:Connect(function(trigPlayer)
-			-- Player must be carrying a brainrot they own
+			-- Player must be carrying a skin they own
 			local carried = _carrying[trigPlayer]
 			if not carried then
-				NotificationEvent:FireClient(trigPlayer, "Carry a brainrot to this slot first!", Color3.fromRGB(255, 180, 0))
+				NotificationEvent:FireClient(trigPlayer, "Carry a skin to this slot first!", Color3.fromRGB(255, 180, 0))
 				return
 			end
-			if _brainrotOwner[carried] ~= trigPlayer then
-				NotificationEvent:FireClient(trigPlayer, "You can only fuse your own brainrots!", Color3.fromRGB(255, 80, 80))
+			if _skinOwner[carried] ~= trigPlayer then
+				NotificationEvent:FireClient(trigPlayer, "You can only fuse your own skins!", Color3.fromRGB(255, 80, 80))
 				return
 			end
 
-			local bId   = carried:GetAttribute("BrainrotId") or ""
-			local bData = BrainrotData.getById(bId)
+			local bId   = carried:GetAttribute("SkinId") or ""
+			local bData = SkinData.getById(bId)
 			if not bData then
-				NotificationEvent:FireClient(trigPlayer, "Unknown brainrot!", Color3.fromRGB(255, 80, 80))
+				NotificationEvent:FireClient(trigPlayer, "Unknown skin!", Color3.fromRGB(255, 80, 80))
 				return
 			end
 
@@ -1457,14 +1457,14 @@ function ShopSystem.createFusionMachine()
 			end
 			local deposits = _fusionDeposits[trigPlayer]
 
-			-- Destroy the carried brainrot and free its slot
+			-- Destroy the carried skin and free its slot
 			local slotIdx2 = carried:GetAttribute("SlotIndex")
 			if slotIdx2 then ShopSystem.releaseSlot(trigPlayer, slotIdx2) end
 			ShopSystem.removePlate(carried)
-			_brainrotOwner[carried] = nil
+			_skinOwner[carried] = nil
 			_carrying[trigPlayer] = nil
 			trigPlayer:SetAttribute("IsCarrying", false)
-			trigPlayer:SetAttribute("CarryingBrainrotName", "")
+			trigPlayer:SetAttribute("CarryingSkinName", "")
 			local m2 = carried.Parent
 			if m2 and m2:IsA("Model") then m2:Destroy() elseif carried and carried.Parent then carried:Destroy() end
 
@@ -1532,7 +1532,7 @@ function ShopSystem.createFusionMachine()
 					end)
 				end
 
-				-- Build the actual brainrot character at the machine so it walks to base
+				-- Build the actual skin character at the machine so it walks to base
 				local walkStartPos = Vector3.new(MACHINE_X, dest.Y, MACHINE_Z)
 				local walkModel = Instance.new("Model")
 				walkModel.Name   = "FusionWalk_" .. chosen.name
@@ -1590,7 +1590,7 @@ function ShopSystem.createFusionMachine()
 							walkConn:Disconnect(); _flyingBodies[walkBody] = nil
 							walkModel:Destroy()
 							if trigPlayer and trigPlayer.Parent then
-								ShopSystem.spawnBrainrot(chosen, dest, trigPlayer, _brainrotOwner, slotIdx)
+								ShopSystem.spawnSkin(chosen, dest, trigPlayer, _skinOwner, slotIdx)
 								if not _playerCollection[trigPlayer] then _playerCollection[trigPlayer] = {} end
 								_playerCollection[trigPlayer][chosen.id] = (_playerCollection[trigPlayer][chosen.id] or 0) + 1
 								CollectionUpdatedEvent:FireClient(trigPlayer, _playerCollection[trigPlayer])

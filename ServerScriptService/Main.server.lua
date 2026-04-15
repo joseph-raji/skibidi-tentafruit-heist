@@ -15,14 +15,14 @@ RemoteEvents.Name = "RemoteEvents"
 RemoteEvents.Parent = ReplicatedStorage
 
 local eventNames = {
-	"BuyBrainrot",
+	"BuySkin",
 	"SpinGacha",
 	"Rebirth",
 	"LockBase",
 	"UnlockBase",
 	"MoneyUpdated",
-	"BrainrotStolen",
-	"BrainrotClaimed",
+	"SkinStolen",
+	"SkinClaimed",
 	"RebirthComplete",
 	"Notification",
 	"CollectionUpdated",
@@ -34,7 +34,7 @@ local eventNames = {
 	"FuseOptions",
 	"FuseChoose",
 	"GachaResult",
-	"SellBrainrot",
+	"SellSkin",
 }
 
 for _, name in ipairs(eventNames) do
@@ -51,7 +51,7 @@ local Notification      = RemoteEvents:WaitForChild("Notification")
 -- 2. Shared data modules (ReplicatedStorage)
 -- ============================================================
 local Modules       = ReplicatedStorage:WaitForChild("Modules")
-local BrainrotData  = require(Modules:WaitForChild("BrainrotData"))
+local SkinData  = require(Modules:WaitForChild("SkinData"))
 local GameConfig    = require(Modules:WaitForChild("GameConfig"))
 
 -- ============================================================
@@ -69,9 +69,9 @@ local DataStore         = require(ServerScriptService:WaitForChild("DataStore"))
 -- 4. Shared state tables
 -- ============================================================
 local playerBases      = {}   -- [Player] -> { floor, folder, position, lockShield, isLocked }
-local brainrotOwner    = {}   -- [Part]   -> Player
+local skinOwner    = {}   -- [Part]   -> Player
 local carrying         = {}   -- [Player] -> Part
-local playerCollection = {}   -- [Player] -> { [brainrotId] = count }
+local playerCollection = {}   -- [Player] -> { [skinId] = count }
 local baseIndex        = 0
 
 -- ============================================================
@@ -158,12 +158,12 @@ Lighting.Ambient       = Color3.fromRGB(100, 100, 80)
 -- ============================================================
 -- 6. Initialize all systems
 -- ============================================================
-StealSystem.init(playerBases, brainrotOwner, carrying, playerCollection)
+StealSystem.init(playerBases, skinOwner, carrying, playerCollection)
 -- BaseSystem has no init function
-ShopSystem.init(playerBases, brainrotOwner, playerCollection)
+ShopSystem.init(playerBases, skinOwner, playerCollection)
 ShopSystem.setCarrying(carrying)
-CombatSystem.init(carrying, playerBases, brainrotOwner)
-ProgressionSystem.init(playerBases, brainrotOwner, playerCollection)
+CombatSystem.init(carrying, playerBases, skinOwner)
+ProgressionSystem.init(playerBases, skinOwner, playerCollection)
 ItemsSystem.init(playerBases, carrying)
 
 ProgressionSystem.setShopSystem(ShopSystem)
@@ -196,34 +196,34 @@ local batTool = CombatSystem.createBatTool()
 -- ============================================================
 -- 10. Start game loops
 -- ============================================================
-ProgressionSystem.startIncomeLoop(playerBases, brainrotOwner)
-DataStore.setupAutoSave(brainrotOwner)
+ProgressionSystem.startIncomeLoop(playerBases, skinOwner)
+DataStore.setupAutoSave(skinOwner)
 
--- Heartbeat: move carried brainrots above carrier's head and detect claims
+-- Heartbeat: move carried skins above carrier's head and detect claims
 RunService.Heartbeat:Connect(function()
-	StealSystem.onHeartbeat(playerBases, brainrotOwner, carrying, playerCollection)
+	StealSystem.onHeartbeat(playerBases, skinOwner, carrying, playerCollection)
 end)
 
 -- ============================================================
 -- 10. RemoteEvent handlers (client -> server)
 -- ============================================================
 
--- Buy a brainrot from the shop pad
-RemoteEvents.BuyBrainrot.OnServerEvent:Connect(function(player, brainrotId)
-	if not player or not brainrotId then return end
-	ShopSystem.buyBrainrot(player, brainrotId, playerBases, brainrotOwner, playerCollection)
+-- Buy a skin from the shop pad
+RemoteEvents.BuySkin.OnServerEvent:Connect(function(player, skinId)
+	if not player or not skinId then return end
+	ShopSystem.buySkin(player, skinId, playerBases, skinOwner, playerCollection)
 end)
 
 -- Spin the gacha
 RemoteEvents.SpinGacha.OnServerEvent:Connect(function(player)
 	if not player then return end
-	ShopSystem.spinGacha(player, playerBases, brainrotOwner, playerCollection)
+	ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 end)
 
 -- Rebirth (prestige)
 RemoteEvents.Rebirth.OnServerEvent:Connect(function(player)
 	if not player then return end
-	ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCollection)
+	ProgressionSystem.rebirth(player, playerBases, skinOwner, playerCollection)
 end)
 
 -- Lock base with a temporary shield
@@ -248,7 +248,7 @@ RemoteEvents.BuyItem.OnServerEvent:Connect(function(player, itemId)
 	ItemsSystem.buyItem(player, itemId)
 end)
 
--- Handle fusion request (client sends 2 brainrot IDs to fuse)
+-- Handle fusion request (client sends 2 skin IDs to fuse)
 RemoteEvents.FuseRequest.OnServerEvent:Connect(function(player, id1, id2)
 	if not player or not id1 or not id2 then return end
 	ShopSystem.handleFuseRequest(player, id1, id2)
@@ -260,10 +260,10 @@ RemoteEvents.FuseChoose.OnServerEvent:Connect(function(player, choiceIndex)
 	ShopSystem.handleFuseChoose(player, choiceIndex)
 end)
 
--- Sell carried brainrot (player held F for 2 seconds)
-RemoteEvents.SellBrainrot.OnServerEvent:Connect(function(player)
+-- Sell carried skin (player held F for 2 seconds)
+RemoteEvents.SellSkin.OnServerEvent:Connect(function(player)
 	if not player then return end
-	StealSystem.sellBrainrot(player, playerBases, brainrotOwner, carrying, playerCollection)
+	StealSystem.sellSkin(player, playerBases, skinOwner, carrying, playerCollection)
 end)
 
 -- ============================================================
@@ -277,7 +277,7 @@ local function onPlayerAdded(player)
 	player:SetAttribute("MoneyMultiplier",       1)
 	player:SetAttribute("BaseIsLocked",       false)
 	player:SetAttribute("IsCarrying",         false)
-	player:SetAttribute("CarryingBrainrotName", "")
+	player:SetAttribute("CarryingSkinName", "")
 
 	-- Leaderstats (visible on Roblox leaderboard)
 	local leaderstats = Instance.new("Folder")
@@ -346,44 +346,44 @@ local function onPlayerAdded(player)
 		onCharacterAdded(player.Character)
 	end
 
-	-- Spawn brainrots after the base is ready
+	-- Spawn skins after the base is ready
 	task.wait(1.5)
 
 	-- Verify player is still in game after the wait
 	if not player or not player.Parent then return end
 	if not playerBases[player] then return end
 
-	if savedData and #savedData.brainrotIds > 0 then
-		-- Player has saved brainrots, re-spawn them
-		local BrainrotDataModule = require(Modules:WaitForChild("BrainrotData"))
-		for _, brainrotId in ipairs(savedData.brainrotIds) do
-			local brainrotDef = BrainrotDataModule.getById(brainrotId)
-			if brainrotDef then
+	if savedData and #savedData.skinIds > 0 then
+		-- Player has saved skins, re-spawn them
+		local SkinDataModule = require(Modules:WaitForChild("SkinData"))
+		for _, skinId in ipairs(savedData.skinIds) do
+			local skinDef = SkinDataModule.getById(skinId)
+			if skinDef then
 				local slotIndex, slotPos = BaseSystem.getNextSlot(player, playerBases)
-				local fallbackY = pos.Y + 2.2 + brainrotDef.size / 2
-				local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + brainrotDef.size / 2, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
-				ShopSystem.spawnBrainrot(brainrotDef, spawnPos, player, brainrotOwner, slotIndex)
-				playerCollection[player][brainrotId] = (playerCollection[player][brainrotId] or 0) + 1
+				local fallbackY = pos.Y + 2.2 + skinDef.size / 2
+				local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + skinDef.size / 2, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
+				ShopSystem.spawnSkin(skinDef, spawnPos, player, skinOwner, slotIndex)
+				playerCollection[player][skinId] = (playerCollection[player][skinId] or 0) + 1
 			end
 		end
 		CollectionUpdated:FireClient(player, playerCollection[player])
-		Notification:FireClient(player, "Welcome back! Your brainrots have been restored.", Color3.fromRGB(0, 220, 255))
+		Notification:FireClient(player, "Welcome back! Your skins have been restored.", Color3.fromRGB(0, 220, 255))
 	else
 		-- New player: give free starter
-		local commons = BrainrotData.getByRarity("Common")
+		local commons = SkinData.getByRarity("Common")
 		if commons and #commons > 0 then
-			local starterBrainrot = commons[1]
+			local starterSkin = commons[1]
 			local slotIndex, slotPos = BaseSystem.getNextSlot(player, playerBases)
-			local fallbackY = pos.Y + 2.2 + starterBrainrot.size / 2
-			local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + starterBrainrot.size / 2, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
-			ShopSystem.spawnBrainrot(starterBrainrot, spawnPos, player, brainrotOwner, slotIndex)
+			local fallbackY = pos.Y + 2.2 + starterSkin.size / 2
+			local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + starterSkin.size / 2, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
+			ShopSystem.spawnSkin(starterSkin, spawnPos, player, skinOwner, slotIndex)
 
-			playerCollection[player][starterBrainrot.id] = 1
+			playerCollection[player][starterSkin.id] = 1
 			CollectionUpdated:FireClient(player, playerCollection[player])
 
 			Notification:FireClient(
 				player,
-				"Welcome! You received a free " .. starterBrainrot.name .. "!",
+				"Welcome! You received a free " .. starterSkin.name .. "!",
 				Color3.fromRGB(0, 220, 100)
 			)
 		end
@@ -399,24 +399,24 @@ end
 
 Players.PlayerRemoving:Connect(function(player)
 	-- Save player data before cleanup
-	DataStore.savePlayer(player, brainrotOwner)
+	DataStore.savePlayer(player, skinOwner)
 
-	-- Drop any brainrot the player was carrying so it stays in the world
+	-- Drop any skin the player was carrying so it stays in the world
 	if carrying[player] then
-		StealSystem.dropBrainrot(player, carrying)
+		StealSystem.dropSkin(player, carrying)
 	end
 	-- Remove carrying table entry and reset related attributes
 	carrying[player] = nil
 	player:SetAttribute("IsCarrying",         false)
-	player:SetAttribute("CarryingBrainrotName", "")
+	player:SetAttribute("CarryingSkinName", "")
 
-	-- Destroy all brainrots owned by this player
-	for brainrot, owner in pairs(brainrotOwner) do
+	-- Destroy all skins owned by this player
+	for skin, owner in pairs(skinOwner) do
 		if owner == player then
-			if brainrot and brainrot.Parent then
-				brainrot:Destroy()
+			if skin and skin.Parent then
+				skin:Destroy()
 			end
-			brainrotOwner[brainrot] = nil
+			skinOwner[skin] = nil
 		end
 	end
 

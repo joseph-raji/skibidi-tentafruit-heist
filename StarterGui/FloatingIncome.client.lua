@@ -81,12 +81,12 @@ player:GetAttributeChangedSignal("Money"):Connect(function()
 	lastMoney = newMoney
 end)
 
--- Floating income effect above each owned brainrot, once per second
+-- Floating income effect above each owned skin, once per second
 while true do
 	task.wait(1)
 
 	for _, obj in ipairs(workspace:GetChildren()) do
-		if obj:IsA("Model") and obj.Name:sub(1, 12) == "BrainrotChar" then
+		if obj:IsA("Model") and obj.Name:sub(1, 12) == "SkinChar" then
 			local body = obj:FindFirstChild("Body")
 			if body then
 				local income = body:GetAttribute("IncomePerSecond")

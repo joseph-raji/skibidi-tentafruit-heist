@@ -10,7 +10,7 @@ local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
 local Modules = ReplicatedStorage:WaitForChild("Modules")
-local BrainrotData = require(Modules:WaitForChild("BrainrotData"))
+local SkinData = require(Modules:WaitForChild("SkinData"))
 
 local RE = ReplicatedStorage:WaitForChild("RemoteEvents")
 local OpenPokedexEvent = RE:WaitForChild("OpenPokedex")
@@ -20,7 +20,7 @@ local CollectionUpdatedEvent = RE:WaitForChild("CollectionUpdated")
 -- CONSTANTS
 -- ============================================================
 
-local TOTAL_BRAINROTS = 25
+local TOTAL_SKINS = 25
 
 local RARITY_COLORS = {
 	Common    = Color3.fromRGB(160, 160, 160),
@@ -52,7 +52,7 @@ local TWEEN_CLOSE = TweenInfo.new(0.2, Enum.EasingStyle.Quad,  Enum.EasingDirect
 -- STATE
 -- ============================================================
 
-local playerCollection = {}  -- { [brainrotId] = count }
+local playerCollection = {}  -- { [skinId] = count }
 local currentFilter    = "ALL"
 local pokedexOpen      = false
 
@@ -92,7 +92,7 @@ end
 
 local function getTotalIncome()
 	local income = 0
-	for _, b in ipairs(BrainrotData.list) do
+	for _, b in ipairs(SkinData.list) do
 		local count = playerCollection[b.id] or 0
 		if count > 0 then
 			income = income + (b.incomePerSecond or 0) * count
@@ -104,7 +104,7 @@ end
 local function getRarestOwned()
 	local best = nil
 	local bestIdx = 0
-	for _, b in ipairs(BrainrotData.list) do
+	for _, b in ipairs(SkinData.list) do
 		local count = playerCollection[b.id] or 0
 		if count > 0 then
 			local idx = rarityIndex(b.rarity)
@@ -170,7 +170,7 @@ HeaderBottomFill.ZIndex           = 7
 HeaderBottomFill.Parent           = Header
 
 local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Text              = "BRAINROT POKÉDEX"
+TitleLabel.Text              = "SKIN POKÉDEX"
 TitleLabel.TextSize          = 20
 TitleLabel.Font              = Enum.Font.GothamBlack
 TitleLabel.TextColor3        = Color3.fromRGB(200, 160, 255)
@@ -302,8 +302,8 @@ local function updateStats()
 	local rarest = getRarestOwned()
 	local bestName = rarest and rarest.name or "None"
 
-	ProgressLabel.Text = unique .. " / " .. TOTAL_BRAINROTS .. " collected"
-	StatsLabel.Text = "Collected: " .. unique .. "/" .. TOTAL_BRAINROTS
+	ProgressLabel.Text = unique .. " / " .. TOTAL_SKINS .. " collected"
+	StatsLabel.Text = "Collected: " .. unique .. "/" .. TOTAL_SKINS
 		.. "  |  Total income: " .. string.format("%.1f", income) .. "$/s"
 		.. "  |  Best: " .. bestName
 end
@@ -335,30 +335,30 @@ end
 -- CARD BUILDER
 -- ============================================================
 
-local function buildCard(brainrot, layoutOrder)
-	local count = playerCollection[brainrot.id] or 0
+local function buildCard(skin, layoutOrder)
+	local count = playerCollection[skin.id] or 0
 	local owned = count > 0
-	local isLegendary = brainrot.rarity == "Legendary"
+	local isLegendary = skin.rarity == "Legendary"
 
 	local card = Instance.new("TextButton")
-	card.Name             = "Card_" .. brainrot.id
+	card.Name             = "Card_" .. skin.id
 	card.Text             = ""
 	card.LayoutOrder      = layoutOrder
-	card.BackgroundColor3 = owned and CARD_BG_OWNED[brainrot.rarity] or CARD_BG_UNOWNED
+	card.BackgroundColor3 = owned and CARD_BG_OWNED[skin.rarity] or CARD_BG_UNOWNED
 	card.AutoButtonColor  = false
 	card.ClipsDescendants = true
 	card.ZIndex           = 10
 	card.Parent           = GridScroll
 	makeCorner(card, 10)
 	makeStroke(card,
-		owned and (RARITY_COLORS[brainrot.rarity] or Color3.fromRGB(80, 80, 120)) or Color3.fromRGB(45, 35, 65),
+		owned and (RARITY_COLORS[skin.rarity] or Color3.fromRGB(80, 80, 120)) or Color3.fromRGB(45, 35, 65),
 		owned and 2 or 1
 	)
 
 	if owned then
 		-- Icon / emoji
 		local iconLabel = Instance.new("TextLabel")
-		iconLabel.Text              = brainrot.icon or ""
+		iconLabel.Text              = skin.icon or ""
 		iconLabel.TextSize          = 32
 		iconLabel.Font              = Enum.Font.GothamBold
 		iconLabel.TextColor3        = Color3.fromRGB(255, 255, 255)
@@ -371,7 +371,7 @@ local function buildCard(brainrot, layoutOrder)
 
 		-- Name
 		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Text              = brainrot.name
+		nameLabel.Text              = skin.name
 		nameLabel.TextSize          = 10
 		nameLabel.Font              = Enum.Font.GothamBold
 		nameLabel.TextColor3        = TEXT_PRIMARY
@@ -385,7 +385,7 @@ local function buildCard(brainrot, layoutOrder)
 
 		-- Income
 		local incLabel = Instance.new("TextLabel")
-		incLabel.Text               = "+" .. (brainrot.incomePerSecond or 0) .. "$/s"
+		incLabel.Text               = "+" .. (skin.incomePerSecond or 0) .. "$/s"
 		incLabel.TextSize           = 10
 		incLabel.Font               = Enum.Font.Gotham
 		incLabel.TextColor3         = Color3.fromRGB(100, 220, 100)
@@ -397,9 +397,9 @@ local function buildCard(brainrot, layoutOrder)
 		incLabel.Parent             = card
 
 		-- Rarity badge
-		local rarityColor = RARITY_COLORS[brainrot.rarity] or TEXT_DIM
+		local rarityColor = RARITY_COLORS[skin.rarity] or TEXT_DIM
 		local rarityLabel = Instance.new("TextLabel")
-		rarityLabel.Text            = brainrot.rarity
+		rarityLabel.Text            = skin.rarity
 		rarityLabel.TextSize        = 9
 		rarityLabel.Font            = Enum.Font.GothamBold
 		rarityLabel.TextColor3      = rarityColor
@@ -447,7 +447,7 @@ local function buildCard(brainrot, layoutOrder)
 
 		-- Name: hide for legendary, show for others
 		local nameLabel = Instance.new("TextLabel")
-		nameLabel.Text          = isLegendary and "???" or brainrot.name
+		nameLabel.Text          = isLegendary and "???" or skin.name
 		nameLabel.TextSize      = 10
 		nameLabel.Font          = Enum.Font.GothamBold
 		nameLabel.TextColor3    = TEXT_DIM
@@ -489,7 +489,7 @@ local function refreshGrid()
 
 	-- Filter by rarity
 	local filtered = {}
-	for _, b in ipairs(BrainrotData.list) do
+	for _, b in ipairs(SkinData.list) do
 		local passRarity = (currentFilter == "ALL") or (b.rarity == currentFilter)
 		if passRarity then
 			table.insert(filtered, b)
@@ -503,25 +503,25 @@ local function refreshGrid()
 		return a.name < b_.name
 	end)
 
-	for i, brainrot in ipairs(filtered) do
-		local card = buildCard(brainrot, i)
+	for i, skin in ipairs(filtered) do
+		local card = buildCard(skin, i)
 
 		card.MouseEnter:Connect(function()
-			local owned = (playerCollection[brainrot.id] or 0) > 0
+			local owned = (playerCollection[skin.id] or 0) > 0
 			local target = owned
 				and Color3.fromRGB(
-					math.min(255, math.floor(CARD_BG_OWNED[brainrot.rarity].R * 255 + 18)),
-					math.min(255, math.floor(CARD_BG_OWNED[brainrot.rarity].G * 255 + 18)),
-					math.min(255, math.floor(CARD_BG_OWNED[brainrot.rarity].B * 255 + 18))
+					math.min(255, math.floor(CARD_BG_OWNED[skin.rarity].R * 255 + 18)),
+					math.min(255, math.floor(CARD_BG_OWNED[skin.rarity].G * 255 + 18)),
+					math.min(255, math.floor(CARD_BG_OWNED[skin.rarity].B * 255 + 18))
 				)
 				or Color3.fromRGB(35, 28, 48)
 			TweenService:Create(card, TweenInfo.new(0.1, Enum.EasingStyle.Quad), { BackgroundColor3 = target }):Play()
 		end)
 
 		card.MouseLeave:Connect(function()
-			local owned = (playerCollection[brainrot.id] or 0) > 0
+			local owned = (playerCollection[skin.id] or 0) > 0
 			TweenService:Create(card, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {
-				BackgroundColor3 = owned and CARD_BG_OWNED[brainrot.rarity] or CARD_BG_UNOWNED,
+				BackgroundColor3 = owned and CARD_BG_OWNED[skin.rarity] or CARD_BG_UNOWNED,
 			}):Play()
 		end)
 	end

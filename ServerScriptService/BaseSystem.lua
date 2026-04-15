@@ -90,7 +90,7 @@ end
 --   Slots 1-5:  left side  (rows 1-5, back=1 front=5)
 --   Slots 6-10: right side (rows 1-5)
 --
--- Pressure plates sit between brainrot and aisle:
+-- Pressure plates sit between skin and aisle:
 --   Left plate:  Z = pos.Z - 4.5
 --   Right plate: Z = pos.Z + 4.5
 -- ============================================================
@@ -102,10 +102,10 @@ local function computeAllSlotPositions(pos)
 	-- Building center along depth axis is 6 studs inward from plot center
 	local bCX = pos.X + faceSign * (-6)
 
-	local leftZ  = pos.Z - 11   -- pushed further from aisle to avoid brainrot/plate overlap
+	local leftZ  = pos.Z - 11   -- pushed further from aisle to avoid skin/plate overlap
 	local rightZ = pos.Z + 11
 
-	local leftPlateZ  = pos.Z - 6   -- plate sits in the aisle, clear of the brainrot body
+	local leftPlateZ  = pos.Z - 6   -- plate sits in the aisle, clear of the skin body
 	local rightPlateZ = pos.Z + 6
 
 	local slotPositions  = {}
@@ -114,7 +114,7 @@ local function computeAllSlotPositions(pos)
 	for floorIndex = 1, MAX_FLOORS do
 		-- Floor 1 interior surface: pos.Y + 2.2 (foundation 2 + interior slab 0.2).
 		-- Upper floors surface: pos.Y + (floorIndex-1) * FLOOR_HEIGHT_STEP.
-		-- slotPositions store the floor SURFACE Y — callers must add brainrotData.size/2
+		-- slotPositions store the floor SURFACE Y — callers must add skinData.size/2
 		-- to get the correct body-centre spawn position.
 		local floorSurfaceY
 		if floorIndex == 1 then
@@ -625,7 +625,7 @@ end
 
 -- ============================================================
 -- Public: grantSlot
--- Grant one additional brainrot slot to a player.
+-- Grant one additional skin slot to a player.
 -- If the new slot count exceeds the current floor capacity, also unlocks the next floor.
 -- Returns the new total maxSlots.
 -- ============================================================

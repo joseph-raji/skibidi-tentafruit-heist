@@ -15,9 +15,9 @@ local INCOME_INTERVAL = 1
 local REBIRTH_PAD_DEBOUNCE_TIME = 3
 
 -- NOTE: Income per second is read from the "IncomePerSecond" attribute on each
--- brainrot part. ShopSystem.spawnBrainrot must set:
---   body:SetAttribute("IncomePerSecond", brainrotData.income)
--- on every spawned brainrot body part for income to be credited.
+-- skin part. ShopSystem.spawnSkin must set:
+--   body:SetAttribute("IncomePerSecond", skinData.income)
+-- on every spawned skin body part for income to be credited.
 
 -- ShopSystem reference injected by Main
 local ShopSystem = nil
@@ -26,7 +26,7 @@ function ProgressionSystem.setShopSystem(ss)
 	ShopSystem = ss
 end
 
--- Carrying table injected by Main so rebirth pad can detect carried brainrots
+-- Carrying table injected by Main so rebirth pad can detect carried skins
 local _carrying = nil
 function ProgressionSystem.setCarrying(t)
 	_carrying = t
@@ -48,12 +48,12 @@ local rebirthDebounce = {}
 
 -- Shared state set by init
 local _playerBases = nil
-local _brainrotOwner = nil
+local _skinOwner = nil
 local _playerCollection = nil
 
-function ProgressionSystem.init(playerBases, brainrotOwner, playerCollection)
+function ProgressionSystem.init(playerBases, skinOwner, playerCollection)
 	_playerBases = playerBases
-	_brainrotOwner = brainrotOwner
+	_skinOwner = skinOwner
 	_playerCollection = playerCollection
 end
 
@@ -84,7 +84,7 @@ function ProgressionSystem.updateMaxSlots(player)
 	player:SetAttribute("MaxSlots", maxSlots)
 end
 
-function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCollection)
+function ProgressionSystem.rebirth(player, playerBases, skinOwner, playerCollection)
 	local money = ProgressionSystem.getMoney(player)
 	local rebirthCount = player:GetAttribute("RebirthCount") or 0
 
@@ -108,11 +108,11 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 		return
 	end
 
-	-- Remove all brainrots owned by this player from workspace
+	-- Remove all skins owned by this player from workspace
 	local partsToRemove = {}
-	for brainrotPart, owner in pairs(brainrotOwner) do
+	for skinPart, owner in pairs(skinOwner) do
 		if owner == player then
-			table.insert(partsToRemove, brainrotPart)
+			table.insert(partsToRemove, skinPart)
 		end
 	end
 	for _, part in ipairs(partsToRemove) do
@@ -123,7 +123,7 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 				ShopSystem.releaseSlot(player, slotIndex)
 			end
 		end
-		brainrotOwner[part] = nil
+		skinOwner[part] = nil
 		local m = part.Parent
 		if m and m:IsA("Model") then m:Destroy() else part:Destroy() end
 	end
@@ -156,18 +156,18 @@ function ProgressionSystem.rebirth(player, playerBases, brainrotOwner, playerCol
 	)
 end
 
-function ProgressionSystem.startIncomeLoop(playerBases, brainrotOwner)
+function ProgressionSystem.startIncomeLoop(playerBases, skinOwner)
 	task.spawn(function()
 		while true do
 			task.wait(INCOME_INTERVAL)
 
-			for brainrotPart, owner in pairs(brainrotOwner) do
-				if brainrotPart and brainrotPart.Parent and owner and owner.Parent then
-					local income = brainrotPart:GetAttribute("IncomePerSecond") or 0
+			for skinPart, owner in pairs(skinOwner) do
+				if skinPart and skinPart.Parent and owner and owner.Parent then
+					local income = skinPart:GetAttribute("IncomePerSecond") or 0
 					if income > 0 then
 						local mult = owner:GetAttribute("MoneyMultiplier") or 1
-						local accum = brainrotPart:GetAttribute("AccumulatedMoney") or 0
-						brainrotPart:SetAttribute("AccumulatedMoney", accum + income * mult)
+						local accum = skinPart:GetAttribute("AccumulatedMoney") or 0
+						skinPart:SetAttribute("AccumulatedMoney", accum + income * mult)
 					end
 				end
 			end
@@ -228,12 +228,12 @@ function ProgressionSystem.setupRebirthPad(playerBases)
 	label.BackgroundTransparency = 1
 	label.TextColor3 = Color3.fromRGB(255, 220, 50)
 	label.TextStrokeTransparency = 0
-	label.Text = "REBIRTH MACHINE\nCarry a brainrot here to sacrifice it!"
+	label.Text = "REBIRTH MACHINE\nCarry a skin here to sacrifice it!"
 	label.Font = Enum.Font.GothamBold
 	label.TextScaled = true
 	label.Parent = billboard
 
-	-- Touch detection: player must carry a brainrot to sacrifice for rebirth
+	-- Touch detection: player must carry a skin to sacrifice for rebirth
 	pad.Touched:Connect(function(hit)
 		local character = hit.Parent
 		if not character then return end
@@ -244,10 +244,10 @@ function ProgressionSystem.setupRebirthPad(playerBases)
 		local userId = player.UserId
 		if rebirthDebounce[userId] then return end
 
-		-- Check player is carrying a brainrot
-		local brainrot = _carrying and _carrying[player]
-		if not brainrot then
-			evtNotification:FireClient(player, "Carry a brainrot here to sacrifice it for REBIRTH!", Color3.fromRGB(255, 220, 50))
+		-- Check player is carrying a skin
+		local skin = _carrying and _carrying[player]
+		if not skin then
+			evtNotification:FireClient(player, "Carry a skin here to sacrifice it for REBIRTH!", Color3.fromRGB(255, 220, 50))
 			return
 		end
 
@@ -256,20 +256,20 @@ function ProgressionSystem.setupRebirthPad(playerBases)
 			rebirthDebounce[userId] = nil
 		end)
 
-		-- Sacrifice the brainrot
+		-- Sacrifice the skin
 		_carrying[player] = nil
 		player:SetAttribute("IsCarrying", false)
-		player:SetAttribute("CarryingBrainrotName", "")
-		_brainrotOwner[brainrot] = nil
-		brainrot.Anchored = true
+		player:SetAttribute("CarryingSkinName", "")
+		_skinOwner[skin] = nil
+		skin.Anchored = true
 		task.delay(0.3, function()
-			if brainrot and brainrot.Parent then
-				local m = brainrot.Parent
-				if m and m:IsA("Model") then m:Destroy() else brainrot:Destroy() end
+			if skin and skin.Parent then
+				local m = skin.Parent
+				if m and m:IsA("Model") then m:Destroy() else skin:Destroy() end
 			end
 		end)
 
-		ProgressionSystem.rebirth(player, _playerBases, _brainrotOwner, _playerCollection)
+		ProgressionSystem.rebirth(player, _playerBases, _skinOwner, _playerCollection)
 	end)
 end
 

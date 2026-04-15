@@ -21,13 +21,13 @@ ScreenGui.Parent = PlayerGui
 -- Remote Events
 local RemoteEvents = ReplicatedStorage:WaitForChild("RemoteEvents", 10)
 local NotificationEvent   = RemoteEvents and RemoteEvents:WaitForChild("Notification", 10)
-local BrainrotStolenEvent = RemoteEvents and RemoteEvents:WaitForChild("BrainrotStolen", 10)
-local BrainrotClaimedEvent = RemoteEvents and RemoteEvents:WaitForChild("BrainrotClaimed", 10)
+local SkinStolenEvent = RemoteEvents and RemoteEvents:WaitForChild("SkinStolen", 10)
+local SkinClaimedEvent = RemoteEvents and RemoteEvents:WaitForChild("SkinClaimed", 10)
 local RebirthCompleteEvent = RemoteEvents and RemoteEvents:WaitForChild("RebirthComplete", 10)
 local LockBaseRemote      = RemoteEvents and RemoteEvents:WaitForChild("LockBase", 10)
 local OpenShopRemote      = RemoteEvents and RemoteEvents:WaitForChild("OpenShop", 10)
 local OpenPokedexRemote   = RemoteEvents and RemoteEvents:WaitForChild("OpenPokedex", 10)
-local SellBrainrotRemote  = RemoteEvents and RemoteEvents:WaitForChild("SellBrainrot", 10)
+local SellSkinRemote  = RemoteEvents and RemoteEvents:WaitForChild("SellSkin", 10)
 
 -- Helper: create UICorner
 local function addCorner(parent, radius)
@@ -128,8 +128,8 @@ incomeRateLabel.TextTransparency = 0.25
 incomeRateLabel.ZIndex = 2
 incomeRateLabel.Parent = MoneyFrame
 
--- Income rate: sum IncomePerSecond from all brainrots owned by this player.
--- Recalculate every second by scanning workspace for owned brainrot bodies.
+-- Income rate: sum IncomePerSecond from all skins owned by this player.
+-- Recalculate every second by scanning workspace for owned skin bodies.
 local lastIncomeCheck = 0
 RunService.Heartbeat:Connect(function()
 	local now = tick()
@@ -142,7 +142,7 @@ RunService.Heartbeat:Connect(function()
 		if obj:IsA("BasePart") and obj.Name == "Body" then
 			local income = obj:GetAttribute("IncomePerSecond")
 			if income and income > 0 then
-				-- Check this brainrot belongs to the local player via owner attribute
+				-- Check this skin belongs to the local player via owner attribute
 				local ownerName = obj:GetAttribute("OwnerName")
 				if ownerName == LocalPlayer.Name then
 					total = total + income
@@ -206,7 +206,7 @@ CarryFrame.Parent = ScreenGui
 addCorner(CarryFrame, 12)
 addStroke(CarryFrame, Color3.fromRGB(255, 120, 30), 1.5)
 
-local CarryLabel = makeLabel(CarryFrame, "🏃 Carrying Brainrot! Run to your base!", nil, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
+local CarryLabel = makeLabel(CarryFrame, "🏃 Carrying Skin! Run to your base!", nil, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
 
 -- Pulsing glow animation
 local carryPulseTween
@@ -230,8 +230,8 @@ end
 local function updateCarrying()
 	local carrying = LocalPlayer:GetAttribute("IsCarrying")
 	if carrying then
-		local brainrotName = LocalPlayer:GetAttribute("CarryingBrainrotName") or "Brainrot"
-		CarryLabel.Text = "🏃 Carrying " .. brainrotName .. "! Run to your base!"
+		local skinName = LocalPlayer:GetAttribute("CarryingSkinName") or "Skin"
+		CarryLabel.Text = "🏃 Carrying " .. skinName .. "! Run to your base!"
 		CarryFrame.Visible = true
 		startCarryPulse()
 	else
@@ -242,7 +242,7 @@ end
 
 updateCarrying()
 LocalPlayer:GetAttributeChangedSignal("IsCarrying"):Connect(updateCarrying)
-LocalPlayer:GetAttributeChangedSignal("CarryingBrainrotName"):Connect(updateCarrying)
+LocalPlayer:GetAttributeChangedSignal("CarryingSkinName"):Connect(updateCarrying)
 
 -- ─────────────────────────────────────────────────────────
 -- 3. REBIRTH INFO (top-right)
@@ -443,12 +443,12 @@ local function showAttackBorder()
 	end)
 end
 
-if BrainrotStolenEvent then
-	BrainrotStolenEvent.OnClientEvent:Connect(function(thiefName, brainrotName)
+if SkinStolenEvent then
+	SkinStolenEvent.OnClientEvent:Connect(function(thiefName, skinName)
 		doRedFlash()
 		showAttackBorder()
 		showToast(
-			"😡 " .. (thiefName or "Someone") .. " stole your " .. (brainrotName or "Brainrot") .. "!",
+			"😡 " .. (thiefName or "Someone") .. " stole your " .. (skinName or "Skin") .. "!",
 			Color3.fromRGB(180, 30, 30)
 		)
 	end)
@@ -474,13 +474,13 @@ local function doGreenFlash()
 	}):Play()
 end
 
-local function spawnClaimPopup(brainrotName)
+local function spawnClaimPopup(skinName)
 	local popup = Instance.new("TextLabel")
 	popup.Name = "ClaimPopup"
 	popup.Size = UDim2.new(0, 400, 0, 70)
 	popup.Position = UDim2.new(0.5, -200, 0.5, 0)
 	popup.BackgroundTransparency = 1
-	popup.Text = "⭐ " .. (brainrotName or "Brainrot") .. " CLAIMED!"
+	popup.Text = "⭐ " .. (skinName or "Skin") .. " CLAIMED!"
 	popup.TextScaled = true
 	popup.Font = Enum.Font.GothamBold
 	popup.TextColor3 = Color3.fromRGB(255, 215, 0)
@@ -499,10 +499,10 @@ local function spawnClaimPopup(brainrotName)
 	end)
 end
 
-if BrainrotClaimedEvent then
-	BrainrotClaimedEvent.OnClientEvent:Connect(function(brainrotName)
+if SkinClaimedEvent then
+	SkinClaimedEvent.OnClientEvent:Connect(function(skinName)
 		doGreenFlash()
-		spawnClaimPopup(brainrotName)
+		spawnClaimPopup(skinName)
 	end)
 end
 
@@ -561,7 +561,7 @@ local HintFrame = makeDarkFrame(
 
 makeLabel(
 	HintFrame,
-	"Touch enemy brainrots to steal | Return to base to claim | Shop in center",
+	"Touch enemy skins to steal | Return to base to claim | Shop in center",
 	nil,
 	Enum.Font.Gotham,
 	Color3.fromRGB(210, 210, 210)
@@ -650,7 +650,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 end)
 
 -- ─────────────────────────────────────────────────────────
--- F-hold to sell carried brainrot (2-second hold)
+-- F-hold to sell carried skin (2-second hold)
 -- ─────────────────────────────────────────────────────────
 local SELL_HOLD_DURATION = 2
 
@@ -671,7 +671,7 @@ local SellLabel = Instance.new("TextLabel")
 SellLabel.Size               = UDim2.new(1, 0, 0.45, 0)
 SellLabel.Position           = UDim2.new(0, 0, 0, 0)
 SellLabel.BackgroundTransparency = 1
-SellLabel.Text               = "HOLD F — DISCARD BRAINROT"
+SellLabel.Text               = "HOLD F — DISCARD SKIN"
 SellLabel.TextScaled         = true
 SellLabel.Font               = Enum.Font.GothamBold
 SellLabel.TextColor3         = Color3.fromRGB(255, 160, 50)
@@ -721,7 +721,7 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		SellBarFill.Size = UDim2.new(frac, 0, 1, 0)
 		if elapsed >= SELL_HOLD_DURATION then
 			cancelSell()
-			if SellBrainrotRemote then SellBrainrotRemote:FireServer() end
+			if SellSkinRemote then SellSkinRemote:FireServer() end
 		end
 	end)
 end)
@@ -748,7 +748,7 @@ BuyHintFrame.ZIndex = 4
 
 local BuyHintLabel = makeLabel(
 	BuyHintFrame,
-	"Press E near a brainrot to buy it",
+	"Press E near a skin to buy it",
 	nil,
 	Enum.Font.Gotham,
 	Color3.fromRGB(220, 220, 255),

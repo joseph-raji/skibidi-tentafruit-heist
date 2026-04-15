@@ -223,14 +223,14 @@ local function makePowerBatTool()
 			if not targetPos then continue end
 			if (attackerRoot - targetPos).Magnitude > 14 then continue end
 
-			-- Drop brainrot if carrying
+			-- Drop skin if carrying
 			if _carrying[target] then
 				_carrying[target].Anchored = true
 				_carrying[target] = nil
 				target:SetAttribute("IsCarrying", false)
-				target:SetAttribute("CarryingBrainrotName", "")
-				evtNotification:FireClient(target, "Power Bat hit! You dropped the brainrot!", Color3.fromRGB(255, 100, 0))
-				evtNotification:FireClient(player, "Power hit! " .. target.Name .. " dropped their brainrot!", Color3.fromRGB(100, 255, 100))
+				target:SetAttribute("CarryingSkinName", "")
+				evtNotification:FireClient(target, "Power Bat hit! You dropped the skin!", Color3.fromRGB(255, 100, 0))
+				evtNotification:FireClient(player, "Power hit! " .. target.Name .. " dropped their skin!", Color3.fromRGB(100, 255, 100))
 			end
 
 			-- Stun 2s
@@ -310,7 +310,7 @@ local function makeRocketBatTool()
 				_carrying[target].Anchored = true
 				_carrying[target] = nil
 				target:SetAttribute("IsCarrying", false)
-				target:SetAttribute("CarryingBrainrotName", "")
+				target:SetAttribute("CarryingSkinName", "")
 				evtNotification:FireClient(target, "Rocket Bat BLAST! Dropped!", Color3.fromRGB(255, 50, 0))
 			end
 
@@ -1050,15 +1050,15 @@ function ItemsSystem.buyItem(player, itemId)
 end
 
 -- =========================================================================
--- Public: dropBrainrot helper (clears _carrying reference)
+-- Public: dropSkin helper (clears _carrying reference)
 -- =========================================================================
 
-function ItemsSystem.dropBrainrot(player)
+function ItemsSystem.dropSkin(player)
 	if _carrying[player] then
 		_carrying[player].Anchored = true
 		_carrying[player] = nil
 		player:SetAttribute("IsCarrying", false)
-		player:SetAttribute("CarryingBrainrotName", "")
+		player:SetAttribute("CarryingSkinName", "")
 	end
 end
 

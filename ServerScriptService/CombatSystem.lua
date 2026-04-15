@@ -1,5 +1,5 @@
 -- CombatSystem.lua
--- ModuleScript: handles bat combat, hit detection, and forced brainrot drops
+-- ModuleScript: handles bat combat, hit detection, and forced skin drops
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -18,30 +18,30 @@ local swingCooldowns = {}
 -- Shared state, set by init
 local _carrying = nil
 local _playerBases = nil
-local _brainrotOwner = nil
+local _skinOwner = nil
 
-function CombatSystem.init(carrying, playerBases, brainrotOwner)
+function CombatSystem.init(carrying, playerBases, skinOwner)
 	_carrying = carrying
 	_playerBases = playerBases
-	_brainrotOwner = brainrotOwner
+	_skinOwner = skinOwner
 end
 
-function CombatSystem.dropBrainrot(player, carrying)
-	local brainrot = carrying[player]
-	if not brainrot then
+function CombatSystem.dropSkin(player, carrying)
+	local skin = carrying[player]
+	if not skin then
 		return
 	end
 
-	-- Anchor the brainrot at its current position
-	brainrot.Anchored = true
+	-- Anchor the skin at its current position
+	skin.Anchored = true
 
 	carrying[player] = nil
 	player:SetAttribute("IsCarrying", false)
-	player:SetAttribute("CarryingBrainrotName", "")
+	player:SetAttribute("CarryingSkinName", "")
 
 	evtNotification:FireClient(
 		player,
-		"You were hit! Dropped the brainrot!",
+		"You were hit! Dropped the skin!",
 		Color3.fromRGB(220, 50, 50)
 	)
 end
@@ -63,7 +63,7 @@ local function flashRed(character)
 	end)
 end
 
-function CombatSystem.detectHit(attacker, carrying, playerBases, brainrotOwner)
+function CombatSystem.detectHit(attacker, carrying, playerBases, skinOwner)
 	local attackerChar = attacker.Character
 	if not attackerChar then
 		return
@@ -120,10 +120,10 @@ function CombatSystem.detectHit(attacker, carrying, playerBases, brainrotOwner)
 		flashRed(targetChar)
 
 		if carrying[target] then
-			CombatSystem.dropBrainrot(target, carrying)
+			CombatSystem.dropSkin(target, carrying)
 			evtNotification:FireClient(
 				attacker,
-				"Hit! You made " .. target.Name .. " drop their brainrot!",
+				"Hit! You made " .. target.Name .. " drop their skin!",
 				Color3.fromRGB(50, 220, 100)
 			)
 			hitSomeone = true
@@ -230,8 +230,8 @@ function CombatSystem.createBatTool()
 		end)
 
 		-- Perform hit detection using shared state
-		if _carrying and _playerBases and _brainrotOwner then
-			CombatSystem.detectHit(player, _carrying, _playerBases, _brainrotOwner)
+		if _carrying and _playerBases and _skinOwner then
+			CombatSystem.detectHit(player, _carrying, _playerBases, _skinOwner)
 		end
 	end)
 
