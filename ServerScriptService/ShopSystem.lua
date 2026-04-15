@@ -1058,13 +1058,13 @@ function ShopSystem.createShopPads()
 	-- -----------------------------------------------------------------------
 	local padY = BELT_Y + 0.25
 	local gachaPad = Instance.new("Part")
-	gachaPad.Name      = "GachaPad"
-	gachaPad.Anchored  = true
-	gachaPad.Size      = Vector3.new(12, 0.5, 12)
-	gachaPad.Position  = Vector3.new(GACHA_X, padY, 0)
-	gachaPad.BrickColor = BrickColor.new("Hot pink")
-	gachaPad.Material  = Enum.Material.Neon
-	gachaPad.Parent    = workspace
+	gachaPad.Name         = "GachaPad"
+	gachaPad.Anchored     = true
+	gachaPad.Size         = Vector3.new(12, 0.5, 12)
+	gachaPad.Position     = Vector3.new(GACHA_X, padY, 0)
+	gachaPad.Transparency = 1
+	gachaPad.CanCollide   = false
+	gachaPad.Parent       = workspace
 
 	local gachaLight = Instance.new("PointLight")
 	gachaLight.Brightness = 3
@@ -1084,14 +1084,14 @@ function ShopSystem.createShopPads()
 	chestBase.Anchored = true; chestBase.Size = Vector3.new(7, 4.5, 5)
 	chestBase.CFrame = CFrame.new(CX, CY + 2.25, CZ)
 	chestBase.Color = Color3.fromRGB(139, 90, 43); chestBase.Material = Enum.Material.WoodPlanks
-	chestBase.CanCollide = false; chestBase.Parent = workspace
+	chestBase.CanCollide = true; chestBase.Parent = workspace
 
 	-- Chest lid (slightly wider, arched top using WedgeParts on sides + flat center)
 	local chestLid = Instance.new("Part")
 	chestLid.Anchored = true; chestLid.Size = Vector3.new(7.4, 2.5, 5.4)
 	chestLid.CFrame = CFrame.new(CX, CY + 4.5 + 1.25, CZ)
 	chestLid.Color = Color3.fromRGB(160, 100, 50); chestLid.Material = Enum.Material.WoodPlanks
-	chestLid.CanCollide = false; chestLid.Parent = workspace
+	chestLid.CanCollide = true; chestLid.Parent = workspace
 
 	-- Metal bands (horizontal straps around base)
 	for _, yOff in ipairs({1, 3.2}) do
@@ -1151,8 +1151,8 @@ function ShopSystem.createShopPads()
 	gachaPrompt.ActionText            = "Ouvrir (GRATUIT)"
 	gachaPrompt.ObjectText            = "COFFRE AU TRÉSOR — 30 min de recharge"
 	gachaPrompt.HoldDuration          = 0
-	gachaPrompt.MaxActivationDistance = 10
-	gachaPrompt.Parent                = gachaPad
+	gachaPrompt.MaxActivationDistance = 12
+	gachaPrompt.Parent                = chestBase
 
 	gachaPrompt.Triggered:Connect(function(player)
 		ShopSystem.spinGacha(player, _playerBases, _skinOwner, _playerCollection)
