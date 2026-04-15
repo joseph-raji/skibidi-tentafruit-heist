@@ -66,6 +66,14 @@ local RARITY_COLOR = {
 	Legendary = Color3.fromRGB(255, 200, 0),
 }
 
+local RARITY_FR = {
+	Common    = "Commun",
+	Uncommon  = "Peu commun",
+	Rare      = "Rare",
+	Epic      = "Épique",
+	Legendary = "Légendaire",
+}
+
 -- =========================================================================
 -- Internal helpers
 -- =========================================================================
@@ -370,7 +378,7 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 		rarityLabel.Size            = UDim2.new(1, 0, 0.25, 0)
 		rarityLabel.Position        = UDim2.new(0, 0, 0.75, 0)
 		rarityLabel.BackgroundTransparency = 1
-		rarityLabel.Text            = skinData.rarity
+		rarityLabel.Text            = RARITY_FR[skinData.rarity] or skinData.rarity
 		rarityLabel.TextColor3      = RARITY_COLOR[skinData.rarity] or Color3.fromRGB(255, 255, 255)
 		rarityLabel.TextStrokeTransparency = 0.4
 		rarityLabel.TextScaled      = true
@@ -406,7 +414,7 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 		rarityLabel.Size            = UDim2.new(1, 0, 0.27, 0)
 		rarityLabel.Position        = UDim2.new(0, 0, 0.73, 0)
 		rarityLabel.BackgroundTransparency = 1
-		rarityLabel.Text            = skinData.rarity or ""
+		rarityLabel.Text            = (skinData.rarity and RARITY_FR[skinData.rarity]) or skinData.rarity or ""
 		rarityLabel.TextColor3      = RARITY_COLOR[skinData.rarity] or Color3.fromRGB(255, 255, 255)
 		rarityLabel.TextStrokeTransparency = 0.3
 		rarityLabel.TextScaled      = true
@@ -718,7 +726,7 @@ end
 -- Public: spinGacha
 -- =========================================================================
 
-local GACHA_X = -34  -- gacha machine X position
+local GACHA_X = -18  -- gacha machine X position (symmetric to fusion machine at +18)
 local GACHA_Z = 0    -- gacha machine Z position
 
 function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
@@ -1026,7 +1034,7 @@ function ShopSystem.createShopPads()
 	-- Spawn 1 skin every 4 seconds at the start of the belt
 	task.spawn(function()
 		while true do
-			task.wait(4)
+			task.wait(3)
 			-- Only show the real (FBX) brainrots on the carpet
 			local purchasable = {}
 			for _, entry in ipairs(SkinData.list) do
@@ -1064,130 +1072,73 @@ function ShopSystem.createShopPads()
 	gachaLight.Color      = Color3.fromRGB(255, 0, 128)
 	gachaLight.Parent     = gachaPad
 
+	-- -----------------------------------------------------------------------
+	-- COFFRE AU TRÉSOR — loot chest machine
+	-- -----------------------------------------------------------------------
+	local CX = gachaPad.Position.X
+	local CZ = gachaPad.Position.Z
+	local CY = padY  -- top of pad
+
+	-- Chest base (lower box)
+	local chestBase = Instance.new("Part")
+	chestBase.Anchored = true; chestBase.Size = Vector3.new(7, 4.5, 5)
+	chestBase.CFrame = CFrame.new(CX, CY + 2.25, CZ)
+	chestBase.Color = Color3.fromRGB(139, 90, 43); chestBase.Material = Enum.Material.WoodPlanks
+	chestBase.CanCollide = false; chestBase.Parent = workspace
+
+	-- Chest lid (slightly wider, arched top using WedgeParts on sides + flat center)
+	local chestLid = Instance.new("Part")
+	chestLid.Anchored = true; chestLid.Size = Vector3.new(7.4, 2.5, 5.4)
+	chestLid.CFrame = CFrame.new(CX, CY + 4.5 + 1.25, CZ)
+	chestLid.Color = Color3.fromRGB(160, 100, 50); chestLid.Material = Enum.Material.WoodPlanks
+	chestLid.CanCollide = false; chestLid.Parent = workspace
+
+	-- Metal bands (horizontal straps around base)
+	for _, yOff in ipairs({1, 3.2}) do
+		local band = Instance.new("Part")
+		band.Anchored = true; band.Size = Vector3.new(7.2, 0.5, 5.2)
+		band.CFrame = CFrame.new(CX, CY + yOff, CZ)
+		band.Color = Color3.fromRGB(80, 80, 85); band.Material = Enum.Material.Metal
+		band.CanCollide = false; band.Parent = workspace
+	end
+	-- Metal band on lid
+	local lidBand = Instance.new("Part")
+	lidBand.Anchored = true; lidBand.Size = Vector3.new(7.5, 0.5, 5.5)
+	lidBand.CFrame = CFrame.new(CX, CY + 4.5 + 0.5, CZ)
+	lidBand.Color = Color3.fromRGB(80, 80, 85); lidBand.Material = Enum.Material.Metal
+	lidBand.CanCollide = false; lidBand.Parent = workspace
+
+	-- Gold lock in center front
+	local lock = Instance.new("Part")
+	lock.Anchored = true; lock.Shape = Enum.PartType.Ball
+	lock.Size = Vector3.new(1.2, 1.2, 1.2)
+	lock.CFrame = CFrame.new(CX - 3.7, CY + 2.5, CZ)
+	lock.Color = Color3.fromRGB(255, 210, 0); lock.Material = Enum.Material.Neon
+	lock.CanCollide = false; lock.Parent = workspace
+
+	-- Glow light from chest
+	local chestLight = Instance.new("PointLight")
+	chestLight.Brightness = 3; chestLight.Range = 20
+	chestLight.Color = Color3.fromRGB(255, 200, 50)
+	chestLight.Parent = chestBase
+
+	-- Animate chest color cycling
 	RunService.Heartbeat:Connect(function()
-		if not gachaPad or not gachaPad.Parent then return end
-		local c = Color3.fromHSV((tick() * 0.5) % 1, 1, 1)
-		gachaPad.Color = c; gachaLight.Color = c
+		if not chestBase or not chestBase.Parent then return end
+		local hue = (tick() * 0.3) % 1
+		local glowCol = Color3.fromHSV(hue, 0.7, 1)
+		lock.Color = glowCol; chestLight.Color = glowCol
+		gachaPad.Color = glowCol; gachaLight.Color = glowCol
 	end)
 
-	local gachaBB = Instance.new("BillboardGui")
-	gachaBB.Size        = UDim2.new(0, 240, 0, 90)
-	gachaBB.StudsOffset = Vector3.new(0, 14, 0)
-	gachaBB.Parent      = gachaPad
-	local gachaLbl = Instance.new("TextLabel")
-	gachaLbl.Size                   = UDim2.new(1, 0, 1, 0)
-	gachaLbl.BackgroundTransparency = 1
-	gachaLbl.Text                   = "🎰 GACHA SPIN\n$150 — any rarity!"
-	gachaLbl.TextColor3             = Color3.fromRGB(255, 255, 255)
-	gachaLbl.TextStrokeTransparency = 0
-	gachaLbl.TextScaled             = true
-	gachaLbl.Font                   = Enum.Font.GothamBold
-	gachaLbl.Parent                 = gachaBB
-
-	-- -----------------------------------------------------------------------
-	-- TOURBILLON DIVIN — fortune wheel machine
-	-- -----------------------------------------------------------------------
-	local WX    = gachaPad.Position.X   -- = -18
-	local WZ    = gachaPad.Position.Z   -- = 0
-	local WY    = padY + 8              -- wheel center height
-	local WRAD  = 5.5                   -- wheel radius
-
-	-- Golden pedestal
-	local ped = Instance.new("Part")
-	ped.Anchored = true; ped.Shape = Enum.PartType.Cylinder
-	ped.Size = Vector3.new(1, 4, 4)
-	ped.CFrame = CFrame.new(WX, padY + 2, WZ) * CFrame.Angles(0, 0, math.pi/2)
-	ped.Color = Color3.fromRGB(218, 170, 40); ped.Material = Enum.Material.Metal
-	ped.CanCollide = false; ped.Anchored = true; ped.Parent = workspace
-
-	-- Wheel disc (cylinder face toward +X = player side)
-	local disc = Instance.new("Part")
-	disc.Anchored = true; disc.Shape = Enum.PartType.Cylinder
-	disc.Size = Vector3.new(0.6, WRAD*2, WRAD*2)
-	disc.CFrame = CFrame.new(WX, WY, WZ) * CFrame.Angles(0, 0, math.pi/2)
-	disc.Color = Color3.fromRGB(20, 18, 25); disc.Material = Enum.Material.SmoothPlastic
-	disc.CanCollide = false; disc.Parent = workspace
-
-	-- Center golden hub
-	local hub = Instance.new("Part")
-	hub.Anchored = true; hub.Shape = Enum.PartType.Ball
-	hub.Size = Vector3.new(2, 2, 2); hub.Position = Vector3.new(WX, WY, WZ)
-	hub.Color = Color3.fromRGB(255, 210, 0); hub.Material = Enum.Material.Neon
-	hub.CanCollide = false; hub.Parent = workspace
-
-	-- 5 coloured rarity segments (flat blocks that spin in the YZ plane)
-	local SEG_COLORS = {
-		Color3.fromRGB(180, 180, 180),  -- Common
-		Color3.fromRGB(50,  200, 80),   -- Uncommon
-		Color3.fromRGB(60,  120, 255),  -- Rare
-		Color3.fromRGB(180, 0,   255),  -- Epic
-		Color3.fromRGB(255, 200, 0),    -- Legendary
-	}
-	local SEG_NAMES = {"Commun","Peu commun","Rare","Épique","Légendaire"}
-	local wheelSegs = {}
-	local segBase   = {}
-	for i = 1, 5 do
-		segBase[i] = (i-1) * (2*math.pi/5)
-		local seg = Instance.new("Part")
-		seg.Anchored = true
-		seg.Size = Vector3.new(0.4, WRAD * 1.5, WRAD * 0.6)
-		seg.Color = SEG_COLORS[i]; seg.Material = Enum.Material.Neon
-		seg.CanCollide = false; seg.Parent = workspace
-		local bb = Instance.new("BillboardGui")
-		bb.Size = UDim2.new(0, 100, 0, 28); bb.AlwaysOnTop = false; bb.Parent = seg
-		local sl = Instance.new("TextLabel")
-		sl.Size = UDim2.fromScale(1,1); sl.BackgroundTransparency = 1
-		sl.Text = SEG_NAMES[i]; sl.TextScaled = true
-		sl.Font = Enum.Font.GothamBold; sl.TextColor3 = Color3.fromRGB(255,255,255)
-		sl.TextStrokeTransparency = 0.3; sl.Parent = bb
-		wheelSegs[i] = seg
-	end
-
-	-- Golden halo ring above wheel
-	local halo = Instance.new("Part")
-	halo.Anchored = true; halo.Shape = Enum.PartType.Cylinder
-	halo.Size = Vector3.new(0.4, (WRAD+1)*2, (WRAD+1)*2)
-	halo.CFrame = CFrame.new(WX - 0.3, WY + WRAD + 1.5, WZ) * CFrame.Angles(0, 0, math.pi/2)
-	halo.Color = Color3.fromRGB(255, 215, 0); halo.Material = Enum.Material.Neon
-	halo.CanCollide = false; halo.Parent = workspace
-	-- Make it a ring (thin outer) by using a SurfaceGui trick - just leave as thin cylinder
-
-	-- Angel wings (simplified — 3 WedgeParts per side)
-	local WING_CLR = Color3.fromRGB(255, 252, 220)
-	local function makeWing(side)  -- side = 1 (left/+Z) or -1 (right/-Z)
-		local wingDefs = {
-			-- {zOff, yOff, sizeY, sizeZ, tiltZ}
-			{side*2.5,   1,    8,  3,  side * math.rad(15)},
-			{side*4.5,   2,    6,  2.5, side * math.rad(30)},
-			{side*6,     0,    4,  2,  side * math.rad(50)},
-		}
-		for _, wd in ipairs(wingDefs) do
-			local w = Instance.new("WedgePart")
-			w.Anchored = true
-			w.Size = Vector3.new(0.5, wd[3], wd[4])
-			w.CFrame = CFrame.new(WX, WY + wd[2], WZ + wd[1])
-				* CFrame.Angles(0, 0, wd[5])
-			w.Color = WING_CLR; w.Material = Enum.Material.Neon
-			w.CanCollide = false; w.Parent = workspace
-		end
-	end
-	makeWing(1); makeWing(-1)
-
-	-- Fixed red pointer at top of wheel
-	local pointer = Instance.new("WedgePart")
-	pointer.Anchored = true; pointer.Size = Vector3.new(0.5, 2.5, 1.5)
-	pointer.CFrame = CFrame.new(WX, WY + WRAD + 1, WZ) * CFrame.Angles(0, 0, math.pi)
-	pointer.Color = Color3.fromRGB(255, 40, 40); pointer.Material = Enum.Material.Neon
-	pointer.CanCollide = false; pointer.Parent = workspace
-
-	-- BillboardGui: TOURBILLON DIVIN
+	-- Billboard above chest
 	local wbb = Instance.new("BillboardGui")
-	wbb.Size = UDim2.new(0, 340, 0, 100); wbb.StudsOffset = Vector3.new(0, WRAD + 5, 0)
-	wbb.Parent = disc
+	wbb.Size = UDim2.new(0, 300, 0, 90); wbb.StudsOffset = Vector3.new(0, 8, 0)
+	wbb.Parent = chestLid
 	local wtitle = Instance.new("TextLabel")
 	wtitle.Size = UDim2.new(1,0,0.55,0); wtitle.BackgroundTransparency = 1
-	wtitle.Text = "TOURBILLON DIVIN"; wtitle.TextScaled = true
-	wtitle.Font = Enum.Font.GothamBold; wtitle.TextColor3 = Color3.fromRGB(255, 230, 0)
+	wtitle.Text = "COFFRE AU TRÉSOR"; wtitle.TextScaled = true
+	wtitle.Font = Enum.Font.GothamBold; wtitle.TextColor3 = Color3.fromRGB(255, 220, 0)
 	wtitle.TextStrokeTransparency = 0; wtitle.Parent = wbb
 	local wsub = Instance.new("TextLabel")
 	wsub.Size = UDim2.new(1,0,0.45,0); wsub.Position = UDim2.new(0,0,0.55,0)
@@ -1195,26 +1146,10 @@ function ShopSystem.createShopPads()
 	wsub.TextScaled = true; wsub.Font = Enum.Font.Gotham
 	wsub.TextColor3 = Color3.fromRGB(220, 220, 255); wsub.Parent = wbb
 
-	-- Spin animation
-	local wheelAngle = 0
-	local SPIN_SPEED = 1.2
-	RunService.Heartbeat:Connect(function(dt)
-		wheelAngle = (wheelAngle + SPIN_SPEED * dt) % (2*math.pi)
-		for i, seg in ipairs(wheelSegs) do
-			if not seg or not seg.Parent then continue end
-			local a = segBase[i] + wheelAngle
-			seg.CFrame = CFrame.new(WX, WY + math.sin(a)*WRAD, WZ + math.cos(a)*WRAD)
-				* CFrame.Angles(a, 0, math.pi/2)
-		end
-		if hub and hub.Parent then
-			hub.Color = Color3.fromHSV((tick()*0.5)%1, 0.9, 1)
-		end
-	end)
-
-	-- ProximityPrompt instead of Touched
+	-- ProximityPrompt on the chest
 	local gachaPrompt = Instance.new("ProximityPrompt")
-	gachaPrompt.ActionText            = "Tourner (GRATUIT)"
-	gachaPrompt.ObjectText            = "TOURBILLON DIVIN — 30 min de recharge"
+	gachaPrompt.ActionText            = "Ouvrir (GRATUIT)"
+	gachaPrompt.ObjectText            = "COFFRE AU TRÉSOR — 30 min de recharge"
 	gachaPrompt.HoldDuration          = 0
 	gachaPrompt.MaxActivationDistance = 10
 	gachaPrompt.Parent                = gachaPad

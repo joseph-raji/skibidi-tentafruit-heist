@@ -136,9 +136,9 @@ function ProgressionSystem.rebirth(player, playerBases, skinOwner, playerCollect
 	local newRebirthCount = rebirthCount + 1
 	player:SetAttribute("RebirthCount", newRebirthCount)
 
-	-- Multiplier: 1 + (rebirthCount * 0.1), so each rebirth adds +10%
-	-- Example: rebirth 1 → 1.1x, rebirth 2 → 1.2x, rebirth 10 → 2.0x
-	local newMultiplier = 1 + (newRebirthCount * 0.1)
+	-- Multiplier: 1 + rebirthCount, so each rebirth adds +1×
+	-- Example: rebirth 1 → 2x, rebirth 2 → 3x, rebirth 10 → 11x
+	local newMultiplier = 1 + newRebirthCount
 	player:SetAttribute("MoneyMultiplier", newMultiplier)
 
 	-- Grant 1 additional slot per rebirth; BaseSystem.grantSlot handles floor unlocking
@@ -151,7 +151,7 @@ function ProgressionSystem.rebirth(player, playerBases, skinOwner, playerCollect
 	evtRebirthComplete:FireClient(player, newMultiplier)
 	evtNotification:FireClient(
 		player,
-		"RENAISSANCE ! Revenus x" .. string.format("%.1f", newMultiplier) .. " (+" .. newRebirthCount * 10 .. "%) !",
+		"RENAISSANCE ! Revenus x" .. newMultiplier .. " !",
 		Color3.fromRGB(255, 185, 0)
 	)
 end

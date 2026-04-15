@@ -248,7 +248,7 @@ local function buildGroundFloor(folder, pos, faceSign)
 		TRIM_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- Red vertical bars filling the opening (non-collidable, decorative)
+	-- Red vertical bars — hidden by default, appear only when base is locked
 	local displayWidth = BUILDING_WIDTH - pillarW * 2
 	local barCount     = 10
 	local barSpacing   = displayWidth / (barCount + 1)
@@ -258,7 +258,7 @@ local function buildGroundFloor(folder, pos, faceSign)
 			folder, "DisplayBar" .. i,
 			Vector3.new(0.45, openH, 0.45),
 			CFrame.new(frontFaceX, openY, barZ),
-			BAR_COLOR, 0, Enum.Material.Neon, false
+			BAR_COLOR, 1, Enum.Material.Neon, false  -- Transparency=1: hidden until locked
 		)
 	end
 
@@ -345,23 +345,26 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local halfDepth = BUILDING_DEPTH / 2
 	local halfWidth = BUILDING_WIDTH / 2
 
-	-- Back wall: two segments with a central gap for ladder entry
-	local LADDER_GAP = 6
-	local backSegW   = (BUILDING_WIDTH - LADDER_GAP) / 2
-	local backWallX  = bCX - faceSign * halfDepth
-	makePart(folder, "WallBackL" .. floorNum,
-		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, backSegW),
-		CFrame.new(backWallX, wallY, pos.Z - LADDER_GAP/2 - backSegW/2),
-		WALL_COLOR, 0, Enum.Material.Concrete, true)
-	makePart(folder, "WallBackR" .. floorNum,
-		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, backSegW),
-		CFrame.new(backWallX, wallY, pos.Z + LADDER_GAP/2 + backSegW/2),
+	-- Back wall: full (no ladder gap any more — stairs are on the side)
+	local backWallX = bCX - faceSign * halfDepth
+	makePart(folder, "WallBack" .. floorNum,
+		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, BUILDING_WIDTH),
+		CFrame.new(backWallX, wallY, pos.Z),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Left wall
-	makePart(folder, "WallLeft" .. floorNum,
-		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
-		CFrame.new(bCX, wallY, pos.Z - halfWidth),
+	-- Left wall: two segments with opening at building center for stair access
+	local STAIR_OPENING_W = 5
+	-- Back segment (from backWallX toward center)
+	local leftSegLen = BUILDING_DEPTH / 2 - STAIR_OPENING_W / 2
+	makePart(folder, "WallLeftBack" .. floorNum,
+		Vector3.new(leftSegLen, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(backWallX + faceSign * leftSegLen / 2, wallY, pos.Z - halfWidth),
+		WALL_COLOR, 0, Enum.Material.Concrete, true)
+	-- Front segment (from center toward frontFaceX)
+	local frontFaceXLocal = bCX + faceSign * halfDepth
+	makePart(folder, "WallLeftFront" .. floorNum,
+		Vector3.new(leftSegLen, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(frontFaceXLocal - faceSign * leftSegLen / 2, wallY, pos.Z - halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
 	-- Right wall
@@ -393,21 +396,43 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 		CFrame.new(bCX, roofY, pos.Z),
 		ROOF_COLOR, 0, Enum.Material.SmoothPlastic, true)
 
-	-- External climbable ladder (TrussPart) on the back exterior, aligned with the wall gap
-	local prevFloorY   = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
-	local ladderHeight = (floorGroundY - prevFloorY) + 4  -- 4 studs above this floor so player can step off
-	local ladderCenterY = prevFloorY + ladderHeight / 2
-	local ladderX      = backWallX - faceSign * 2   -- 2 studs outside the back wall
+	-- -----------------------------------------------------------------------
+	-- Exterior staircase on the LEFT side of the building
+	-- Stairs run along the depth (X) axis, from back of building toward center.
+	-- -----------------------------------------------------------------------
+	local STAIR_STEPS   = 10
+	local STAIR_STEP_D  = 2     -- depth per step (studs along X)
+	local STAIR_WIDTH   = 4     -- width of staircase (studs along Z)
+	local STAIR_COLOR   = Color3.fromRGB(90, 92, 98)
 
-	local ladder = Instance.new("TrussPart")
-	ladder.Name       = "Ladder" .. floorNum
-	ladder.Size       = Vector3.new(2, ladderHeight, 2)
-	ladder.CFrame     = CFrame.new(ladderX, ladderCenterY, pos.Z)
-	ladder.Anchored   = true
-	ladder.CanCollide = false
-	ladder.BrickColor = BrickColor.new("Dark stone grey")
-	ladder.Material   = Enum.Material.Metal
-	ladder.Parent     = folder
+	local prevFloorSurfaceY
+	if floorNum == 2 then
+		prevFloorSurfaceY = pos.Y + 2.2  -- ground floor interior surface
+	else
+		prevFloorSurfaceY = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
+	end
+	local stairHeightTotal = floorGroundY - prevFloorSurfaceY
+	local stepH = stairHeightTotal / STAIR_STEPS
+
+	-- Stair Z: just outside left wall exterior
+	local stairCenterZ = pos.Z - halfWidth - WALL_THICKNESS / 2 - STAIR_WIDTH / 2
+
+	for i = 1, STAIR_STEPS do
+		-- Each step is a pillar from prevFloorSurfaceY up to the i-th step top
+		local stepCenterY = prevFloorSurfaceY + (i * stepH) / 2
+		local stepCenterX = backWallX + faceSign * (i - 0.5) * STAIR_STEP_D
+		makePart(folder, "Stair" .. floorNum .. "_" .. i,
+			Vector3.new(STAIR_STEP_D, i * stepH, STAIR_WIDTH),
+			CFrame.new(stepCenterX, stepCenterY, stairCenterZ),
+			STAIR_COLOR, 0, Enum.Material.Concrete, true)
+	end
+
+	-- Landing platform flush with upper floor, aligned with the wall opening
+	local landingCenterX = backWallX + faceSign * (STAIR_STEPS + 0.5) * STAIR_STEP_D
+	makePart(folder, "StairLanding" .. floorNum,
+		Vector3.new(STAIR_STEP_D + 1, 0.4, STAIR_WIDTH),
+		CFrame.new(landingCenterX, floorGroundY + 0.2, stairCenterZ),
+		STAIR_COLOR, 0, Enum.Material.Concrete, true)
 end
 
 -- ============================================================
@@ -735,6 +760,16 @@ function BaseSystem.lockBase(player, playerBases)
 		end)
 	end)
 
+	-- Show red bars now that base is locked
+	local baseFolder = baseData.folder
+	if baseFolder then
+		for _, obj in ipairs(baseFolder:GetChildren()) do
+			if obj.Name:sub(1, 10) == "DisplayBar" then
+				obj.Transparency = 0
+			end
+		end
+	end
+
 	baseData.lockShield = doorFolder
 	baseData.isLocked   = true
 	player:SetAttribute("BaseIsLocked", true)
@@ -764,6 +799,16 @@ function BaseSystem.unlockBase(player, playerBases)
 	baseData.lockShield = nil
 	baseData.isLocked   = false
 	player:SetAttribute("BaseIsLocked", false)
+
+	-- Hide red bars now that base is unlocked
+	local baseFolder = baseData.folder
+	if baseFolder then
+		for _, obj in ipairs(baseFolder:GetChildren()) do
+			if obj.Name:sub(1, 10) == "DisplayBar" then
+				obj.Transparency = 1
+			end
+		end
+	end
 end
 
 -- ============================================================

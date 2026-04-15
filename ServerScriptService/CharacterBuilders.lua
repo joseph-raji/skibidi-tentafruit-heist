@@ -30,18 +30,19 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 		end
 	end
 
-	-- Position: align model bottom to floor.
-	-- pos.Y = slotPos.Y + s  (callers pass slotSurfaceY + s so leg-bottom lands at slotSurfaceY)
-	-- Facing is applied in CharacterBuilders.build using baseCenter.
+	-- Position: place model so bottom lands at pos.Y - s (= slotSurfaceY).
+	-- Single-step: get bounding box at current post-scale position, compute the
+	-- full X/Y/Z shift, then apply it once to avoid stale-position issues.
 	if clone.PrimaryPart then
-		clone:SetPrimaryPartCFrame(CFrame.new(pos))
 		local bbCF, bbSize = clone:GetBoundingBox()
 		local currentBottomY = bbCF.Position.Y - bbSize.Y / 2
-		local desiredBottomY = pos.Y - s              -- bottom of model = slotPos.Y
-		local yShift         = desiredBottomY - currentBottomY
-		clone:SetPrimaryPartCFrame(
-			CFrame.new(pos.X, clone.PrimaryPart.Position.Y + yShift, pos.Z)
-		)
+		local desiredBottomY = pos.Y - s  -- bottom of model = slotSurfaceY
+		local pp = clone.PrimaryPart
+		clone:SetPrimaryPartCFrame(CFrame.new(
+			pp.Position.X + (pos.X - bbCF.Position.X),
+			pp.Position.Y + (desiredBottomY - currentBottomY),
+			pp.Position.Z + (pos.Z - bbCF.Position.Z)
+		))
 	end
 	-- Mark this sub-model as FBX so CharacterBuilders.build rotates it correctly
 	clone:SetAttribute("_IsFBX", true)
