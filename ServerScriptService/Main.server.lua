@@ -89,36 +89,42 @@ baseplate.BrickColor = BrickColor.new("Bright green")
 baseplate.Material   = Enum.Material.Grass
 baseplate.Parent     = workspace
 
--- Boundary walls — solid brick (no separate grass cap to avoid LOD texture flickering)
+-- Boundary walls — gray stone body + green grass top strip
 -- N/S walls have a 34-stud gap centred at X=0 for the belt portal
 do
-	local H       = 35    -- wall height (studs)
+	local H       = 35    -- wall body height (studs)
 	local T       = 4     -- thickness
 	local GAP     = 34    -- portal opening width
-	local SIDE_W  = (300 - GAP) / 2   -- 133 studs each side panel
+	local SIDE_W  = (300 - GAP) / 2
 	local STONE   = Color3.fromRGB(88, 90, 96)
-	local baseY   = H / 2 - 0.5   -- wall centre Y (bottom sits on ground)
+	local GRASS   = Color3.fromRGB(80, 168, 60)
+	local baseY   = H / 2 - 0.5        -- wall body centre Y
+	local topY    = H - 0.5 + 1        -- grass strip centre Y
 
-	local function wallPart(size, pos, color)
+	local function wallPart(size, pos, color, mat)
 		local w = Instance.new("Part")
 		w.Anchored  = true; w.Size = size; w.Position = pos
-		w.Color = color; w.Material = Enum.Material.Brick
+		w.Color = color; w.Material = mat or Enum.Material.SmoothPlastic
 		w.CanCollide = true; w.Parent = workspace
 	end
 
-	-- North (Z = -140): two stone sections flanking portal gap
+	-- North (Z = -140): two stone sections + grass cap
 	wallPart(Vector3.new(SIDE_W, H, T), Vector3.new(-(GAP/2 + SIDE_W/2), baseY, -140), STONE)
 	wallPart(Vector3.new(SIDE_W, H, T), Vector3.new( (GAP/2 + SIDE_W/2), baseY, -140), STONE)
+	wallPart(Vector3.new(300,    2, T), Vector3.new(0, topY, -140), GRASS, Enum.Material.Grass)
 
 	-- South (Z = +140): same
 	wallPart(Vector3.new(SIDE_W, H, T), Vector3.new(-(GAP/2 + SIDE_W/2), baseY,  140), STONE)
 	wallPart(Vector3.new(SIDE_W, H, T), Vector3.new( (GAP/2 + SIDE_W/2), baseY,  140), STONE)
+	wallPart(Vector3.new(300,    2, T), Vector3.new(0, topY,  140), GRASS, Enum.Material.Grass)
 
-	-- West (X = -150): full wall
+	-- West (X = -150): full stone + grass cap
 	wallPart(Vector3.new(T, H, 280), Vector3.new(-150, baseY, 0), STONE)
+	wallPart(Vector3.new(T, 2, 280), Vector3.new(-150, topY,  0), GRASS, Enum.Material.Grass)
 
-	-- East (X = +150): full wall
+	-- East (X = +150): full stone + grass cap
 	wallPart(Vector3.new(T, H, 280), Vector3.new( 150, baseY, 0), STONE)
+	wallPart(Vector3.new(T, 2, 280), Vector3.new( 150, topY,  0), GRASS, Enum.Material.Grass)
 end
 
 -- Atmosphere and sky

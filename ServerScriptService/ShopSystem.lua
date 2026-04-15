@@ -718,7 +718,7 @@ end
 -- Public: spinGacha
 -- =========================================================================
 
-local GACHA_X = -18  -- gacha machine X position
+local GACHA_X = -34  -- gacha machine X position
 local GACHA_Z = 0    -- gacha machine Z position
 
 function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
@@ -1053,7 +1053,7 @@ function ShopSystem.createShopPads()
 	gachaPad.Name      = "GachaPad"
 	gachaPad.Anchored  = true
 	gachaPad.Size      = Vector3.new(12, 0.5, 12)
-	gachaPad.Position  = Vector3.new(-18, padY, 0)
+	gachaPad.Position  = Vector3.new(GACHA_X, padY, 0)
 	gachaPad.BrickColor = BrickColor.new("Hot pink")
 	gachaPad.Material  = Enum.Material.Neon
 	gachaPad.Parent    = workspace
@@ -1623,7 +1623,8 @@ function ShopSystem.createFusionMachine()
 		prompt.ActionText            = "Deposit Skin"
 		prompt.ObjectText            = "Emplacement Fusion " .. slotNum
 		prompt.HoldDuration          = 0
-		prompt.MaxActivationDistance = 8
+		prompt.MaxActivationDistance = 12
+		prompt.RequiresLineOfSight   = false
 		prompt.Parent                = ped
 
 		local slotNumCopy = slotNum

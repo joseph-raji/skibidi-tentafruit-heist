@@ -24,7 +24,7 @@ local FLOOR_HEIGHT_STEP = 17  -- Y distance between each floor's ground level
 local WALL_THICKNESS   = 1
 local ENTRANCE_GAP     = 12   -- width of open entrance in front wall
 
-local MAX_FLOORS       = 5
+local MAX_FLOORS       = 3
 local SLOTS_PER_FLOOR  = 10   -- 5 left + 5 right
 
 -- Shield / lock
