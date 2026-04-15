@@ -323,9 +323,14 @@ end
 local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local PLATFORM_COLOR  = Color3.fromRGB(70, 70, 75)
 	local WALL_COLOR      = Color3.fromRGB(130, 130, 135)
-	local ROOF_COLOR      = Color3.fromRGB(190, 190, 195)
+	local ROOF_COLOR      = Color3.fromRGB(38, 40, 48)  -- match ground-floor roof color
 
 	local bCX = pos.X + faceSign * (-6)
+
+	-- Remove the roof from the floor below so it doesn't clip with this floor's slab
+	local prevRoofName = (floorNum == 2) and "Roof" or ("Roof" .. (floorNum - 1))
+	local prevRoof = folder:FindFirstChild(prevRoofName)
+	if prevRoof then prevRoof:Destroy() end
 
 	-- Y of this floor's ground surface (floorNum=2 means first upper floor)
 	local floorGroundY = pos.Y + (floorNum - 1) * FLOOR_HEIGHT_STEP
@@ -345,80 +350,74 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local halfDepth = BUILDING_DEPTH / 2
 	local halfWidth = BUILDING_WIDTH / 2
 
-	-- Back wall: full (no ladder gap any more — stairs are on the side)
-	local backWallX = bCX - faceSign * halfDepth
+	local backWallX    = bCX - faceSign * halfDepth
+	local frontFaceX   = bCX + faceSign * halfDepth
+
+	-- Back wall: full
 	makePart(folder, "WallBack" .. floorNum,
 		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, BUILDING_WIDTH),
 		CFrame.new(backWallX, wallY, pos.Z),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Left wall: two segments with opening at building center for stair access
-	local STAIR_OPENING_W = 5
-	-- Back segment (from backWallX toward center)
-	local leftSegLen = BUILDING_DEPTH / 2 - STAIR_OPENING_W / 2
-	makePart(folder, "WallLeftBack" .. floorNum,
+	-- Left wall: one segment from back, with 8-stud opening at the front end for stair access
+	local STAIR_OPENING_W = 8
+	local leftSegLen = BUILDING_DEPTH - STAIR_OPENING_W  -- 32 studs
+	makePart(folder, "WallLeft" .. floorNum,
 		Vector3.new(leftSegLen, WALL_HEIGHT, WALL_THICKNESS),
 		CFrame.new(backWallX + faceSign * leftSegLen / 2, wallY, pos.Z - halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
-	-- Front segment (from center toward frontFaceX)
-	local frontFaceXLocal = bCX + faceSign * halfDepth
-	makePart(folder, "WallLeftFront" .. floorNum,
-		Vector3.new(leftSegLen, WALL_HEIGHT, WALL_THICKNESS),
-		CFrame.new(frontFaceXLocal - faceSign * leftSegLen / 2, wallY, pos.Z - halfWidth),
-		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Right wall
+	-- Right wall: full
 	makePart(folder, "WallRight" .. floorNum,
 		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
 		CFrame.new(bCX, wallY, pos.Z + halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
 	-- Front wall: two segments with entrance gap
-	local frontFaceX   = bCX + faceSign * halfDepth
 	local segmentWidth = (BUILDING_WIDTH - ENTRANCE_GAP) / 2
-
-	-- Front wall left segment
 	makePart(folder, "WallFrontLeft" .. floorNum,
 		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
 		CFrame.new(frontFaceX, wallY, pos.Z - ENTRANCE_GAP / 2 - segmentWidth / 2),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
-
-	-- Front wall right segment
 	makePart(folder, "WallFrontRight" .. floorNum,
 		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
 		CFrame.new(frontFaceX, wallY, pos.Z + ENTRANCE_GAP / 2 + segmentWidth / 2),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Roof
-	local roofY = floorGroundY + WALL_HEIGHT + 0.75
+	-- Roof (same style as original ground-floor roof)
+	local roofWidth = BUILDING_WIDTH + ROOF_OVERHANG * 2
+	local roofDepth = BUILDING_DEPTH + ROOF_OVERHANG * 2
+	local roofY     = floorGroundY + WALL_HEIGHT + ROOF_THICKNESS / 2
 	makePart(folder, "Roof" .. floorNum,
-		Vector3.new(BUILDING_DEPTH + 6, 1.5, BUILDING_WIDTH + 6),
+		Vector3.new(roofDepth, ROOF_THICKNESS, roofWidth),
 		CFrame.new(bCX, roofY, pos.Z),
 		ROOF_COLOR, 0, Enum.Material.SmoothPlastic, true)
 
 	-- -----------------------------------------------------------------------
-	-- Exterior staircase on the LEFT side of the building
-	-- Stairs run along the depth (X) axis, from back of building toward center.
+	-- Exterior staircase on the LEFT side of the building.
+	-- 8 steps × 4 studs deep, 8 studs wide.
+	-- Floor 2 stairs: ground level → floor 2.
+	-- Floor 3 stairs: floor 2 surface → floor 3.
 	-- -----------------------------------------------------------------------
-	local STAIR_STEPS   = 10
-	local STAIR_STEP_D  = 2     -- depth per step (studs along X)
-	local STAIR_WIDTH   = 4     -- width of staircase (studs along Z)
-	local STAIR_COLOR   = Color3.fromRGB(90, 92, 98)
+	local STAIR_STEPS  = 8
+	local STAIR_STEP_D = 4    -- depth per step (studs along building depth axis)
+	local STAIR_WIDTH  = 8    -- staircase width (studs along Z)
+	local STAIR_COLOR  = Color3.fromRGB(90, 92, 98)
 
+	-- Start from the actual floor surface below, not the interior ceiling
 	local prevFloorSurfaceY
 	if floorNum == 2 then
-		prevFloorSurfaceY = pos.Y + 2.2  -- ground floor interior surface
+		prevFloorSurfaceY = pos.Y           -- outside ground level
 	else
 		prevFloorSurfaceY = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
 	end
 	local stairHeightTotal = floorGroundY - prevFloorSurfaceY
-	local stepH = stairHeightTotal / STAIR_STEPS
+	local stepH            = stairHeightTotal / STAIR_STEPS
 
-	-- Stair Z: just outside left wall exterior
+	-- Staircase sits just outside the left wall
 	local stairCenterZ = pos.Z - halfWidth - WALL_THICKNESS / 2 - STAIR_WIDTH / 2
 
 	for i = 1, STAIR_STEPS do
-		-- Each step is a pillar from prevFloorSurfaceY up to the i-th step top
 		local stepCenterY = prevFloorSurfaceY + (i * stepH) / 2
 		local stepCenterX = backWallX + faceSign * (i - 0.5) * STAIR_STEP_D
 		makePart(folder, "Stair" .. floorNum .. "_" .. i,
@@ -427,7 +426,7 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 			STAIR_COLOR, 0, Enum.Material.Concrete, true)
 	end
 
-	-- Landing platform flush with upper floor, aligned with the wall opening
+	-- Landing platform at the top of the stairs, flush with the upper floor
 	local landingCenterX = backWallX + faceSign * (STAIR_STEPS + 0.5) * STAIR_STEP_D
 	makePart(folder, "StairLanding" .. floorNum,
 		Vector3.new(STAIR_STEP_D + 1, 0.4, STAIR_WIDTH),
@@ -631,8 +630,6 @@ function BaseSystem.unlockNextFloor(player, playerBases)
 
 	buildUpperFloor(baseData.folder, baseData.position, baseData.faceSign, floorNum)
 
-	baseData.maxSlots = baseData.maxSlots + SLOTS_PER_FLOOR
-
 	return true
 end
 
@@ -709,58 +706,48 @@ function BaseSystem.lockBase(player, playerBases)
 	local basePos  = baseData.position
 	local faceSign = baseData.faceSign
 
-	-- Build a physical door at the front entrance gap.
-	-- Front face X = bCX + faceSign * halfDepth = pos.X + faceSign * 11
 	local bCX        = basePos.X + faceSign * (-6)
-	local halfDepth  = BUILDING_DEPTH / 2   -- 17
-	local frontFaceX = bCX + faceSign * halfDepth   -- pos.X + faceSign * 11
-	local doorCenterY = basePos.Y + FLOOR_THICKNESS + WALL_HEIGHT / 2  -- mid-height of wall
+	local halfDepth  = BUILDING_DEPTH / 2
+	local frontFaceX = bCX + faceSign * halfDepth
 
-	local doorFolder = Instance.new("Folder")
-	doorFolder.Name   = "LockDoor"
-	doorFolder.Parent = workspace
+	-- Window geometry (must match buildGroundFloor)
+	local topBeamH     = 2.5
+	local sillH        = 1.0
+	local pillarW      = 2.5
+	local openH        = WALL_HEIGHT - topBeamH - sillH        -- 11.5
+	local openCenterY  = basePos.Y + FLOOR_THICKNESS + sillH + openH / 2
+	local displayWidth = BUILDING_WIDTH - pillarW * 2          -- 29
 
-	-- Main solid door panel spanning the entrance gap
-	local door = Instance.new("Part")
-	door.Name         = "EntranceDoor"
-	door.Size         = Vector3.new(WALL_THICKNESS, WALL_HEIGHT, ENTRANCE_GAP)
-	door.CFrame       = CFrame.new(frontFaceX, doorCenterY, basePos.Z)
-	door.Anchored     = true
-	door.CanCollide   = true
-	door.Color        = Color3.fromRGB(0, 200, 255)
-	door.Material     = Enum.Material.Neon
-	door.Transparency = 0.4
-	door.CastShadow   = false
-	door.Parent       = doorFolder
+	-- Invisible plane spanning the full window — blocks others, owner passes through
+	local lockPlane = Instance.new("Part")
+	lockPlane.Name         = "LockPlane"
+	lockPlane.Size         = Vector3.new(WALL_THICKNESS, openH, displayWidth)
+	lockPlane.CFrame       = CFrame.new(frontFaceX, openCenterY, basePos.Z)
+	lockPlane.Anchored     = true
+	lockPlane.CanCollide   = true
+	lockPlane.Transparency = 1
+	lockPlane.CastShadow   = false
+	lockPlane.Parent       = workspace
 
-	-- Glow light on door
-	local doorLight = Instance.new("PointLight")
-	doorLight.Brightness = 2
-	doorLight.Range      = 20
-	doorLight.Color      = Color3.fromRGB(0, 220, 255)
-	doorLight.Parent     = door
-
-	-- Owner passthrough: door becomes non-collidable for 1 second when owner touches it
+	-- Owner passthrough: temporarily disable collision when owner touches
 	local passThroughActive = false
-	door.Touched:Connect(function(hit)
+	lockPlane.Touched:Connect(function(hit)
 		local character = hit.Parent
 		if not character then return end
 		local touchPlayer = Players:GetPlayerFromCharacter(character)
 		if touchPlayer ~= player then return end
 		if passThroughActive then return end
 		passThroughActive = true
-		door.CanCollide   = false
-		door.Transparency = 0.8
-		task.delay(1.2, function()
-			if door and door.Parent then
-				door.CanCollide   = true
-				door.Transparency = 0.4
+		lockPlane.CanCollide = false
+		task.delay(1.5, function()
+			if lockPlane and lockPlane.Parent then
+				lockPlane.CanCollide = true
 			end
 			passThroughActive = false
 		end)
 	end)
 
-	-- Show red bars now that base is locked
+	-- Show red bars as visual indicator
 	local baseFolder = baseData.folder
 	if baseFolder then
 		for _, obj in ipairs(baseFolder:GetChildren()) do
@@ -770,14 +757,14 @@ function BaseSystem.lockBase(player, playerBases)
 		end
 	end
 
-	baseData.lockShield = doorFolder
+	baseData.lockShield = lockPlane
 	baseData.isLocked   = true
 	player:SetAttribute("BaseIsLocked", true)
 
-	evtNotification:FireClient(player, "Base verrouillée " .. LOCK_SHIELD_DURATION .. " sec ! Les autres ne peuvent pas entrer.", Color3.fromRGB(0, 220, 255))
+	evtNotification:FireClient(player, "Base verrouillée " .. LOCK_SHIELD_DURATION .. " sec ! Les barreaux rouges bloquent les envahisseurs.", Color3.fromRGB(255, 80, 80))
 
 	task.delay(LOCK_SHIELD_DURATION, function()
-		if baseData.lockShield == doorFolder then
+		if baseData.lockShield == lockPlane then
 			BaseSystem.unlockBase(player, playerBases)
 		end
 	end)
