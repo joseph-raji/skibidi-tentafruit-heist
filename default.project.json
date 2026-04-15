@@ -38,8 +38,8 @@
       "$className": "ReplicatedStorage",
       "Modules": {
         "$className": "Folder",
-        "BrainrotData": {
-          "$path": "ReplicatedStorage/Modules/BrainrotData.lua"
+        "SkinData": {
+          "$path": "ReplicatedStorage/Modules/SkinData.lua"
         },
         "GameConfig": {
           "$path": "ReplicatedStorage/Modules/GameConfig.lua"
