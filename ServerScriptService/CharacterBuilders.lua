@@ -755,21 +755,24 @@ function CharacterBuilders.build(skinId, position, model, s, skinData, baseCente
 	end
 
 	if torso and torso:IsA("BasePart") and baseCenter then
-		-- Skins face toward the pressure plate, which is between the skin and the
-		-- aisle center (at baseCenter.Z).
-		-- Left slots (skin Z < base Z): plate is in +Z direction → faceAngle = 0 (default +Z)
-		-- Right slots (skin Z > base Z): plate is in -Z direction → faceAngle = π
-		local faceAngle = position.Z > baseCenter.Z and math.pi or 0
+		-- Skins face toward their pressure plate (between skin and aisle at baseCenter.Z).
+		-- Left slots (skin Z < base Z): plate in +Z direction.
+		-- Right slots (skin Z > base Z): plate in -Z direction.
+		local subModel = torso.Parent
+		local isFBX = subModel and subModel:IsA("Model") and subModel:GetAttribute("_IsFBX")
 
-		if faceAngle ~= 0 then
-			-- FBX sub-model: rotate entire clone so all anchored parts move together
-			local subModel = torso.Parent
-			if subModel and subModel:IsA("Model") and subModel:GetAttribute("_IsFBX") then
-				subModel:SetPrimaryPartCFrame(
-					CFrame.new(torso.Position) * CFrame.Angles(0, faceAngle, 0)
-				)
-			else
-				-- Procedural: torso is anchored; welded limbs follow via WeldConstraints
+		local faceAngle
+		if isFBX then
+			-- FBX models import facing -Z; flip them with π for left slots,
+			-- leave at 0 for right slots (π would point them away from the plate).
+			faceAngle = position.Z > baseCenter.Z and 0 or math.pi
+			subModel:SetPrimaryPartCFrame(
+				CFrame.new(torso.Position) * CFrame.Angles(0, faceAngle, 0)
+			)
+		else
+			-- Procedural models face +Z by default; only right slots need a π flip.
+			faceAngle = position.Z > baseCenter.Z and math.pi or 0
+			if faceAngle ~= 0 then
 				torso.CFrame = CFrame.new(torso.Position) * CFrame.Angles(0, faceAngle, 0)
 			end
 		end

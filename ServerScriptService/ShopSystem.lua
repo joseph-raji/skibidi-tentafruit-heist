@@ -954,12 +954,12 @@ function ShopSystem.createShopPads()
 		rBar.Position = Vector3.new(ARCH_W/2, baseY + ARCH_H/2, frameZ)
 		rBar.Parent = workspace
 
-		-- Red carpet bridging from portal inner face to belt end
+		-- Red carpet from wall outer face all the way to the belt start/end
 		local carpetDir  = isStart and 1 or -1
-		local innerFaceZ = zPos + carpetDir * BLDG_D / 2
+		local outerFaceZ = zPos - carpetDir * BLDG_D / 2   -- flush with outer wall face
 		local beltEndZ   = isStart and BELT_START_Z or BELT_END_Z
-		local carpetLen  = math.abs(beltEndZ - innerFaceZ) + 2
-		local carpetCtrZ = innerFaceZ + carpetDir * carpetLen / 2
+		local carpetLen  = math.abs(beltEndZ - outerFaceZ) + 2
+		local carpetCtrZ = (outerFaceZ + beltEndZ) / 2
 		local carpet = Instance.new("Part")
 		carpet.Anchored  = true
 		carpet.Size      = Vector3.new(BELT_WIDTH, 0.3, carpetLen)

@@ -8,7 +8,7 @@ local Workspace = game:GetService("Workspace")
 local ProgressionSystem = {}
 
 -- Config
-local REBIRTH_COST = 8000
+local REBIRTH_COST = 50
 local REBIRTH_MULTIPLIER = 1.5
 local MAX_REBIRTHS = 10
 local INCOME_INTERVAL = 1

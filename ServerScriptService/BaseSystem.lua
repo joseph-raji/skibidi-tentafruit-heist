@@ -511,7 +511,7 @@ function BaseSystem.createBase(player, position, playerBases)
 	-- Owner steps on it to activate the base shield (replaces HUD button).
 	local lockPad = Instance.new("Part")
 	lockPad.Name         = "LockPad"
-	lockPad.Size         = Vector3.new(8, 0.3, 8)
+	lockPad.Size         = Vector3.new(4, 0.3, 4)
 	lockPad.Material     = Enum.Material.Neon
 	lockPad.Color        = Color3.fromRGB(0, 200, 255)
 	lockPad.CanCollide   = true
