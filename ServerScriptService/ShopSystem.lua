@@ -902,50 +902,83 @@ function ShopSystem.createShopPads()
 	local PILLAR_W     = 1.2
 
 	local function buildPortal(zPos)
-		-- Left pillar
-		local pillarL = Instance.new("Part")
-		pillarL.Anchored   = true
-		pillarL.Size       = Vector3.new(PILLAR_W, PILLAR_H, PILLAR_W)
-		pillarL.Position   = Vector3.new(-BELT_WIDTH / 2 - 1, BELT_Y + PILLAR_H / 2, zPos)
-		pillarL.Color      = PILLAR_COLOR
-		pillarL.Material   = Enum.Material.SmoothPlastic
-		pillarL.CanCollide = false
-		pillarL.Parent     = workspace
+		local isStart = (zPos < 0)
+		local baseY   = BELT_Y + 0.25
 
-		-- Right pillar
-		local pillarR = pillarL:Clone()
-		pillarR.Position = Vector3.new(BELT_WIDTH / 2 + 1, BELT_Y + PILLAR_H / 2, zPos)
-		pillarR.Parent   = workspace
+		local BLDG_W  = 30
+		local BLDG_H  = 18
+		local BLDG_D  = 5
+		local ARCH_W  = 18
+		local ARCH_H  = 13
+		local sideW   = (BLDG_W - ARCH_W) / 2   -- 6 per side
 
-		-- Horizontal arch bar
-		local arch = Instance.new("Part")
-		arch.Anchored   = true
-		arch.Size       = Vector3.new(BELT_WIDTH + 2 + PILLAR_W * 2, PILLAR_W, PILLAR_W)
-		arch.Position   = Vector3.new(0, BELT_Y + PILLAR_H + PILLAR_W / 2, zPos)
-		arch.Color      = ARCH_COLOR
-		arch.Material   = Enum.Material.SmoothPlastic
-		arch.CanCollide = false
-		arch.Parent     = workspace
+		local BRICK_CLR  = Color3.fromRGB(88, 63, 48)
+		local COL_CLR    = Color3.fromRGB(50, 52, 60)
+		local VOID_CLR   = Color3.fromRGB(6, 6, 8)
+		local SIGN_CLR   = Color3.fromRGB(14, 17, 26)
 
-		-- Pillar caps (small gold balls on top of each pillar)
-		for _, xSide in ipairs({ -BELT_WIDTH / 2 - 1, BELT_WIDTH / 2 + 1 }) do
-			local cap = Instance.new("Part")
-			cap.Shape     = Enum.PartType.Ball
-			cap.Anchored  = true
-			cap.Size      = Vector3.new(PILLAR_W * 2, PILLAR_W * 2, PILLAR_W * 2)
-			cap.Position  = Vector3.new(xSide, BELT_Y + PILLAR_H + PILLAR_W, zPos)
-			cap.Color     = Color3.fromRGB(255, 215, 50)
-			cap.Material  = Enum.Material.Neon
-			cap.CanCollide = false
-			cap.Parent    = workspace
+		-- Left brick panel
+		local lp = Instance.new("Part")
+		lp.Anchored = true; lp.Size = Vector3.new(sideW, BLDG_H, BLDG_D)
+		lp.Position = Vector3.new(-(ARCH_W/2 + sideW/2), baseY + BLDG_H/2, zPos)
+		lp.Color = BRICK_CLR; lp.Material = Enum.Material.Brick; lp.Parent = workspace
+
+		-- Right brick panel
+		local rp = lp:Clone()
+		rp.Position = Vector3.new(ARCH_W/2 + sideW/2, baseY + BLDG_H/2, zPos)
+		rp.Parent = workspace
+
+		-- Top brick panel (above arch)
+		local topH = BLDG_H - ARCH_H
+		local tp = Instance.new("Part")
+		tp.Anchored = true; tp.Size = Vector3.new(ARCH_W, topH, BLDG_D)
+		tp.Position = Vector3.new(0, baseY + ARCH_H + topH/2, zPos)
+		tp.Color = BRICK_CLR; tp.Material = Enum.Material.Brick; tp.Parent = workspace
+
+		-- Dark columns flanking arch (slightly protrude)
+		for _, x in ipairs({-ARCH_W/2 - 1.5, ARCH_W/2 + 1.5}) do
+			local col = Instance.new("Part")
+			col.Anchored = true; col.Size = Vector3.new(3, BLDG_H, BLDG_D + 1.5)
+			col.Position = Vector3.new(x, baseY + BLDG_H/2, zPos)
+			col.Color = COL_CLR; col.Material = Enum.Material.SmoothPlastic; col.Parent = workspace
 		end
 
-		-- Subtle warm light (no color cycling)
-		local light = Instance.new("PointLight")
-		light.Brightness = 1.5
-		light.Range      = 20
-		light.Color      = Color3.fromRGB(255, 200, 80)
-		light.Parent     = arch
+		-- Dark void fill (the archway opening is just a dark face, skins pass through)
+		local void = Instance.new("Part")
+		void.Anchored = true; void.Size = Vector3.new(ARCH_W - 0.5, ARCH_H, BLDG_D + 0.2)
+		void.Position = Vector3.new(0, baseY + ARCH_H/2, zPos)
+		void.Color = VOID_CLR; void.Material = Enum.Material.SmoothPlastic
+		void.CanCollide = false; void.Parent = workspace
+
+		-- Wide billboard sign above
+		local signH = 5
+		local sign = Instance.new("Part")
+		sign.Anchored = true; sign.Size = Vector3.new(BLDG_W + 6, signH, 0.8)
+		sign.Position = Vector3.new(0, baseY + BLDG_H + signH/2 + 0.5, zPos)
+		sign.Color = SIGN_CLR; sign.Material = Enum.Material.SmoothPlastic
+		sign.CanCollide = false; sign.Parent = workspace
+
+		local sg = Instance.new("SurfaceGui")
+		sg.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+		sg.CanvasSize = Vector2.new(800, 130)
+		-- NormalId.Back = +Z face, NormalId.Front = -Z face
+		sg.Face   = isStart and Enum.NormalId.Back or Enum.NormalId.Front
+		sg.Parent = sign
+		local lbl = Instance.new("TextLabel")
+		lbl.Size = UDim2.fromScale(1, 1); lbl.BackgroundTransparency = 1
+		lbl.Text = "Légendaire garanti dans ??\nMyhtique garanti dans ??"
+		lbl.TextScaled = true; lbl.Font = Enum.Font.GothamBold
+		lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.Parent = sg
+
+		-- Red carpet from arch outward onto belt
+		local carpetDir = isStart and 1 or -1
+		local carpetLen = 8
+		local carpet = Instance.new("Part")
+		carpet.Anchored = true
+		carpet.Size = Vector3.new(BELT_WIDTH, 0.3, carpetLen)
+		carpet.Position = Vector3.new(0, BELT_Y + 0.05, zPos + carpetDir * (BLDG_D/2 + carpetLen/2))
+		carpet.Color = Color3.fromRGB(180, 20, 20); carpet.Material = Enum.Material.Fabric
+		carpet.CanCollide = false; carpet.Parent = workspace
 	end
 
 	buildPortal(BELT_START_Z - 1)
@@ -1073,113 +1106,130 @@ function ShopSystem.createShopPads()
 	gachaLbl.Font                   = Enum.Font.GothamBold
 	gachaLbl.Parent                 = gachaBB
 
-	-- Prize wheel machine above the gacha pad
-	local MACHINE_X       = gachaPad.Position.X
-	local MACHINE_Z       = gachaPad.Position.Z
-	local WHEEL_CENTER_Y  = padY + 7
-	local WHEEL_CENTER    = Vector3.new(MACHINE_X, WHEEL_CENTER_Y, MACHINE_Z)
-	local WHEEL_RADIUS    = 4.5
+	-- -----------------------------------------------------------------------
+	-- TOURBILLON DIVIN — fortune wheel machine
+	-- -----------------------------------------------------------------------
+	local WX    = gachaPad.Position.X   -- = -18
+	local WZ    = gachaPad.Position.Z   -- = 0
+	local WY    = padY + 8              -- wheel center height
+	local WRAD  = 5.5                   -- wheel radius
 
-	-- 1. Metal vertical post
-	local post = Instance.new("Part")
-	post.Shape      = Enum.PartType.Cylinder
-	post.Size       = Vector3.new(1.2, 8, 1.2)
-	post.CFrame     = CFrame.new(MACHINE_X, padY + 4, MACHINE_Z)
-	post.BrickColor = BrickColor.new("Dark grey metallic")
-	post.Material   = Enum.Material.Metal
-	post.CanCollide = false
-	post.Anchored   = true
-	post.Parent     = workspace
+	-- Golden pedestal
+	local ped = Instance.new("Part")
+	ped.Anchored = true; ped.Shape = Enum.PartType.Cylinder
+	ped.Size = Vector3.new(1, 4, 4)
+	ped.CFrame = CFrame.new(WX, padY + 2, WZ) * CFrame.Angles(0, 0, math.pi/2)
+	ped.Color = Color3.fromRGB(218, 170, 40); ped.Material = Enum.Material.Metal
+	ped.CanCollide = false; ped.Anchored = true; ped.Parent = workspace
 
-	-- 2. Wheel disc (thin cylinder, face pointing toward +X / player side)
+	-- Wheel disc (cylinder face toward +X = player side)
 	local disc = Instance.new("Part")
-	disc.Shape      = Enum.PartType.Cylinder
-	disc.Size       = Vector3.new(0.5, 11, 11)
-	disc.CFrame     = CFrame.new(WHEEL_CENTER) * CFrame.Angles(0, 0, math.pi / 2)
-	disc.Color      = Color3.fromRGB(25, 25, 30)
-	disc.Material   = Enum.Material.SmoothPlastic
-	disc.CanCollide = false
-	disc.Anchored   = true
-	disc.Parent     = workspace
+	disc.Anchored = true; disc.Shape = Enum.PartType.Cylinder
+	disc.Size = Vector3.new(0.6, WRAD*2, WRAD*2)
+	disc.CFrame = CFrame.new(WX, WY, WZ) * CFrame.Angles(0, 0, math.pi/2)
+	disc.Color = Color3.fromRGB(20, 18, 25); disc.Material = Enum.Material.SmoothPlastic
+	disc.CanCollide = false; disc.Parent = workspace
 
-	-- 3. Hub center sphere
+	-- Center golden hub
 	local hub = Instance.new("Part")
-	hub.Shape      = Enum.PartType.Ball
-	hub.Size       = Vector3.new(2, 2, 2)
-	hub.Position   = WHEEL_CENTER
-	hub.Color      = Color3.fromRGB(255, 200, 0)
-	hub.Material   = Enum.Material.Metal
-	hub.CanCollide = false
-	hub.Anchored   = true
-	hub.Parent     = workspace
+	hub.Anchored = true; hub.Shape = Enum.PartType.Ball
+	hub.Size = Vector3.new(2, 2, 2); hub.Position = Vector3.new(WX, WY, WZ)
+	hub.Color = Color3.fromRGB(255, 210, 0); hub.Material = Enum.Material.Neon
+	hub.CanCollide = false; hub.Parent = workspace
 
-	-- 4. Fixed red pointer arrow at the top of the wheel
-	local pointer = Instance.new("WedgePart")
-	pointer.Size      = Vector3.new(0.5, 2, 1)
-	pointer.CFrame    = CFrame.new(WHEEL_CENTER + Vector3.new(0, WHEEL_RADIUS + 2, 0)) * CFrame.Angles(0, 0, math.pi)
-	pointer.Color     = Color3.fromRGB(255, 40, 40)
-	pointer.Material  = Enum.Material.Neon
-	pointer.CanCollide = false
-	pointer.Anchored  = true
-	pointer.Parent    = workspace
-
-	-- 5. Five rarity segment paddles (animated)
-	local WHEEL_RARITY_COLORS = {
+	-- 5 coloured rarity segments (flat blocks that spin in the YZ plane)
+	local SEG_COLORS = {
 		Color3.fromRGB(180, 180, 180),  -- Common
 		Color3.fromRGB(50,  200, 80),   -- Uncommon
 		Color3.fromRGB(60,  120, 255),  -- Rare
 		Color3.fromRGB(180, 0,   255),  -- Epic
 		Color3.fromRGB(255, 200, 0),    -- Legendary
 	}
-	local WHEEL_RARITY_NAMES = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
-
-	local wheelSegments = {}
-	local segBaseAngles = {}
+	local SEG_NAMES = {"Commun","Peu commun","Rare","Épique","Légendaire"}
+	local wheelSegs = {}
+	local segBase   = {}
 	for i = 1, 5 do
-		local baseAngle = (i - 1) * (2 * math.pi / 5)
-		segBaseAngles[i] = baseAngle
-
+		segBase[i] = (i-1) * (2*math.pi/5)
 		local seg = Instance.new("Part")
-		seg.Size      = Vector3.new(0.4, 3.8, 1.6)
-		seg.Color     = WHEEL_RARITY_COLORS[i]
-		seg.Material  = Enum.Material.Neon
-		seg.CanCollide = false
-		seg.Anchored  = true
-		seg.Parent    = workspace
-
+		seg.Anchored = true
+		seg.Size = Vector3.new(0.4, WRAD * 1.5, WRAD * 0.6)
+		seg.Color = SEG_COLORS[i]; seg.Material = Enum.Material.Neon
+		seg.CanCollide = false; seg.Parent = workspace
 		local bb = Instance.new("BillboardGui")
-		bb.Size        = UDim2.new(0, 90, 0, 28)
-		bb.AlwaysOnTop = false
-		bb.Parent      = seg
-		local lbl = Instance.new("TextLabel")
-		lbl.Size                   = UDim2.new(1, 0, 1, 0)
-		lbl.BackgroundTransparency = 1
-		lbl.Text                   = WHEEL_RARITY_NAMES[i]
-		lbl.TextScaled             = true
-		lbl.Font                   = Enum.Font.GothamBold
-		lbl.TextColor3             = Color3.fromRGB(255, 255, 255)
-		lbl.TextStrokeTransparency = 0.3
-		lbl.Parent                 = bb
-
-		wheelSegments[i] = seg
+		bb.Size = UDim2.new(0, 100, 0, 28); bb.AlwaysOnTop = false; bb.Parent = seg
+		local sl = Instance.new("TextLabel")
+		sl.Size = UDim2.fromScale(1,1); sl.BackgroundTransparency = 1
+		sl.Text = SEG_NAMES[i]; sl.TextScaled = true
+		sl.Font = Enum.Font.GothamBold; sl.TextColor3 = Color3.fromRGB(255,255,255)
+		sl.TextStrokeTransparency = 0.3; sl.Parent = bb
+		wheelSegs[i] = seg
 	end
 
-	-- 6. Animate the spinning wheel
-	local wheelAngle     = 0
-	local WHEEL_SPIN_SPEED = 1.2  -- radians per second
-	RunService.Heartbeat:Connect(function(dt)
-		wheelAngle = (wheelAngle + WHEEL_SPIN_SPEED * dt) % (2 * math.pi)
-		for i, seg in ipairs(wheelSegments) do
-			if not seg or not seg.Parent then continue end
-			local angle = segBaseAngles[i] + wheelAngle
-			local segY  = WHEEL_CENTER_Y + math.sin(angle) * WHEEL_RADIUS
-			local segZ  = MACHINE_Z      + math.cos(angle) * WHEEL_RADIUS
-			seg.CFrame  = CFrame.new(MACHINE_X, segY, segZ)
-				* CFrame.Angles(angle, 0, math.pi / 2)
+	-- Golden halo ring above wheel
+	local halo = Instance.new("Part")
+	halo.Anchored = true; halo.Shape = Enum.PartType.Cylinder
+	halo.Size = Vector3.new(0.4, (WRAD+1)*2, (WRAD+1)*2)
+	halo.CFrame = CFrame.new(WX - 0.3, WY + WRAD + 1.5, WZ) * CFrame.Angles(0, 0, math.pi/2)
+	halo.Color = Color3.fromRGB(255, 215, 0); halo.Material = Enum.Material.Neon
+	halo.CanCollide = false; halo.Parent = workspace
+	-- Make it a ring (thin outer) by using a SurfaceGui trick - just leave as thin cylinder
+
+	-- Angel wings (simplified — 3 WedgeParts per side)
+	local WING_CLR = Color3.fromRGB(255, 252, 220)
+	local function makeWing(side)  -- side = 1 (left/+Z) or -1 (right/-Z)
+		local wingDefs = {
+			-- {zOff, yOff, sizeY, sizeZ, tiltZ}
+			{side*2.5,   1,    8,  3,  side * math.rad(15)},
+			{side*4.5,   2,    6,  2.5, side * math.rad(30)},
+			{side*6,     0,    4,  2,  side * math.rad(50)},
+		}
+		for _, wd in ipairs(wingDefs) do
+			local w = Instance.new("WedgePart")
+			w.Anchored = true
+			w.Size = Vector3.new(0.5, wd[3], wd[4])
+			w.CFrame = CFrame.new(WX, WY + wd[2], WZ + wd[1])
+				* CFrame.Angles(0, 0, wd[5])
+			w.Color = WING_CLR; w.Material = Enum.Material.Neon
+			w.CanCollide = false; w.Parent = workspace
 		end
-		-- Pulse the hub color
+	end
+	makeWing(1); makeWing(-1)
+
+	-- Fixed red pointer at top of wheel
+	local pointer = Instance.new("WedgePart")
+	pointer.Anchored = true; pointer.Size = Vector3.new(0.5, 2.5, 1.5)
+	pointer.CFrame = CFrame.new(WX, WY + WRAD + 1, WZ) * CFrame.Angles(0, 0, math.pi)
+	pointer.Color = Color3.fromRGB(255, 40, 40); pointer.Material = Enum.Material.Neon
+	pointer.CanCollide = false; pointer.Parent = workspace
+
+	-- BillboardGui: TOURBILLON DIVIN
+	local wbb = Instance.new("BillboardGui")
+	wbb.Size = UDim2.new(0, 340, 0, 100); wbb.StudsOffset = Vector3.new(0, WRAD + 5, 0)
+	wbb.Parent = disc
+	local wtitle = Instance.new("TextLabel")
+	wtitle.Size = UDim2.new(1,0,0.55,0); wtitle.BackgroundTransparency = 1
+	wtitle.Text = "TOURBILLON DIVIN"; wtitle.TextScaled = true
+	wtitle.Font = Enum.Font.GothamBold; wtitle.TextColor3 = Color3.fromRGB(255, 230, 0)
+	wtitle.TextStrokeTransparency = 0; wtitle.Parent = wbb
+	local wsub = Instance.new("TextLabel")
+	wsub.Size = UDim2.new(1,0,0.45,0); wsub.Position = UDim2.new(0,0,0.55,0)
+	wsub.BackgroundTransparency = 1; wsub.Text = "Tour gratuit — 30 min de cooldown"
+	wsub.TextScaled = true; wsub.Font = Enum.Font.Gotham
+	wsub.TextColor3 = Color3.fromRGB(220, 220, 255); wsub.Parent = wbb
+
+	-- Spin animation
+	local wheelAngle = 0
+	local SPIN_SPEED = 1.2
+	RunService.Heartbeat:Connect(function(dt)
+		wheelAngle = (wheelAngle + SPIN_SPEED * dt) % (2*math.pi)
+		for i, seg in ipairs(wheelSegs) do
+			if not seg or not seg.Parent then continue end
+			local a = segBase[i] + wheelAngle
+			seg.CFrame = CFrame.new(WX, WY + math.sin(a)*WRAD, WZ + math.cos(a)*WRAD)
+				* CFrame.Angles(a, 0, math.pi/2)
+		end
 		if hub and hub.Parent then
-			hub.Color = Color3.fromHSV((tick() * 0.6) % 1, 0.8, 1)
+			hub.Color = Color3.fromHSV((tick()*0.5)%1, 0.9, 1)
 		end
 	end)
 

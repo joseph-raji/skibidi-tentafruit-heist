@@ -563,7 +563,7 @@ local function showResultPopup(text, color)
 end
 
 -- ============================================================
--- TAB 3: STATS
+-- TAB 3: RENAISSANCE (rebirth screen)
 -- ============================================================
 
 local StatsPage = Instance.new("Frame")
@@ -574,82 +574,190 @@ StatsPage.Visible                = false
 StatsPage.ZIndex                 = 7
 StatsPage.Parent                 = ContentArea
 
-local StatsBox = Instance.new("Frame")
-StatsBox.Name             = "StatsBox"
-StatsBox.Size             = UDim2.new(0, 300, 0, 160)
-StatsBox.Position         = UDim2.new(0.5, -150, 0, 10)
-StatsBox.BackgroundColor3 = Color3.fromRGB(24, 24, 36)
-StatsBox.BorderSizePixel  = 0
-StatsBox.ZIndex           = 8
-StatsBox.Parent           = StatsPage
-corner(StatsBox, 10)
-padding(StatsBox, 14)
+-- Warning text
+local WarnLabel = Instance.new("TextLabel")
+WarnLabel.Size                   = UDim2.new(1, -20, 0, 42)
+WarnLabel.Position               = UDim2.new(0, 10, 0, 6)
+WarnLabel.BackgroundTransparency = 1
+WarnLabel.Text                   = "[AVERTISSEMENT] Tu perdras tous les personnages\nCash et Brainrot que tu possèdes quand tu renaîtras"
+WarnLabel.TextColor3             = Color3.fromRGB(255, 80, 60)
+WarnLabel.TextScaled             = true
+WarnLabel.Font                   = Enum.Font.GothamBold
+WarnLabel.TextWrapped            = true
+WarnLabel.ZIndex                 = 8
+WarnLabel.Parent                 = StatsPage
 
-local StatsLayout = Instance.new("UIListLayout")
-StatsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-StatsLayout.Padding   = UDim.new(0, 8)
-StatsLayout.Parent    = StatsBox
+-- "Tu débloqueras:" header
+local UnlockTitle = Instance.new("TextLabel")
+UnlockTitle.Size                   = UDim2.new(1, -20, 0, 22)
+UnlockTitle.Position               = UDim2.new(0, 10, 0, 52)
+UnlockTitle.BackgroundTransparency = 1
+UnlockTitle.Text                   = "Tu débloqueras:"
+UnlockTitle.TextColor3             = Color3.fromRGB(255, 210, 0)
+UnlockTitle.TextScaled             = true
+UnlockTitle.Font                   = Enum.Font.GothamBold
+UnlockTitle.ZIndex                 = 8
+UnlockTitle.Parent                 = StatsPage
 
-local MoneyStatLabel    = label(StatsBox, "💰 Money: $0",    14, Color3.fromRGB(100, 240, 100), Enum.Font.GothamBold)
-MoneyStatLabel.Size     = UDim2.new(1, 0, 0, 18)
-MoneyStatLabel.LayoutOrder = 1
-MoneyStatLabel.ZIndex   = 9
+-- Unlock tiles grid
+local UnlockGrid = Instance.new("Frame")
+UnlockGrid.Size             = UDim2.new(1, -20, 0, 80)
+UnlockGrid.Position         = UDim2.new(0, 10, 0, 76)
+UnlockGrid.BackgroundTransparency = 1
+UnlockGrid.ZIndex           = 8
+UnlockGrid.Parent           = StatsPage
 
-local RebirthStatLabel  = label(StatsBox, "🔄 Rebirths: 0", 14, Color3.fromRGB(160, 120, 255), Enum.Font.GothamBold)
-RebirthStatLabel.Size   = UDim2.new(1, 0, 0, 18)
-RebirthStatLabel.LayoutOrder = 2
-RebirthStatLabel.ZIndex = 9
+local gridLayout = Instance.new("UIListLayout")
+gridLayout.FillDirection = Enum.FillDirection.Horizontal
+gridLayout.SortOrder     = Enum.SortOrder.LayoutOrder
+gridLayout.Padding       = UDim.new(0, 6)
+gridLayout.Parent        = UnlockGrid
 
-local MultStatLabel     = label(StatsBox, "⚡ Multiplier: 1x", 14, Color3.fromRGB(255, 200, 60), Enum.Font.GothamBold)
-MultStatLabel.Size      = UDim2.new(1, 0, 0, 18)
-MultStatLabel.LayoutOrder = 3
-MultStatLabel.ZIndex    = 9
+local unlockDefs = {
+	{ top = "MULTI",        icon = "⚡", bottom = "x??" },
+	{ top = "ARGENT",       icon = "💰", bottom = "$500K" },
+	{ top = "Base verrouillée", icon = "🔒", bottom = "+10s" },
+	{ top = "Emplacement",  icon = "📦", bottom = "+1" },
+}
+local MultTile -- reference to update multiplier value
+for i, def in ipairs(unlockDefs) do
+	local tile = Instance.new("Frame")
+	tile.Size             = UDim2.new(0, 115, 1, 0)
+	tile.BackgroundColor3 = Color3.fromRGB(30, 35, 48)
+	tile.BorderSizePixel  = 0
+	tile.LayoutOrder      = i
+	tile.ZIndex           = 9
+	tile.Parent           = UnlockGrid
+	corner(tile, 8)
+	stroke(tile, Color3.fromRGB(70, 80, 120), 1.5)
 
-local RebirthHint = label(StatsBox, "Rebirth for $" .. REBIRTH_COST .. " → permanent income boost", 12, Color3.fromRGB(160, 160, 190))
-RebirthHint.Size      = UDim2.new(1, 0, 0, 30)
-RebirthHint.LayoutOrder = 4
-RebirthHint.ZIndex    = 9
-RebirthHint.TextWrapped = true
+	local topLbl = Instance.new("TextLabel")
+	topLbl.Size = UDim2.new(1, 0, 0.3, 0); topLbl.Position = UDim2.new(0, 0, 0, 0)
+	topLbl.BackgroundTransparency = 1; topLbl.Text = def.top
+	topLbl.TextScaled = true; topLbl.Font = Enum.Font.Gotham
+	topLbl.TextColor3 = Color3.fromRGB(180, 185, 210); topLbl.ZIndex = 10; topLbl.Parent = tile
 
-local RebirthBtn = button(StatsPage, "REBIRTH", Color3.fromRGB(100, 30, 160))
-RebirthBtn.Size     = UDim2.new(0, 180, 0, 42)
-RebirthBtn.Position = UDim2.new(0.5, -90, 0, 180)
+	local iconLbl = Instance.new("TextLabel")
+	iconLbl.Size = UDim2.new(1, 0, 0.4, 0); iconLbl.Position = UDim2.new(0, 0, 0.3, 0)
+	iconLbl.BackgroundTransparency = 1; iconLbl.Text = def.icon
+	iconLbl.TextScaled = true; iconLbl.Font = Enum.Font.GothamBold
+	iconLbl.TextColor3 = Color3.fromRGB(255, 255, 255); iconLbl.ZIndex = 10; iconLbl.Parent = tile
+
+	local botLbl = Instance.new("TextLabel")
+	botLbl.Size = UDim2.new(1, 0, 0.3, 0); botLbl.Position = UDim2.new(0, 0, 0.7, 0)
+	botLbl.BackgroundTransparency = 1; botLbl.Text = def.bottom
+	botLbl.TextScaled = true; botLbl.Font = Enum.Font.GothamBold
+	botLbl.TextColor3 = Color3.fromRGB(100, 230, 100); botLbl.ZIndex = 10; botLbl.Parent = tile
+
+	if def.top == "MULTI" then MultTile = botLbl end
+end
+
+-- "Requis:" label
+local RequisLabel = Instance.new("TextLabel")
+RequisLabel.Size                   = UDim2.new(1, -20, 0, 18)
+RequisLabel.Position               = UDim2.new(0, 10, 0, 164)
+RequisLabel.BackgroundTransparency = 1
+RequisLabel.Text                   = "Requis:"
+RequisLabel.TextColor3             = Color3.fromRGB(255, 210, 0)
+RequisLabel.TextScaled             = true
+RequisLabel.Font                   = Enum.Font.GothamBold
+RequisLabel.ZIndex                 = 8
+RequisLabel.Parent                 = StatsPage
+
+-- Progress bar background
+local BarBG = Instance.new("Frame")
+BarBG.Size             = UDim2.new(1, -20, 0, 22)
+BarBG.Position         = UDim2.new(0, 10, 0, 186)
+BarBG.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+BarBG.BorderSizePixel  = 0
+BarBG.ZIndex           = 8
+BarBG.Parent           = StatsPage
+corner(BarBG, 4)
+
+local BarFill = Instance.new("Frame")
+BarFill.Size             = UDim2.new(0, 0, 1, 0)
+BarFill.BackgroundColor3 = Color3.fromRGB(190, 140, 30)
+BarFill.BorderSizePixel  = 0
+BarFill.ZIndex           = 9
+BarFill.Parent           = BarBG
+corner(BarFill, 4)
+
+local BarLabel = Instance.new("TextLabel")
+BarLabel.Size                   = UDim2.fromScale(1, 1)
+BarLabel.BackgroundTransparency = 1
+BarLabel.Text                   = "$0 / $" .. REBIRTH_COST
+BarLabel.TextColor3             = Color3.fromRGB(255, 255, 255)
+BarLabel.TextScaled             = true
+BarLabel.Font                   = Enum.Font.GothamBold
+BarLabel.ZIndex                 = 10
+BarLabel.Parent                 = BarBG
+
+-- Stats row (money / rebirths / multiplier — small, for reference)
+local MoneyStatLabel   = Instance.new("TextLabel")
+MoneyStatLabel.Size                   = UDim2.new(1, -20, 0, 16)
+MoneyStatLabel.Position               = UDim2.new(0, 10, 0, 214)
+MoneyStatLabel.BackgroundTransparency = 1
+MoneyStatLabel.Text                   = "💰 $0  |  🔄 0 renaissances  |  ⚡ x1"
+MoneyStatLabel.TextColor3             = Color3.fromRGB(160, 165, 190)
+MoneyStatLabel.TextScaled             = true
+MoneyStatLabel.Font                   = Enum.Font.Gotham
+MoneyStatLabel.ZIndex                 = 8
+MoneyStatLabel.Parent                 = StatsPage
+-- keep legacy variable names alive for refreshStats
+local RebirthStatLabel = MoneyStatLabel  -- same label, updated together
+local MultStatLabel    = MoneyStatLabel
+
+-- RENAISSANCE button
+local RebirthBtn = button(StatsPage, "Renaissance", Color3.fromRGB(120, 100, 20))
+RebirthBtn.Size     = UDim2.new(1, -20, 0, 42)
+RebirthBtn.Position = UDim2.new(0, 10, 0, 238)
 RebirthBtn.ZIndex   = 8
-stroke(RebirthBtn, Color3.fromRGB(160, 80, 255), 2)
+RebirthBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RebirthBtn.Font     = Enum.Font.GothamBold
+stroke(RebirthBtn, Color3.fromRGB(200, 170, 30), 2)
 
 -- Confirm bar (hidden until rebirth clicked)
 local ConfirmBar = Instance.new("Frame")
 ConfirmBar.Name                   = "ConfirmBar"
-ConfirmBar.Size                   = UDim2.new(0, 320, 0, 44)
-ConfirmBar.Position               = UDim2.new(0.5, -160, 0, 234)
-ConfirmBar.BackgroundColor3       = Color3.fromRGB(30, 20, 46)
+ConfirmBar.Size                   = UDim2.new(1, -20, 0, 44)
+ConfirmBar.Position               = UDim2.new(0, 10, 0, 285)
+ConfirmBar.BackgroundColor3       = Color3.fromRGB(25, 18, 14)
 ConfirmBar.BorderSizePixel        = 0
 ConfirmBar.Visible                = false
 ConfirmBar.ZIndex                 = 8
 ConfirmBar.Parent                 = StatsPage
 corner(ConfirmBar, 8)
-stroke(ConfirmBar, Color3.fromRGB(140, 60, 220), 1.5)
+stroke(ConfirmBar, Color3.fromRGB(200, 60, 40), 1.5)
 
-local ConfirmLabel = label(ConfirmBar, "Are you sure? This resets your skins!", 12, Color3.fromRGB(255, 200, 80))
+local ConfirmLabel = label(ConfirmBar, "Sûr(e) ? Tu perdras tout !", 12, Color3.fromRGB(255, 200, 80))
 ConfirmLabel.Size     = UDim2.new(1, 0, 0, 18)
 ConfirmLabel.Position = UDim2.new(0, 0, 0, 4)
 ConfirmLabel.TextXAlignment = Enum.TextXAlignment.Center
 ConfirmLabel.ZIndex   = 9
 
-local YesBtn = button(ConfirmBar, "YES", Color3.fromRGB(160, 30, 30))
+local YesBtn = button(ConfirmBar, "OUI", Color3.fromRGB(160, 30, 30))
 YesBtn.Size     = UDim2.new(0, 90, 0, 24)
 YesBtn.Position = UDim2.new(0.5, -96, 1, -28)
 YesBtn.ZIndex   = 9
 
-local NoBtn = button(ConfirmBar, "NO", Color3.fromRGB(40, 120, 40))
+local NoBtn = button(ConfirmBar, "NON", Color3.fromRGB(40, 120, 40))
 NoBtn.Size     = UDim2.new(0, 90, 0, 24)
 NoBtn.Position = UDim2.new(0.5, 6, 1, -28)
 NoBtn.ZIndex   = 9
 
 local function refreshStats()
-	MoneyStatLabel.Text   = "💰 Money: $" .. getMoney()
-	RebirthStatLabel.Text = "🔄 Rebirths: "  .. getRebirths()
-	MultStatLabel.Text    = "⚡ Multiplier: " .. getMultiplier() .. "x"
+	local money    = getMoney()
+	local rebirths = getRebirths()
+	local mult     = getMultiplier()
+	local nextMult = math.floor(mult * 1.5 * 10) / 10
+
+	MoneyStatLabel.Text = "💰 $" .. money .. "  |  🔄 " .. rebirths .. " renaissances  |  ⚡ x" .. mult
+	if MultTile then MultTile.Text = "x" .. nextMult end
+
+	-- Progress bar
+	local pct = math.min(money / REBIRTH_COST, 1)
+	BarFill.Size  = UDim2.new(pct, 0, 1, 0)
+	BarLabel.Text = "$" .. money .. " / $" .. REBIRTH_COST
 end
 
 -- ============================================================
