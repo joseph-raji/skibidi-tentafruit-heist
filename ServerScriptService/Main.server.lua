@@ -93,7 +93,7 @@ baseplate.Parent     = workspace
 do
 	local H       = 35    -- wall body height (studs)
 	local T       = 4     -- thickness
-	local GAP     = 34    -- portal opening width (centred); wider than BELT_WIDTH=30 so carpet fits
+	local GAP     = 34    -- portal opening width (centred); wider than BELT_WIDTH=24 so brick pillars frame it
 	local SIDE_W  = (300 - GAP) / 2   -- 138 studs each side panel
 	local STONE   = Color3.fromRGB(88, 90, 96)
 	local GRASS   = Color3.fromRGB(80, 168, 60)

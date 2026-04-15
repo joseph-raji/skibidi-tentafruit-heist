@@ -14,12 +14,12 @@ local BaseSystem = {}
 local BASE_SIZE        = 58    -- plot footprint (square)
 local BUILDING_DEPTH   = 40   -- along depth axis (X for left/right houses)
 local BUILDING_WIDTH   = 34   -- along Z axis
-local WALL_HEIGHT      = 10   -- wall height per floor
+local WALL_HEIGHT      = 20   -- wall height per floor
 local FLOOR_THICKNESS  = 2    -- floor slab thickness
 local ROOF_OVERHANG    = 3    -- roof overhang on each side
 local ROOF_THICKNESS   = 1.5
 local YARD_DEPTH       = 14   -- green area between building front and plot edge toward road
-local FLOOR_HEIGHT_STEP = 12  -- Y distance between each floor's ground level
+local FLOOR_HEIGHT_STEP = 22  -- Y distance between each floor's ground level
 
 local WALL_THICKNESS   = 1
 local ENTRANCE_GAP     = 12   -- width of open entrance in front wall
@@ -390,8 +390,8 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	-- Placed at the back of the building, rising from the previous floor to this floor
 	local prevFloorY  = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
 	local STEP_HEIGHT = 2
-	local STEP_DEPTH  = 4
-	local STEP_COUNT  = 6   -- 6 x 2 = 12 studs rise = FLOOR_HEIGHT_STEP
+	local STEP_DEPTH  = 2
+	local STEP_COUNT  = 11  -- 11 x 2 = 22 studs rise = FLOOR_HEIGHT_STEP
 	local STAIR_WIDTH = ENTRANCE_GAP  -- 12 studs, centered at pos.Z
 
 	-- Back of staircase anchors at back wall inner face (1 stud inside back wall)
@@ -432,7 +432,7 @@ function BaseSystem.buildEmptyBase(position)
 	folder.Parent = workspace
 
 	buildGroundFloor(folder, position, faceSign)
-	buildSign(folder, position, faceSign, "Available")
+	buildSign(folder, position, faceSign, "Disponible")
 
 	emptyBaseFolders[key] = folder
 end
@@ -529,7 +529,7 @@ function BaseSystem.createBase(player, position, playerBases)
 	local lockLabel = Instance.new("TextLabel")
 	lockLabel.Size                   = UDim2.new(1, 0, 1, 0)
 	lockLabel.BackgroundTransparency = 1
-	lockLabel.Text                   = "🔒 LOCK BASE"
+	lockLabel.Text                   = "🔒 VERROUILLER"
 	lockLabel.TextScaled             = true
 	lockLabel.Font                   = Enum.Font.GothamBold
 	lockLabel.TextColor3             = Color3.fromRGB(255, 255, 255)
@@ -672,12 +672,12 @@ function BaseSystem.lockBase(player, playerBases)
 	local lastLock = lockCooldowns[player.UserId]
 	if lastLock and (now - lastLock) < LOCK_COOLDOWN then
 		local remaining = math.ceil(LOCK_COOLDOWN - (now - lastLock))
-		evtNotification:FireClient(player, "Base lock on cooldown (" .. remaining .. "s remaining)", Color3.fromRGB(255, 200, 50))
+		evtNotification:FireClient(player, "Verrou en recharge (" .. remaining .. "s restantes)", Color3.fromRGB(255, 200, 50))
 		return
 	end
 
 	if baseData.isLocked then
-		evtNotification:FireClient(player, "Your base is already locked!", Color3.fromRGB(255, 200, 50))
+		evtNotification:FireClient(player, "Ta base est déjà verrouillée !", Color3.fromRGB(255, 200, 50))
 		return
 	end
 
@@ -741,7 +741,7 @@ function BaseSystem.lockBase(player, playerBases)
 	baseData.isLocked   = true
 	player:SetAttribute("BaseIsLocked", true)
 
-	evtNotification:FireClient(player, "Base locked for " .. LOCK_SHIELD_DURATION .. " seconds! Others cannot enter.", Color3.fromRGB(0, 220, 255))
+	evtNotification:FireClient(player, "Base verrouillée " .. LOCK_SHIELD_DURATION .. " sec ! Les autres ne peuvent pas entrer.", Color3.fromRGB(0, 220, 255))
 
 	task.delay(LOCK_SHIELD_DURATION, function()
 		if baseData.lockShield == doorFolder then

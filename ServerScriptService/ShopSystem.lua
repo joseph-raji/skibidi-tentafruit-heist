@@ -189,8 +189,8 @@ function ShopSystem.placeCarriedSkin(player, slotIndex)
 		}
 	end
 
-	-- Spawn at new slot position
-	local dest = Vector3.new(slotPos.X, slotPos.Y + skinData.size / 2, slotPos.Z)
+	-- Spawn at new slot position (spawnSkin adds 0.5× internally for 1.5× scale)
+	local dest = Vector3.new(slotPos.X, slotPos.Y + skinData.size, slotPos.Z)
 	ShopSystem.spawnSkin(skinData, dest, player, _skinOwner, slotIndex)
 	NotificationEvent:FireClient(player, bName .. " déplacé vers l'emplacement " .. slotIndex .. " !", Color3.fromRGB(200, 200, 255))
 end
@@ -685,8 +685,8 @@ function ShopSystem.buySkin(player, skinId, playerBases, skinOwner, playerCollec
 	-- Deduct money
 	player:SetAttribute("Money", currentMoney - data.cost)
 
-	-- Spawn at slot surface + half skin height so it rests on the floor
-	local spawnPos = Vector3.new(slotPos.X, slotPos.Y + data.size / 2, slotPos.Z)
+	-- Spawn at slot surface + full skin size (spawnSkin adds 0.5× internally for 1.5× scale)
+	local spawnPos = Vector3.new(slotPos.X, slotPos.Y + data.size, slotPos.Z)
 	ShopSystem.spawnSkin(data, spawnPos, player, skinOwner, slotIndex)
 
 	-- Update collection
@@ -824,7 +824,7 @@ end
 -- =========================================================================
 
 local BELT_LENGTH  = 210  -- visual belt spans Z=-105 to Z=105 (all 8 bases)
-local BELT_WIDTH   = 30   -- studs wide along X
+local BELT_WIDTH   = 24   -- studs wide along X
 local BELT_SPEED   = 7    -- studs per second (items move along +Z)
 local BELT_Y       = 0.5  -- height
 local BELT_START_Z = -BELT_LENGTH / 2   -- -105
@@ -856,7 +856,7 @@ function ShopSystem.createShopPads()
 	for i = 0, STRIPE_COUNT - 1 do
 		local stripe = Instance.new("Part")
 		stripe.Anchored   = true
-		stripe.Size       = Vector3.new(BELT_WIDTH - 2, 0.05, 2)
+		stripe.Size       = Vector3.new(BELT_WIDTH - 2, 0.05, 1.5)
 		stripe.BrickColor = BrickColor.new("Bright orange")
 		stripe.Material   = Enum.Material.Neon
 		stripe.CanCollide = false
@@ -892,9 +892,9 @@ function ShopSystem.createShopPads()
 		local BLDG_W  = 34    -- fills the 34-stud wall gap
 		local BLDG_H  = 35    -- matches boundary wall height
 		local BLDG_D  = 5     -- thick enough to be solid; matches wall T=4
-		local ARCH_W  = 30    -- = BELT_WIDTH, full passage width
+		local ARCH_W  = 24    -- = BELT_WIDTH, full passage width
 		local ARCH_H  = 14    -- archway height (players + skins fit)
-		local sideW   = (BLDG_W - ARCH_W) / 2   -- 2 studs each side
+		local sideW   = (BLDG_W - ARCH_W) / 2   -- 5 studs each side
 
 		local BRICK_CLR = Color3.fromRGB(70, 50, 38)   -- dark brown brick
 		local VOID_CLR  = Color3.fromRGB(4, 4, 6)      -- near-black portal interior
@@ -1002,14 +1002,23 @@ function ShopSystem.createShopPads()
 		end
 	end)
 
+	-- Only the 5 imported/FBX brainrots appear on the belt
+	local FBX_IDS = {
+		fraise_jr = true,
+		banane_bro = true,
+		myrtille_babe = true,
+		noisette_king = true,
+		poire_belle = true,
+	}
+
 	-- Spawn 1 skin every 4 seconds at the start of the belt
 	task.spawn(function()
 		while true do
 			task.wait(4)
-			-- Only show purchasable skins on the carpet (not gacha-only)
+			-- Only show the real (FBX) brainrots on the carpet
 			local purchasable = {}
 			for _, entry in ipairs(SkinData.list) do
-				if entry.cost then
+				if entry.cost and FBX_IDS[entry.id] then
 					table.insert(purchasable, entry)
 				end
 			end
@@ -1316,7 +1325,7 @@ function ShopSystem.handleFuseChoose(player, choiceIndex)
 		NotificationEvent:FireClient(player, "Base pleine ! Libère un emplacement d'abord.", Color3.fromRGB(255, 180, 0))
 		return
 	end
-	local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size / 2, slotPos.Z)
+	local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size, slotPos.Z)
 	ShopSystem.spawnSkin(chosen, dest, player, _skinOwner, slotIndex)
 	if not _playerCollection[player] then _playerCollection[player] = {} end
 	_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1

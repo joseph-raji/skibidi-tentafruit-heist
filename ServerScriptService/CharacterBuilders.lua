@@ -30,7 +30,7 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 		end
 	end
 
-	-- Position: align model bottom to floor.
+	-- Position: align model bottom to floor, then face toward the road.
 	-- pos.Y = slotPos.Y + s  (callers pass slotSurfaceY + s so leg-bottom lands at slotSurfaceY)
 	if clone.PrimaryPart then
 		clone:SetPrimaryPartCFrame(CFrame.new(pos))
@@ -38,12 +38,15 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 		local currentBottomY = bbCF.Position.Y - bbSize.Y / 2
 		local desiredBottomY = pos.Y - s              -- bottom of model = slotPos.Y
 		local yShift         = desiredBottomY - currentBottomY
-		-- Rotate to face inward (toward the road) based on which side of the map
-		local faceAngle = pos.X < 0 and 0 or (pos.X > 0 and math.pi or 0)
+		-- Left-side bases (X<0): face +X (toward road) = +pi/2 around Y.
+		-- Right-side bases (X>0): face -X (toward road) = -pi/2 around Y.
+		local faceAngle = pos.X < 0 and math.pi/2 or (pos.X > 0 and -math.pi/2 or 0)
 		clone:SetPrimaryPartCFrame(
 			CFrame.new(pos.X, clone.PrimaryPart.Position.Y + yShift, pos.Z)
 				* CFrame.Angles(0, faceAngle, 0)
 		)
+		-- Mark so CharacterBuilders.build skips the second rotation pass
+		clone.PrimaryPart:SetAttribute("_FacingApplied", true)
 	end
 	model.PrimaryPart = clone.PrimaryPart
 
@@ -745,10 +748,28 @@ end
 -- ============================================================
 function CharacterBuilders.build(skinId, position, model, s, skinData)
 	local builder = builders[skinId]
+	local torso
 	if builder then
-		return builder(position, model, s)
+		torso = builder(position, model, s)
+	else
+		torso = CharacterBuilders.generic(position, model, s, skinData)
 	end
-	return CharacterBuilders.generic(position, model, s, skinData)
+
+	-- Apply facing direction for procedural models (FBX models handle this internally).
+	-- Left-side bases (X<0): face +X toward road = rotate +pi/2 around Y.
+	-- Right-side bases (X>0): face -X toward road = rotate -pi/2 around Y.
+	-- Belt (X=0): no rotation.
+	if torso and torso:IsA("BasePart") and not torso:GetAttribute("_FacingApplied") then
+		local faceAngle = position.X < 0 and math.pi/2
+			or (position.X > 0 and -math.pi/2 or 0)
+		if faceAngle ~= 0 then
+			-- For procedural models: torso is anchored, all limbs are welded (non-anchored)
+			-- and will follow the torso via WeldConstraints.
+			torso.CFrame = CFrame.new(torso.Position) * CFrame.Angles(0, faceAngle, 0)
+		end
+	end
+
+	return torso
 end
 
 return CharacterBuilders
