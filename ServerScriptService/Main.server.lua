@@ -79,10 +79,11 @@ local baseIndex        = 0
 -- ============================================================
 
 -- Green grass baseplate (300 x 280)
+-- Top surface at Y=0.5, matching the top of base plot concrete, so the ground is flush everywhere.
 local baseplate = Instance.new("Part")
 baseplate.Name       = "Baseplate"
 baseplate.Size       = Vector3.new(300, 1, 280)
-baseplate.Position   = Vector3.new(0, -1, 0)
+baseplate.Position   = Vector3.new(0, 0, 0)
 baseplate.Anchored   = true
 baseplate.BrickColor = BrickColor.new("Bright green")
 baseplate.Material   = Enum.Material.Grass

@@ -14,12 +14,12 @@ local BaseSystem = {}
 local BASE_SIZE        = 58    -- plot footprint (square)
 local BUILDING_DEPTH   = 40   -- along depth axis (X for left/right houses)
 local BUILDING_WIDTH   = 34   -- along Z axis
-local WALL_HEIGHT      = 20   -- wall height per floor
+local WALL_HEIGHT      = 15   -- wall height per floor
 local FLOOR_THICKNESS  = 2    -- floor slab thickness
 local ROOF_OVERHANG    = 3    -- roof overhang on each side
 local ROOF_THICKNESS   = 1.5
 local YARD_DEPTH       = 14   -- green area between building front and plot edge toward road
-local FLOOR_HEIGHT_STEP = 22  -- Y distance between each floor's ground level
+local FLOOR_HEIGHT_STEP = 17  -- Y distance between each floor's ground level
 
 local WALL_THICKNESS   = 1
 local ENTRANCE_GAP     = 12   -- width of open entrance in front wall
@@ -391,7 +391,7 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local prevFloorY  = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP
 	local STEP_HEIGHT = 2
 	local STEP_DEPTH  = 2
-	local STEP_COUNT  = 11  -- 11 x 2 = 22 studs rise = FLOOR_HEIGHT_STEP
+	local STEP_COUNT  = 9   -- 9 x 2 = 18 studs ≈ FLOOR_HEIGHT_STEP(17)
 	local STAIR_WIDTH = ENTRANCE_GAP  -- 12 studs, centered at pos.Z
 
 	-- Back of staircase anchors at back wall inner face (1 stud inside back wall)

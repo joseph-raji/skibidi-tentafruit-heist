@@ -30,24 +30,21 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 		end
 	end
 
-	-- Position: align model bottom to floor, then face toward the road.
+	-- Position: align model bottom to floor.
 	-- pos.Y = slotPos.Y + s  (callers pass slotSurfaceY + s so leg-bottom lands at slotSurfaceY)
+	-- Facing is applied in CharacterBuilders.build using baseCenter.
 	if clone.PrimaryPart then
 		clone:SetPrimaryPartCFrame(CFrame.new(pos))
 		local bbCF, bbSize = clone:GetBoundingBox()
 		local currentBottomY = bbCF.Position.Y - bbSize.Y / 2
 		local desiredBottomY = pos.Y - s              -- bottom of model = slotPos.Y
 		local yShift         = desiredBottomY - currentBottomY
-		-- Left-side bases (X<0): face +X (toward road) = +pi/2 around Y.
-		-- Right-side bases (X>0): face -X (toward road) = -pi/2 around Y.
-		local faceAngle = pos.X < 0 and math.pi/2 or (pos.X > 0 and -math.pi/2 or 0)
 		clone:SetPrimaryPartCFrame(
 			CFrame.new(pos.X, clone.PrimaryPart.Position.Y + yShift, pos.Z)
-				* CFrame.Angles(0, faceAngle, 0)
 		)
-		-- Mark so CharacterBuilders.build skips the second rotation pass
-		clone.PrimaryPart:SetAttribute("_FacingApplied", true)
 	end
+	-- Mark this sub-model as FBX so CharacterBuilders.build rotates it correctly
+	clone:SetAttribute("_IsFBX", true)
 	model.PrimaryPart = clone.PrimaryPart
 
 	-- Play walk animation if present
@@ -746,7 +743,9 @@ end
 -- ============================================================
 -- Dispatcher
 -- ============================================================
-function CharacterBuilders.build(skinId, position, model, s, skinData)
+-- baseCenter: Vector3 of the owning base's position (passed from spawnSkin).
+-- Nil for belt/gacha preview skins which don't need facing.
+function CharacterBuilders.build(skinId, position, model, s, skinData, baseCenter)
 	local builder = builders[skinId]
 	local torso
 	if builder then
@@ -755,17 +754,24 @@ function CharacterBuilders.build(skinId, position, model, s, skinData)
 		torso = CharacterBuilders.generic(position, model, s, skinData)
 	end
 
-	-- Apply facing direction for procedural models (FBX models handle this internally).
-	-- Left-side bases (X<0): face +X toward road = rotate +pi/2 around Y.
-	-- Right-side bases (X>0): face -X toward road = rotate -pi/2 around Y.
-	-- Belt (X=0): no rotation.
-	if torso and torso:IsA("BasePart") and not torso:GetAttribute("_FacingApplied") then
-		local faceAngle = position.X < 0 and math.pi/2
-			or (position.X > 0 and -math.pi/2 or 0)
+	if torso and torso:IsA("BasePart") and baseCenter then
+		-- Skins face toward the pressure plate, which is between the skin and the
+		-- aisle center (at baseCenter.Z).
+		-- Left slots (skin Z < base Z): plate is in +Z direction → faceAngle = 0 (default +Z)
+		-- Right slots (skin Z > base Z): plate is in -Z direction → faceAngle = π
+		local faceAngle = position.Z > baseCenter.Z and math.pi or 0
+
 		if faceAngle ~= 0 then
-			-- For procedural models: torso is anchored, all limbs are welded (non-anchored)
-			-- and will follow the torso via WeldConstraints.
-			torso.CFrame = CFrame.new(torso.Position) * CFrame.Angles(0, faceAngle, 0)
+			-- FBX sub-model: rotate entire clone so all anchored parts move together
+			local subModel = torso.Parent
+			if subModel and subModel:IsA("Model") and subModel:GetAttribute("_IsFBX") then
+				subModel:SetPrimaryPartCFrame(
+					CFrame.new(torso.Position) * CFrame.Angles(0, faceAngle, 0)
+				)
+			else
+				-- Procedural: torso is anchored; welded limbs follow via WeldConstraints
+				torso.CFrame = CFrame.new(torso.Position) * CFrame.Angles(0, faceAngle, 0)
+			end
 		end
 	end
 

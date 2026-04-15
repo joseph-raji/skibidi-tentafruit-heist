@@ -292,9 +292,10 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 	-- -----------------------------------------------------------------------
 	-- Build the humanoid fruit character
 	-- -----------------------------------------------------------------------
+	local baseCenter = owner and _playerBases[owner] and _playerBases[owner].position
 	local body
 	if CharacterBuilders then
-		body = CharacterBuilders.build(skinData.id, position, model, s, skinData)
+		body = CharacterBuilders.build(skinData.id, position, model, s, skinData, baseCenter)
 	end
 	if not body then
 		-- Fallback: simple sphere so the game never crashes
