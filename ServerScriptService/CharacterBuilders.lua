@@ -15,22 +15,40 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 			or clone:FindFirstChildWhichIsA("BasePart", true)
 	end
 
-	-- Scale to match the skin's size parameter (s = studs tall for the full character)
+	-- Scale to match the skin's size parameter (s*2 = total height)
 	local extents = clone:GetExtentsSize()
 	local currentHeight = math.max(extents.X, extents.Y, extents.Z)
 	if currentHeight > 0 then
 		clone:ScaleTo(s * 2 / currentHeight)
 	end
 
+	-- Anchor all parts and disable collision so the character can't be pushed
+	for _, part in ipairs(clone:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.Anchored   = true
+			part.CanCollide = false
+		end
+	end
+
+	-- Position: align model bottom to floor (pos.Y - s/2 = slotPos.Y)
 	if clone.PrimaryPart then
 		clone:SetPrimaryPartCFrame(CFrame.new(pos))
+		-- Compute how far the model bottom is below pos.Y, then lift to floor
+		local bbCF, bbSize = clone:GetBoundingBox()
+		local currentBottomY  = bbCF.Position.Y - bbSize.Y / 2
+		local desiredBottomY  = pos.Y - s / 2          -- = slotPos.Y (actual floor level)
+		local yShift          = desiredBottomY - currentBottomY
+		clone:SetPrimaryPartCFrame(
+			CFrame.new(pos.X, clone.PrimaryPart.Position.Y + yShift, pos.Z)
+		)
 	end
 	model.PrimaryPart = clone.PrimaryPart
+
+	-- Play walk animation if present
 	local anim = clone:FindFirstChildWhichIsA("Animation", true)
 	if anim then
 		local animator = clone:FindFirstChildWhichIsA("Animator", true)
 		if not animator then
-			-- No Animator found — create one inside an AnimationController
 			local ctrl = clone:FindFirstChildWhichIsA("AnimationController", true)
 				or clone:FindFirstChildWhichIsA("Humanoid", true)
 			if ctrl then
@@ -152,6 +170,11 @@ local builders = {}
 -- fraise_jr (Common): custom imported mesh (FraiseSkin)
 builders["fraise_jr"] = function(pos, model, s)
 	return buildFromImportedMesh(pos, model, s, "FraiseSkin")
+end
+
+-- myrtille_babe (Uncommon): custom imported mesh (MyrtilleSkin)
+builders["myrtille_babe"] = function(pos, model, s)
+	return buildFromImportedMesh(pos, model, s, "MyrtilleSkin")
 end
 
 -- banane_bro (Common): yellow tilted cylinder head, brown tips

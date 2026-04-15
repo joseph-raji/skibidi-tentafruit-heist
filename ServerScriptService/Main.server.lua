@@ -88,6 +88,30 @@ baseplate.BrickColor = BrickColor.new("Bright green")
 baseplate.Material   = Enum.Material.Grass
 baseplate.Parent     = workspace
 
+-- Invisible boundary walls — keep players inside the 300×280 map
+do
+	local H = 40   -- wall height (studs)
+	local T = 2    -- wall thickness
+	local walls = {
+		-- North / South (span full X width)
+		{ size = Vector3.new(300 + T*2, H, T), pos = Vector3.new(0, H/2, -140) },
+		{ size = Vector3.new(300 + T*2, H, T), pos = Vector3.new(0, H/2,  140) },
+		-- West / East (span full Z depth)
+		{ size = Vector3.new(T, H, 280), pos = Vector3.new(-150, H/2, 0) },
+		{ size = Vector3.new(T, H, 280), pos = Vector3.new( 150, H/2, 0) },
+	}
+	for _, w in ipairs(walls) do
+		local wall = Instance.new("Part")
+		wall.Anchored     = true
+		wall.Size         = w.size
+		wall.Position     = w.pos
+		wall.Transparency = 1
+		wall.CanCollide   = true
+		wall.Material     = Enum.Material.SmoothPlastic
+		wall.Parent       = workspace
+	end
+end
+
 -- Atmosphere and sky
 local atmosphere = Instance.new("Atmosphere")
 atmosphere.Density = 0.3

@@ -303,10 +303,14 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 		body.Size       = Vector3.new(s, s, s)
 		body.CFrame     = CFrame.new(position)
 		body.Anchored   = true
-		body.CanCollide = true
+		body.CanCollide = false
 		body.CastShadow = true
 		body.Parent     = model
 		model.PrimaryPart = body
+	else
+		-- Ensure the body returned by CharacterBuilders is anchored and non-collidable
+		body.Anchored   = true
+		body.CanCollide = false
 	end
 
 	-- Store body size so carry-beside code can read it without knowing skin type
@@ -588,11 +592,10 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 							segEnd   = waypoints[segment]
 							segLen   = math.max(1, (segEnd - segStart).Magnitude)
 							t = 0
-							body.CFrame = CFrame.new(segStart)
+							model:SetPrimaryPartCFrame(CFrame.new(segStart))
 						else
 							-- Arrived at slot
 							conn:Disconnect(); _flyingBodies[body] = nil
-							body.CFrame = CFrame.new(dest); body.Anchored = true
 							if buyer and buyer.Parent then
 								ShopSystem.spawnSkin(skinData, dest, buyer, _skinOwner, slotIndex)
 								if not _playerCollection[buyer] then _playerCollection[buyer] = {} end
@@ -600,13 +603,12 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 								CollectionUpdatedEvent:FireClient(buyer, _playerCollection[buyer])
 								NotificationEvent:FireClient(buyer, "You received " .. skinData.name .. "!", Color3.fromRGB(100, 255, 100))
 							end
-							local m = body.Parent
-							if m and m:IsA("Model") then m:Destroy() elseif body and body.Parent then body:Destroy() end
+							if model and model.Parent then model:Destroy() end
 						end
 						return
 					end
-					local pos = segStart:Lerp(segEnd, t)
-					body.CFrame = CFrame.new(pos) * CFrame.Angles(0, tick() * 2, 0)
+					local walkPos = segStart:Lerp(segEnd, t)
+					model:SetPrimaryPartCFrame(CFrame.new(walkPos) * CFrame.Angles(0, tick() * 2, 0))
 				end)
 			end)
 		end
@@ -630,11 +632,13 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 		local bobY  = math.sin(t * BOB_SPEED) * BOB_AMP
 		local angle = (tick() * SPIN_SPEED) % (2 * math.pi)
 
-		body.CFrame = CFrame.new(
+		-- Use SetPrimaryPartCFrame so the ENTIRE model moves together (critical for
+		-- imported FBX skins where body is just one part of a multi-part model)
+		model:SetPrimaryPartCFrame(CFrame.new(
 			body.Position.X,
 			(body:GetAttribute("BaseY") or baseY) + bobY,
 			body.Position.Z
-		) * CFrame.Angles(0, angle, 0)
+		) * CFrame.Angles(0, angle, 0))
 	end)
 
 	return body
@@ -813,7 +817,7 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 				segEndPos   = waypoints[segIdx]
 				segLen      = math.max(1, (segEndPos - segStartPos).Magnitude)
 				walkT       = 0
-				walkBody.CFrame = CFrame.new(segStartPos)
+				walkModel:SetPrimaryPartCFrame(CFrame.new(segStartPos))
 			else
 				walkConn:Disconnect(); _flyingBodies[walkBody] = nil
 				walkModel:Destroy()
@@ -828,7 +832,7 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 			end
 			return
 		end
-		walkBody.CFrame = CFrame.new(segStartPos:Lerp(segEndPos, walkT))
+		walkModel:SetPrimaryPartCFrame(CFrame.new(segStartPos:Lerp(segEndPos, walkT)))
 	end)
 
 	return result
@@ -1329,42 +1333,82 @@ local MACHINE_X = 18   -- east side of belt
 local MACHINE_Z = 0    -- center of map
 local MACHINE_BASE_Y = BELT_Y + 0.25
 
-local function makePedestal(cx, cy, cz, colorRGB, labelText)
-	local ped = Instance.new("Part")
-	ped.Anchored   = true
-	ped.Size       = Vector3.new(4, 3, 4)
-	ped.Position   = Vector3.new(cx, cy, cz)
-	ped.Color      = colorRGB
-	ped.Material   = Enum.Material.SmoothPlastic
-	ped.CanCollide = true
-	ped.CastShadow = true
-	ped.Parent     = workspace
+-- Builds one arcade-style slot pod. Returns (body, topRef).
+-- body  → gets the ProximityPrompt
+-- topRef → invisible part used for display-ball placement
+local function makeSlotPod(cx, baseY, cz, slotNum)
+	local METAL      = Color3.fromRGB(108, 112, 122)
+	local METAL_DARK = Color3.fromRGB(72, 75, 85)
+	local SCREEN_BG  = Color3.fromRGB(10, 10, 20)
+	local RED_ACC    = Color3.fromRGB(195, 18, 18)
 
-	local top = Instance.new("Part")
-	top.Anchored   = true
-	top.Size       = Vector3.new(4.4, 0.3, 4.4)
-	top.Position   = Vector3.new(cx, cy + 1.65, cz)
-	top.Color      = Color3.fromRGB(255, 220, 50)
-	top.Material   = Enum.Material.Neon
-	top.CanCollide = false
-	top.CastShadow = false
-	top.Parent     = workspace
+	local podH = 8
+	local body = Instance.new("Part")
+	body.Anchored   = true
+	body.Size       = Vector3.new(5, podH, 4)
+	body.Position   = Vector3.new(cx, baseY + podH / 2, cz)
+	body.Color      = METAL
+	body.Material   = Enum.Material.SmoothPlastic
+	body.CanCollide = true
+	body.Parent     = workspace
 
-	local bb = Instance.new("BillboardGui")
-	bb.Size        = UDim2.new(0, 180, 0, 55)
-	bb.StudsOffset = Vector3.new(0, 3.5, 0)
-	bb.Parent      = ped
-	local lbl = Instance.new("TextLabel")
-	lbl.Size                   = UDim2.new(1, 0, 1, 0)
-	lbl.BackgroundTransparency = 1
-	lbl.Text                   = labelText
-	lbl.TextScaled             = true
-	lbl.Font                   = Enum.Font.GothamBold
-	lbl.TextColor3             = Color3.fromRGB(255, 255, 255)
-	lbl.TextStrokeTransparency = 0.3
-	lbl.Parent                 = bb
+	-- Dark screen panel on the front face (faces belt at -X)
+	local screen = Instance.new("Part")
+	screen.Anchored   = true
+	screen.Size       = Vector3.new(0.25, 3.5, 3.5)
+	screen.Position   = Vector3.new(cx - 2.65, baseY + podH * 0.62, cz)
+	screen.Color      = SCREEN_BG
+	screen.Material   = Enum.Material.SmoothPlastic
+	screen.CanCollide = false
+	screen.Parent     = workspace
 
-	return ped, top
+	local sg = Instance.new("SurfaceGui")
+	sg.Face           = Enum.NormalId.Left
+	sg.SizingMode     = Enum.SurfaceGuiSizingMode.FixedSize
+	sg.CanvasSize     = Vector2.new(200, 200)
+	sg.Parent         = screen
+	local screenLbl = Instance.new("TextLabel")
+	screenLbl.Size                   = UDim2.fromScale(1, 1)
+	screenLbl.BackgroundColor3       = SCREEN_BG
+	screenLbl.BackgroundTransparency = 0
+	screenLbl.Text                   = "SLOT " .. slotNum .. "\n\nWAITING\nFOR\nPLAYER..."
+	screenLbl.TextScaled             = true
+	screenLbl.Font                   = Enum.Font.GothamBold
+	screenLbl.TextColor3             = Color3.fromRGB(160, 210, 255)
+	screenLbl.Parent                 = sg
+
+	-- Red accent strip at base
+	local strip = Instance.new("Part")
+	strip.Anchored   = true
+	strip.Size       = Vector3.new(5.2, 0.6, 4.2)
+	strip.Position   = Vector3.new(cx, baseY + 0.3, cz)
+	strip.Color      = RED_ACC
+	strip.Material   = Enum.Material.SmoothPlastic
+	strip.CanCollide = false
+	strip.Parent     = workspace
+
+	-- Side hex-style decoration panels
+	for _, side in ipairs({-1, 1}) do
+		local hex = Instance.new("Part")
+		hex.Anchored   = true
+		hex.Size       = Vector3.new(0.25, 2.5, 2.5)
+		hex.Position   = Vector3.new(cx, baseY + 2.5, cz + side * 2.15)
+		hex.Color      = METAL_DARK
+		hex.Material   = Enum.Material.SmoothPlastic
+		hex.CanCollide = false
+		hex.Parent     = workspace
+	end
+
+	-- Invisible top reference for display-ball placement
+	local topRef = Instance.new("Part")
+	topRef.Anchored     = true
+	topRef.Size         = Vector3.new(0.1, 0.1, 0.1)
+	topRef.Transparency = 1
+	topRef.CanCollide   = false
+	topRef.Position     = Vector3.new(cx, baseY + podH + 0.5, cz)
+	topRef.Parent       = workspace
+
+	return body, topRef
 end
 
 local function destroyFusionDisplays(player)
@@ -1380,66 +1424,171 @@ end
 function ShopSystem.createFusionMachine()
 	local baseY = MACHINE_BASE_Y
 
-	-- Platform base
+	-- Wide stone platform
 	local platform = Instance.new("Part")
 	platform.Anchored  = true
-	platform.Size      = Vector3.new(16, 0.5, 24)
+	platform.Size      = Vector3.new(10, 0.5, 18)
 	platform.Position  = Vector3.new(MACHINE_X, baseY, MACHINE_Z)
-	platform.Color     = Color3.fromRGB(40, 40, 50)
+	platform.Color     = Color3.fromRGB(90, 90, 100)
 	platform.Material  = Enum.Material.SmoothPlastic
 	platform.Parent    = workspace
 
-	-- Glowing center orb
+	-- Side slot pods (Z = ±7 from center)
+	local slotZOffsets = { -7, 7 }
+
+	-- Center control pod (shorter, darker)
+	local ctrlH  = 5
+	local ctrlW  = 4
+	local CTRL_DARK   = Color3.fromRGB(28, 28, 35)
+	local CTRL_RED    = Color3.fromRGB(210, 40, 40)
+	local CTRL_YELLOW = Color3.fromRGB(240, 190, 0)
+
+	local ctrlBody = Instance.new("Part")
+	ctrlBody.Anchored   = true
+	ctrlBody.Size       = Vector3.new(ctrlW, ctrlH, ctrlW)
+	ctrlBody.Position   = Vector3.new(MACHINE_X, baseY + ctrlH / 2 + 0.25, MACHINE_Z)
+	ctrlBody.Color      = CTRL_DARK
+	ctrlBody.Material   = Enum.Material.SmoothPlastic
+	ctrlBody.Parent     = workspace
+
+	-- Dark top panel on center pod
+	local ctrlTop = Instance.new("Part")
+	ctrlTop.Anchored   = true
+	ctrlTop.Size       = Vector3.new(ctrlW + 0.2, 0.3, ctrlW + 0.2)
+	ctrlTop.Position   = Vector3.new(MACHINE_X, baseY + ctrlH + 0.25, MACHINE_Z)
+	ctrlTop.Color      = Color3.fromRGB(18, 18, 24)
+	ctrlTop.Material   = Enum.Material.SmoothPlastic
+	ctrlTop.Parent     = workspace
+
+	-- Exchange-arrow screen on front face of center pod
+	local ctrlScreen = Instance.new("Part")
+	ctrlScreen.Anchored   = true
+	ctrlScreen.Size       = Vector3.new(0.2, 2, 3)
+	ctrlScreen.Position   = Vector3.new(MACHINE_X - ctrlW / 2 - 0.1, baseY + ctrlH * 0.6, MACHINE_Z)
+	ctrlScreen.Color      = Color3.fromRGB(15, 15, 20)
+	ctrlScreen.Material   = Enum.Material.SmoothPlastic
+	ctrlScreen.CanCollide = false
+	ctrlScreen.Parent     = workspace
+	local ctrlSg = Instance.new("SurfaceGui")
+	ctrlSg.Face       = Enum.NormalId.Left
+	ctrlSg.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
+	ctrlSg.CanvasSize = Vector2.new(180, 120)
+	ctrlSg.Parent     = ctrlScreen
+	local ctrlLbl = Instance.new("TextLabel")
+	ctrlLbl.Size                   = UDim2.fromScale(1, 1)
+	ctrlLbl.BackgroundTransparency = 1
+	ctrlLbl.Text                   = "🔄\nFUSION"
+	ctrlLbl.TextScaled             = true
+	ctrlLbl.Font                   = Enum.Font.GothamBold
+	ctrlLbl.TextColor3             = Color3.fromRGB(255, 220, 50)
+	ctrlLbl.Parent                 = ctrlSg
+
+	-- Two headlights on center pod front
+	for _, zOff in ipairs({ -0.8, 0.8 }) do
+		local light = Instance.new("Part")
+		light.Anchored   = true
+		light.Shape      = Enum.PartType.Ball
+		light.Size       = Vector3.new(0.5, 0.5, 0.5)
+		light.Position   = Vector3.new(MACHINE_X - ctrlW / 2 - 0.3, baseY + ctrlH - 1, MACHINE_Z + zOff)
+		light.Material   = Enum.Material.Neon
+		light.Color      = Color3.fromRGB(255, 255, 200)
+		light.CanCollide = false
+		light.Parent     = workspace
+	end
+
+	-- Red/yellow stripe at base of center pod
+	for i, col in ipairs({ CTRL_RED, CTRL_YELLOW, CTRL_RED, CTRL_YELLOW }) do
+		local stripe = Instance.new("Part")
+		stripe.Anchored   = true
+		stripe.Size       = Vector3.new(ctrlW + 0.2, 0.5, 0.7)
+		stripe.Position   = Vector3.new(MACHINE_X, baseY + 0.5, MACHINE_Z - 1.5 + (i - 1) * 1)
+		stripe.Color      = col
+		stripe.Material   = Enum.Material.SmoothPlastic
+		stripe.CanCollide = false
+		stripe.Parent     = workspace
+	end
+
+	-- Red/yellow buttons on top panel of center pod
+	for i, bCol in ipairs({ CTRL_RED, CTRL_YELLOW }) do
+		local btn = Instance.new("Part")
+		btn.Anchored   = true
+		btn.Shape      = Enum.PartType.Ball
+		btn.Size       = Vector3.new(0.6, 0.6, 0.6)
+		btn.Position   = Vector3.new(MACHINE_X, baseY + ctrlH + 0.6, MACHINE_Z - 0.6 + (i - 1) * 1.2)
+		btn.Color      = bCol
+		btn.Material   = Enum.Material.Neon
+		btn.CanCollide = false
+		btn.Parent     = workspace
+	end
+
+	-- Hidden FusionOrb inside center pod (used for flash effect)
 	local orb = Instance.new("Part")
-	orb.Name      = "FusionOrb"
-	orb.Shape     = Enum.PartType.Ball
-	orb.Anchored  = true
-	orb.Size      = Vector3.new(3, 3, 3)
-	orb.Position  = Vector3.new(MACHINE_X, baseY + 4, MACHINE_Z)
-	orb.Material  = Enum.Material.Neon
-	orb.CanCollide = false
-	orb.Parent    = workspace
+	orb.Name        = "FusionOrb"
+	orb.Shape       = Enum.PartType.Ball
+	orb.Anchored    = true
+	orb.Size        = Vector3.new(1, 1, 1)
+	orb.Transparency = 1
+	orb.CanCollide  = false
+	orb.Position    = Vector3.new(MACHINE_X, baseY + ctrlH / 2, MACHINE_Z)
+	orb.Parent      = workspace
 
-	RunService.Heartbeat:Connect(function()
-		if not orb or not orb.Parent then return end
-		orb.Color = Color3.fromHSV(((tick() * 0.5) + 0.6) % 1, 1, 1)
-	end)
-
-	-- Sign above
+	-- BillboardGui sign on center pod
 	local bb = Instance.new("BillboardGui")
-	bb.Size        = UDim2.new(0, 300, 0, 80)
-	bb.StudsOffset = Vector3.new(0, 8, 0)
-	bb.Parent      = orb
+	bb.Size        = UDim2.new(0, 320, 0, 80)
+	bb.StudsOffset = Vector3.new(0, ctrlH + 2.5, 0)
+	bb.Parent      = ctrlBody
 	local title = Instance.new("TextLabel")
-	title.Size = UDim2.new(1, 0, 0.5, 0)
+	title.Size                   = UDim2.new(1, 0, 0.5, 0)
 	title.BackgroundTransparency = 1
-	title.Text = "⚡ FUSION MACHINE"
-	title.TextScaled = true
-	title.Font = Enum.Font.GothamBold
-	title.TextColor3 = Color3.fromRGB(255, 255, 100)
-	title.Parent = bb
+	title.Text                   = "⚡ FUSION MACHINE"
+	title.TextScaled             = true
+	title.Font                   = Enum.Font.GothamBold
+	title.TextColor3             = Color3.fromRGB(255, 255, 100)
+	title.Parent                 = bb
 	local hint = Instance.new("TextLabel")
-	hint.Size = UDim2.new(1, 0, 0.5, 0)
-	hint.Position = UDim2.new(0, 0, 0.5, 0)
+	hint.Size                   = UDim2.new(1, 0, 0.5, 0)
+	hint.Position               = UDim2.new(0, 0, 0.5, 0)
 	hint.BackgroundTransparency = 1
-	hint.Text = "Carry skins to the 2 slots & press E"
-	hint.TextScaled = true
-	hint.Font = Enum.Font.Gotham
-	hint.TextColor3 = Color3.fromRGB(200, 200, 255)
-	hint.Parent = bb
+	hint.Text                   = "Carry skins to the 2 slots & press E"
+	hint.TextScaled             = true
+	hint.Font                   = Enum.Font.Gotham
+	hint.TextColor3             = Color3.fromRGB(200, 200, 255)
+	hint.Parent                 = bb
 
-	-- Two input pedestals
-	local slotColors = { Color3.fromRGB(30, 100, 200), Color3.fromRGB(200, 60, 30) }
-	local slotZOffsets = { -5, 5 }
-	local slotLabels = { "Slot 1\n(carry here)", "Slot 2\n(carry here)" }
+	-- Connecting pipes: horizontal cylinders from each side pod top to center pod top
+	local pipeY     = baseY + 8.5   -- just above pod tops (pod height = 8)
+	local pipeColor = Color3.fromRGB(60, 62, 72)
+	for _, zOff in ipairs(slotZOffsets) do
+		local pipeLen = math.abs(zOff)   -- distance from center to pod
+		local pipe = Instance.new("Part")
+		pipe.Anchored   = true
+		pipe.Shape      = Enum.PartType.Cylinder
+		pipe.Size       = Vector3.new(pipeLen, 1, 1)
+		-- Cylinder extends along X by default; rotate 90° around Y so it runs along Z
+		pipe.CFrame     = CFrame.new(MACHINE_X, pipeY, MACHINE_Z + zOff / 2)
+			* CFrame.Angles(0, math.pi / 2, 0)
+		pipe.Color      = pipeColor
+		pipe.Material   = Enum.Material.SmoothPlastic
+		pipe.CanCollide = false
+		pipe.Parent     = workspace
 
-	-- Store the top plate of each pedestal so we can place display balls on them
+		-- Elbow connector cube at the pod end
+		local elbow = Instance.new("Part")
+		elbow.Anchored   = true
+		elbow.Size       = Vector3.new(1.2, 1.2, 1.2)
+		elbow.Position   = Vector3.new(MACHINE_X, pipeY, MACHINE_Z + zOff)
+		elbow.Color      = pipeColor
+		elbow.Material   = Enum.Material.SmoothPlastic
+		elbow.CanCollide = false
+		elbow.Parent     = workspace
+	end
+
+	-- Store the topRef of each slot pod so we can place display balls on them
 	local slotTops = {}
 
 	for slotNum = 1, 2 do
 		local sz = MACHINE_Z + slotZOffsets[slotNum]
-		local ped, top = makePedestal(MACHINE_X, baseY + 1.5, sz, slotColors[slotNum], slotLabels[slotNum])
-		top.Color = slotColors[slotNum]
+		local ped, top = makeSlotPod(MACHINE_X, baseY + 0.25, sz, slotNum)
 		slotTops[slotNum] = top
 
 		local prompt = Instance.new("ProximityPrompt")
@@ -1603,7 +1752,7 @@ function ShopSystem.createFusionMachine()
 							segEndPos   = waypoints[segIdx]
 							segLen = math.max(1, (segEndPos - segStartPos).Magnitude)
 							walkT  = 0
-							walkBody.CFrame = CFrame.new(segStartPos)
+							walkModel:SetPrimaryPartCFrame(CFrame.new(segStartPos))
 						else
 							walkConn:Disconnect(); _flyingBodies[walkBody] = nil
 							walkModel:Destroy()
@@ -1618,7 +1767,7 @@ function ShopSystem.createFusionMachine()
 						end
 						return
 					end
-					walkBody.CFrame = CFrame.new(segStartPos:Lerp(segEndPos, walkT))
+					walkModel:SetPrimaryPartCFrame(CFrame.new(segStartPos:Lerp(segEndPos, walkT)))
 				end)
 			end
 		end)

@@ -144,6 +144,19 @@ SkinData.list = {
 		dropWeight  = 25,
 	},
 
+	{
+		id          = "myrtille_babe",
+		name        = "Myrtille Babe",
+		rarity      = "Uncommon",
+		income      = 175,
+		cost        = 1750,
+		color       = BrickColor.new("Dark indigo"),
+		glowColor   = Color3.fromRGB(100, 0, 220),
+		size        = 3.5,
+		description = "Tiny blueberry with big attitude. Leaves purple stains everywhere.",
+		dropWeight  = 25,
+	},
+
 	-- =====================================================================
 	-- RARE (5) — income 400-500/s, cost nil (gacha-only), dropWeight 12, size 4
 	-- =====================================================================
