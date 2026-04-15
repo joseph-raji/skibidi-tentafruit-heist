@@ -201,7 +201,7 @@ HeaderBottom.BorderSizePixel  = 0
 HeaderBottom.ZIndex           = 7
 HeaderBottom.Parent           = Header
 
-local TitleLabel = label(Header, "🛒  SKIBIDI TENTAFRUIT SHOP", 16, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold)
+local TitleLabel = label(Header, "🛒  BOUTIQUE SKIBIDI TENTAFRUIT", 16, Color3.fromRGB(255, 255, 255), Enum.Font.GothamBold)
 TitleLabel.Size     = UDim2.new(1, -52, 1, 0)
 TitleLabel.Position = UDim2.new(0, 14, 0, 0)
 TitleLabel.ZIndex   = 8
@@ -247,9 +247,9 @@ local function makeTab(name, labelText, order)
 	return b
 end
 
-local TabInfo  = makeTab("TabInfo",  "🛍️ EQUIPMENT",  1)
-local TabGacha = makeTab("TabGacha", "🎰 GACHA",      2)
-local TabStats = makeTab("TabStats", "📊 STATS",      3)
+local TabInfo  = makeTab("TabInfo",  "🛍️ ÉQUIPEMENT",  1)
+local TabGacha = makeTab("TabGacha", "🎰 GACHA",       2)
+local TabStats = makeTab("TabStats", "🔄 RENAISSANCE", 3)
 
 -- ============================================================
 -- Content area
@@ -276,7 +276,7 @@ InfoPage.ZIndex                 = 7
 InfoPage.Parent                 = ContentArea
 
 -- Hint text
-local HintLabel = label(InfoPage, "Buy equipment below — get skins on the red carpet!", 13, Color3.fromRGB(140, 220, 140))
+local HintLabel = label(InfoPage, "Achète de l'équipement ci-dessous — récupère des brainrots sur le tapis rouge !", 13, Color3.fromRGB(140, 220, 140))
 HintLabel.Size     = UDim2.new(1, 0, 0, 22)
 HintLabel.Position = UDim2.new(0, 0, 0, 0)
 HintLabel.TextXAlignment = Enum.TextXAlignment.Center
@@ -323,6 +323,11 @@ makeFilterBtn("Mobility", 3)
 makeFilterBtn("Stealth",  4)
 makeFilterBtn("Trap",     5)
 makeFilterBtn("Defense",  6)
+-- French display labels for filter buttons
+local filterLabels = { ALL="TOUS", Weapon="Arme", Mobility="Mobilité", Stealth="Furtif", Trap="Piège", Defense="Défense" }
+for name, btn in pairs(filterButtons) do
+	btn.Text = filterLabels[name] or name
+end
 
 -- Scrollable list
 local ScrollFrame = Instance.new("ScrollingFrame")
@@ -389,7 +394,7 @@ local function buildItemList()
 		costLabel.ZIndex   = 10
 
 		-- BUY button
-		local buyBtn = button(row, "BUY", Color3.fromRGB(40, 140, 60), Color3.fromRGB(255, 255, 255))
+		local buyBtn = button(row, "ACHETER", Color3.fromRGB(40, 140, 60), Color3.fromRGB(255, 255, 255))
 		buyBtn.Size     = UDim2.new(0, 70, 0, 28)
 		buyBtn.Position = UDim2.new(1, -78, 0.5, -14)
 		buyBtn.ZIndex   = 11
@@ -434,7 +439,7 @@ GachaPage.ZIndex                 = 7
 GachaPage.Parent                 = ContentArea
 
 -- Spin button
-local SpinBtn = button(GachaPage, "🎰  SPIN  ($" .. GACHA_COST .. ")", Color3.fromRGB(180, 30, 180))
+local SpinBtn = button(GachaPage, "🎰  TOURNER  (" .. (GACHA_COST == 0 and "GRATUIT" or GACHA_COST .. "$") .. ")", Color3.fromRGB(180, 30, 180))
 SpinBtn.Size     = UDim2.new(0, 220, 0, 54)
 SpinBtn.Position = UDim2.new(0.5, -110, 0, 4)
 SpinBtn.ZIndex   = 8
@@ -480,7 +485,7 @@ for i, entry in ipairs(GACHA_ODDS) do
 end
 
 -- Recent pulls label
-local PullsTitle = label(GachaPage, "Recent Pulls:", 12, Color3.fromRGB(160, 160, 200), Enum.Font.GothamBold)
+local PullsTitle = label(GachaPage, "Derniers tirages :", 12, Color3.fromRGB(160, 160, 200), Enum.Font.GothamBold)
 PullsTitle.Size     = UDim2.new(1, 0, 0, 18)
 PullsTitle.Position = UDim2.new(0, 0, 0, 214)
 PullsTitle.TextXAlignment = Enum.TextXAlignment.Center
@@ -614,22 +619,22 @@ gridLayout.Padding       = UDim.new(0, 6)
 gridLayout.Parent        = UnlockGrid
 
 local unlockDefs = {
-	{ top = "MULTI",        icon = "⚡", bottom = "x??" },
-	{ top = "ARGENT",       icon = "💰", bottom = "$500K" },
-	{ top = "Base verrouillée", icon = "🔒", bottom = "+10s" },
-	{ top = "Emplacement",  icon = "📦", bottom = "+1" },
+	{ top = "MULTIPLICATEUR", icon = "⚡", bottom = "x??", tileClr = Color3.fromRGB(100, 40, 0),   strokeClr = Color3.fromRGB(255, 160, 0) },
+	{ top = "ARGENT",         icon = "💰", bottom = "$500K", tileClr = Color3.fromRGB(0, 60, 20),  strokeClr = Color3.fromRGB(0, 220, 80) },
+	{ top = "BASE VERROUILLÉE", icon = "🔒", bottom = "+10s", tileClr = Color3.fromRGB(20, 20, 80), strokeClr = Color3.fromRGB(80, 120, 255) },
+	{ top = "EMPLACEMENT",    icon = "📦", bottom = "+1",   tileClr = Color3.fromRGB(60, 0, 80),   strokeClr = Color3.fromRGB(200, 0, 255) },
 }
 local MultTile -- reference to update multiplier value
 for i, def in ipairs(unlockDefs) do
 	local tile = Instance.new("Frame")
 	tile.Size             = UDim2.new(0, 115, 1, 0)
-	tile.BackgroundColor3 = Color3.fromRGB(30, 35, 48)
+	tile.BackgroundColor3 = def.tileClr
 	tile.BorderSizePixel  = 0
 	tile.LayoutOrder      = i
 	tile.ZIndex           = 9
 	tile.Parent           = UnlockGrid
 	corner(tile, 8)
-	stroke(tile, Color3.fromRGB(70, 80, 120), 1.5)
+	stroke(tile, def.strokeClr, 2)
 
 	local topLbl = Instance.new("TextLabel")
 	topLbl.Size = UDim2.new(1, 0, 0.3, 0); topLbl.Position = UDim2.new(0, 0, 0, 0)
@@ -676,11 +681,20 @@ corner(BarBG, 4)
 
 local BarFill = Instance.new("Frame")
 BarFill.Size             = UDim2.new(0, 0, 1, 0)
-BarFill.BackgroundColor3 = Color3.fromRGB(190, 140, 30)
+BarFill.BackgroundColor3 = Color3.fromRGB(255, 160, 0)
 BarFill.BorderSizePixel  = 0
 BarFill.ZIndex           = 9
 BarFill.Parent           = BarBG
 corner(BarFill, 4)
+-- Gradient on bar fill
+local barGrad = Instance.new("UIGradient")
+barGrad.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 0)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 200, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 240, 80)),
+})
+barGrad.Rotation = 90
+barGrad.Parent = BarFill
 
 local BarLabel = Instance.new("TextLabel")
 BarLabel.Size                   = UDim2.fromScale(1, 1)
@@ -708,13 +722,21 @@ local RebirthStatLabel = MoneyStatLabel  -- same label, updated together
 local MultStatLabel    = MoneyStatLabel
 
 -- RENAISSANCE button
-local RebirthBtn = button(StatsPage, "Renaissance", Color3.fromRGB(120, 100, 20))
+local RebirthBtn = button(StatsPage, "🔄  RENAISSANCE", Color3.fromRGB(180, 60, 0))
 RebirthBtn.Size     = UDim2.new(1, -20, 0, 42)
 RebirthBtn.Position = UDim2.new(0, 10, 0, 238)
 RebirthBtn.ZIndex   = 8
 RebirthBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
 RebirthBtn.Font     = Enum.Font.GothamBold
-stroke(RebirthBtn, Color3.fromRGB(200, 170, 30), 2)
+stroke(RebirthBtn, Color3.fromRGB(255, 220, 0), 3)
+-- Gradient on renaissance button
+local rbGrad = Instance.new("UIGradient")
+rbGrad.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(220, 40, 0)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 140, 0)),
+})
+rbGrad.Rotation = 90
+rbGrad.Parent = RebirthBtn
 
 -- Confirm bar (hidden until rebirth clicked)
 local ConfirmBar = Instance.new("Frame")
@@ -843,17 +865,12 @@ Overlay.MouseButton1Click:Connect(closeShop)
 SpinBtn.MouseButton1Click:Connect(function()
 	if gachaSpinning then return end
 	gachaSpinning = true
-	SpinBtn.Text = "Spinning..."
+	SpinBtn.Text = "En cours..."
 	SpinBtn.BackgroundColor3 = Color3.fromRGB(100, 20, 100)
 	SpinGachaEvent:FireServer()
-	-- Show gacha wheel in HUD (it listens for GachaResult to stop)
-	local wheelGui = player.PlayerGui:FindFirstChild("GachaWheelGui")
-	if wheelGui then
-		wheelGui.Enabled = true
-	end
 	task.delay(3.5, function()
 		gachaSpinning = false
-		SpinBtn.Text = "🎰  SPIN  ($" .. GACHA_COST .. ")"
+		SpinBtn.Text = "🎰  TOURNER  (" .. (GACHA_COST == 0 and "GRATUIT" or GACHA_COST .. "$") .. ")"
 		SpinBtn.BackgroundColor3 = Color3.fromRGB(180, 30, 180)
 	end)
 end)

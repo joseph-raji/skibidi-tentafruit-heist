@@ -30,16 +30,19 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 		end
 	end
 
-	-- Position: align model bottom to floor (pos.Y - s/2 = slotPos.Y)
+	-- Position: align model bottom to floor.
+	-- pos.Y = slotPos.Y + s  (callers pass slotSurfaceY + s so leg-bottom lands at slotSurfaceY)
 	if clone.PrimaryPart then
 		clone:SetPrimaryPartCFrame(CFrame.new(pos))
-		-- Compute how far the model bottom is below pos.Y, then lift to floor
 		local bbCF, bbSize = clone:GetBoundingBox()
-		local currentBottomY  = bbCF.Position.Y - bbSize.Y / 2
-		local desiredBottomY  = pos.Y - s / 2          -- = slotPos.Y (actual floor level)
-		local yShift          = desiredBottomY - currentBottomY
+		local currentBottomY = bbCF.Position.Y - bbSize.Y / 2
+		local desiredBottomY = pos.Y - s              -- bottom of model = slotPos.Y
+		local yShift         = desiredBottomY - currentBottomY
+		-- Rotate to face inward (toward the road) based on which side of the map
+		local faceAngle = pos.X < 0 and 0 or (pos.X > 0 and math.pi or 0)
 		clone:SetPrimaryPartCFrame(
 			CFrame.new(pos.X, clone.PrimaryPart.Position.Y + yShift, pos.Z)
+				* CFrame.Angles(0, faceAngle, 0)
 		)
 	end
 	model.PrimaryPart = clone.PrimaryPart

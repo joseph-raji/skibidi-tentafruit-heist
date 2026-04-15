@@ -55,7 +55,7 @@ function StealSystem.startCarrying(player, skin, playerBases, skinOwner, carryin
 	if not isOwnSkin then
 		local victimBase = playerBases[victim]
 		if victimBase and victimBase.isLocked then
-			evtNotification:FireClient(player, "That base is protected by a lock shield!", Color3.fromRGB(255, 100, 100))
+			evtNotification:FireClient(player, "Cette base est protégée par un bouclier !", Color3.fromRGB(255, 100, 100))
 			return
 		end
 	end
@@ -85,12 +85,12 @@ function StealSystem.startCarrying(player, skin, playerBases, skinOwner, carryin
 				_shopSystem.releaseSlot(player, oldSlot)
 			end
 		end
-		evtNotification:FireClient(player, "Picked up " .. skinName .. ". Press E on any slot to place it!", Color3.fromRGB(200, 200, 255))
+		evtNotification:FireClient(player, "Ramassé : " .. skinName .. ". Appuie sur E pour le poser !", Color3.fromRGB(200, 200, 255))
 	else
 		-- Notify victim (orange)
-		evtNotification:FireClient(victim, player.Name .. " is stealing your " .. skinName .. "!", Color3.fromRGB(255, 140, 0))
+		evtNotification:FireClient(victim, player.Name .. " vole ton " .. skinName .. " !", Color3.fromRGB(255, 140, 0))
 		evtSkinStolen:FireClient(victim, player.Name, skinName)
-		evtNotification:FireClient(player, "You grabbed " .. skinName .. "! Run to your base!", Color3.fromRGB(80, 200, 255))
+		evtNotification:FireClient(player, "Tu as pris " .. skinName .. " ! File dans ta base !", Color3.fromRGB(80, 200, 255))
 	end
 end
 
@@ -158,9 +158,9 @@ function StealSystem.claimSkin(player, playerBases, skinOwner, carrying, playerC
 	StealSystem.setupSkinTouchEvents(skin, player, playerBases, skinOwner, carrying, playerCollection)
 
 	if isOwnSkin then
-		evtNotification:FireClient(player, skinName .. " placed!", Color3.fromRGB(200, 200, 255))
+		evtNotification:FireClient(player, skinName .. " posé !", Color3.fromRGB(200, 200, 255))
 	else
-		evtNotification:FireClient(player, "You claimed " .. skinName .. "!", Color3.fromRGB(0, 220, 100))
+		evtNotification:FireClient(player, "Tu as récupéré " .. skinName .. " !", Color3.fromRGB(0, 220, 100))
 		evtSkinClaimed:FireClient(player, skinName)
 	end
 end
@@ -252,8 +252,8 @@ function StealSystem.setupSkinTouchEvents(skin, owner, playerBases, skinOwner, c
 		local droppedName = skin:GetAttribute("SkinName") or skin.Name
 
 		StealSystem.dropSkin(carrier, carrying)
-		evtNotification:FireClient(carrier, "You got hit! " .. droppedName .. " dropped!", Color3.fromRGB(255, 80, 80))
-		evtNotification:FireClient(touchingPlayer, "Hit! You knocked their " .. droppedName .. " loose!", Color3.fromRGB(100, 255, 120))
+		evtNotification:FireClient(carrier, "Tu t'es fait frapper ! " .. droppedName .. " lâché !", Color3.fromRGB(255, 80, 80))
+		evtNotification:FireClient(touchingPlayer, "Touché ! Tu as fait lâcher " .. droppedName .. " !", Color3.fromRGB(100, 255, 120))
 	end)
 	table.insert(connections, conn2)
 

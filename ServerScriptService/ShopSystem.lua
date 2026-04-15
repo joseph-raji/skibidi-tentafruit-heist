@@ -87,8 +87,8 @@ local function addPlacementPrompt(emptyPlate, owner, slotIndex)
 	local old = emptyPlate:FindFirstChildOfClass("ProximityPrompt")
 	if old then old:Destroy() end
 	local prompt = Instance.new("ProximityPrompt")
-	prompt.ActionText            = "Place here"
-	prompt.ObjectText            = "Slot " .. slotIndex
+	prompt.ActionText            = "Poser ici"
+	prompt.ObjectText            = "Emplacement " .. slotIndex
 	prompt.HoldDuration          = 0
 	prompt.MaxActivationDistance = 6
 	prompt.Parent                = emptyPlate
@@ -128,7 +128,7 @@ function ShopSystem.placeCarriedSkin(player, slotIndex)
 	if not baseData then return end
 
 	if baseData.slotGrid[slotIndex] then
-		NotificationEvent:FireClient(player, "That slot is already occupied!", Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "Cet emplacement est déjà occupé !", Color3.fromRGB(255, 80, 80))
 		return
 	end
 
@@ -192,7 +192,7 @@ function ShopSystem.placeCarriedSkin(player, slotIndex)
 	-- Spawn at new slot position
 	local dest = Vector3.new(slotPos.X, slotPos.Y + skinData.size / 2, slotPos.Z)
 	ShopSystem.spawnSkin(skinData, dest, player, _skinOwner, slotIndex)
-	NotificationEvent:FireClient(player, bName .. " moved to slot " .. slotIndex .. "!", Color3.fromRGB(200, 200, 255))
+	NotificationEvent:FireClient(player, bName .. " déplacé vers l'emplacement " .. slotIndex .. " !", Color3.fromRGB(200, 200, 255))
 end
 
 -- =========================================================================
@@ -277,7 +277,10 @@ end
 -- =========================================================================
 
 function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
-	local s = skinData.size  -- base size unit
+	-- 1.5× size: callers pass pos.Y = slotSurfaceY + skinData.size; we lift by an extra 0.5×size
+	local SKIN_SCALE = 1.5
+	local s = skinData.size * SKIN_SCALE
+	position = Vector3.new(position.X, position.Y + skinData.size * (SKIN_SCALE - 1), position.Z)
 
 	-- -----------------------------------------------------------------------
 	-- Model container
@@ -510,7 +513,7 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 		-- -----------------------------------------------------------------------
 		if skinData.cost then
 			local prompt = Instance.new("ProximityPrompt")
-			prompt.ActionText          = "Buy  $" .. skinData.cost
+			prompt.ActionText          = "Acheter " .. skinData.cost .. "$"
 			prompt.ObjectText          = skinData.name
 			prompt.HoldDuration        = 0
 			prompt.MaxActivationDistance = 8
@@ -520,13 +523,13 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 				-- Check money
 				local money = buyer:GetAttribute("Money") or 0
 				if money < skinData.cost then
-					NotificationEvent:FireClient(buyer, "Not enough money! Need $" .. skinData.cost, Color3.fromRGB(255, 80, 80))
+					NotificationEvent:FireClient(buyer, "Pas assez d'argent ! Il te faut " .. skinData.cost .. "$", Color3.fromRGB(255, 80, 80))
 					return
 				end
 				-- Check slot
 				local slotIndex, slotPos = BaseSystem.getNextSlot(buyer, _playerBases)
 				if not slotIndex then
-					NotificationEvent:FireClient(buyer, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
+					NotificationEvent:FireClient(buyer, "Base pleine ! Renaître pour débloquer plus d'étages.", Color3.fromRGB(255, 180, 0))
 					return
 				end
 				-- Deduct money; disable prompt so only one person buys this instance
@@ -546,7 +549,7 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 				-- Ground-level walk: 3-segment path
 			-- belt → just outside entrance (gap center) → just inside entrance → slot
 				local WALK_SPEED = 14  -- studs / second
-				local dest = Vector3.new(slotPos.X, slotPos.Y + skinData.size / 2, slotPos.Z)
+				local dest = Vector3.new(slotPos.X, slotPos.Y + skinData.size, slotPos.Z)
 				local startPos = body.Position
 				local groundY = dest.Y
 
@@ -601,7 +604,7 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 								if not _playerCollection[buyer] then _playerCollection[buyer] = {} end
 								_playerCollection[buyer][skinData.id] = (_playerCollection[buyer][skinData.id] or 0) + 1
 								CollectionUpdatedEvent:FireClient(buyer, _playerCollection[buyer])
-								NotificationEvent:FireClient(buyer, "You received " .. skinData.name .. "!", Color3.fromRGB(100, 255, 100))
+								NotificationEvent:FireClient(buyer, "Tu as reçu " .. skinData.name .. " !", Color3.fromRGB(100, 255, 100))
 							end
 							if model and model.Parent then model:Destroy() end
 						end
@@ -662,20 +665,20 @@ function ShopSystem.buySkin(player, skinId, playerBases, skinOwner, playerCollec
 	end
 
 	if data.cost == nil then
-		NotificationEvent:FireClient(player, "This skin can only be obtained from the GACHA!", Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "Ce brainrot ne s'obtient que par le GACHA !", Color3.fromRGB(255, 80, 80))
 		return false
 	end
 
 	local currentMoney = player:GetAttribute("Money") or 0
 	if currentMoney < data.cost then
-		NotificationEvent:FireClient(player, "Not enough money! Need $" .. data.cost, Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "Pas assez d'argent ! Il te faut " .. data.cost .. "$", Color3.fromRGB(255, 80, 80))
 		return false
 	end
 
 	-- Check slot limit before spending money
 	local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
 	if not slotIndex then
-		NotificationEvent:FireClient(player, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
+		NotificationEvent:FireClient(player, "Base pleine ! Renaître pour débloquer plus d'étages.", Color3.fromRGB(255, 180, 0))
 		return false
 	end
 
@@ -694,7 +697,7 @@ function ShopSystem.buySkin(player, skinId, playerBases, skinOwner, playerCollec
 
 	-- Fire events
 	CollectionUpdatedEvent:FireClient(player, playerCollection[player])
-	NotificationEvent:FireClient(player, "You bought " .. data.name .. "!", Color3.fromRGB(100, 255, 100))
+	NotificationEvent:FireClient(player, "Tu as acheté " .. data.name .. " !", Color3.fromRGB(100, 255, 100))
 
 	return true
 end
@@ -716,7 +719,7 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 			local mins = math.floor(remaining / 60)
 			local secs = remaining % 60
 			NotificationEvent:FireClient(player,
-				string.format("Gacha on cooldown! %d:%02d remaining.", mins, secs),
+				string.format("Gacha en recharge ! %d:%02d restant.", mins, secs),
 				Color3.fromRGB(255, 80, 80))
 			return nil
 		end
@@ -726,14 +729,14 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 	-- Check slot limit
 	local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
 	if not slotIndex then
-		NotificationEvent:FireClient(player, "Base full! Rebirth to unlock more floors.", Color3.fromRGB(255, 180, 0))
+		NotificationEvent:FireClient(player, "Base pleine ! Renaître pour débloquer plus d'étages.", Color3.fromRGB(255, 180, 0))
 		_gachaCooldown[player] = nil  -- don't consume cooldown if base is full
 		return nil
 	end
 
 	-- Roll
 	local result = SkinData.gachaRoll()
-	local dest = Vector3.new(slotPos.X, slotPos.Y + result.size / 2, slotPos.Z)
+	local dest = Vector3.new(slotPos.X, slotPos.Y + result.size, slotPos.Z)
 
 	-- Fire gacha result so client wheel animation can play
 	GachaResultEvent:FireClient(player, {
@@ -744,7 +747,7 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 	})
 
 	-- Build actual skin character at the machine and walk it to base
-	local walkStartPos = Vector3.new(GACHA_X, dest.Y, GACHA_Z)
+	local walkStartPos = Vector3.new(GACHA_X, BELT_Y + result.size, GACHA_Z)
 	local walkModel = Instance.new("Model")
 	walkModel.Name   = "GachaWalk_" .. result.name
 	walkModel.Parent = workspace
@@ -805,7 +808,7 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 					playerCollection[player][result.id] = (playerCollection[player][result.id] or 0) + 1
 					CollectionUpdatedEvent:FireClient(player, playerCollection[player])
 					local rc = RARITY_COLOR[result.rarity] or Color3.fromRGB(255, 255, 255)
-					NotificationEvent:FireClient(player, "Gacha: [" .. result.rarity .. "] " .. result.name .. "!", rc)
+					NotificationEvent:FireClient(player, "Gacha : [" .. result.rarity .. "] " .. result.name .. " !", rc)
 				end
 			end
 			return
@@ -820,12 +823,14 @@ end
 -- Public: createShopPads  (now a conveyor belt shop)
 -- =========================================================================
 
-local BELT_LENGTH  = 210  -- spans Z=-105 to Z=105 (all 8 bases)
+local BELT_LENGTH  = 210  -- visual belt spans Z=-105 to Z=105 (all 8 bases)
 local BELT_WIDTH   = 30   -- studs wide along X
 local BELT_SPEED   = 7    -- studs per second (items move along +Z)
 local BELT_Y       = 0.5  -- height
 local BELT_START_Z = -BELT_LENGTH / 2   -- -105
 local BELT_END_Z   =  BELT_LENGTH / 2   -- +105
+local SPAWN_Z      = -140  -- skins spawn inside north portal
+local DESPAWN_Z    =  140  -- skins despawn inside south portal
 
 -- Number of stripes and their spacing (studs apart)
 local STRIPE_COUNT   = 14
@@ -881,79 +886,78 @@ function ShopSystem.createShopPads()
 
 	local function buildPortal(zPos)
 		local isStart = (zPos < 0)
-		local baseY   = BELT_Y + 0.25
+		local baseY   = 0   -- ground is at Y=0
 
-		local BLDG_W  = 24    -- matches the wall gap exactly
-		local BLDG_H  = 35    -- same height as boundary walls
-		local BLDG_D  = 4
-		local ARCH_W  = 16    -- belt width
-		local ARCH_H  = 14
-		local sideW   = (BLDG_W - ARCH_W) / 2   -- 4 per side
+		-- Portal matches wall gap (GAP=34) and covers full belt width (30)
+		local BLDG_W  = 34    -- fills the 34-stud wall gap
+		local BLDG_H  = 35    -- matches boundary wall height
+		local BLDG_D  = 5     -- thick enough to be solid; matches wall T=4
+		local ARCH_W  = 30    -- = BELT_WIDTH, full passage width
+		local ARCH_H  = 14    -- archway height (players + skins fit)
+		local sideW   = (BLDG_W - ARCH_W) / 2   -- 2 studs each side
 
-		local BRICK_CLR  = Color3.fromRGB(88, 63, 48)
-		local COL_CLR    = Color3.fromRGB(50, 52, 60)
-		local VOID_CLR   = Color3.fromRGB(6, 6, 8)
-		local SIGN_CLR   = Color3.fromRGB(14, 17, 26)
+		local BRICK_CLR = Color3.fromRGB(70, 50, 38)   -- dark brown brick
+		local VOID_CLR  = Color3.fromRGB(4, 4, 6)      -- near-black portal interior
 
-		-- Left brick panel
+		-- Left brick pillar
 		local lp = Instance.new("Part")
 		lp.Anchored = true; lp.Size = Vector3.new(sideW, BLDG_H, BLDG_D)
 		lp.Position = Vector3.new(-(ARCH_W/2 + sideW/2), baseY + BLDG_H/2, zPos)
 		lp.Color = BRICK_CLR; lp.Material = Enum.Material.Brick; lp.Parent = workspace
 
-		-- Right brick panel
+		-- Right brick pillar
 		local rp = lp:Clone()
 		rp.Position = Vector3.new(ARCH_W/2 + sideW/2, baseY + BLDG_H/2, zPos)
 		rp.Parent = workspace
 
-		-- Top brick panel (above arch)
+		-- Top lintel (above arch opening)
 		local topH = BLDG_H - ARCH_H
 		local tp = Instance.new("Part")
 		tp.Anchored = true; tp.Size = Vector3.new(ARCH_W, topH, BLDG_D)
 		tp.Position = Vector3.new(0, baseY + ARCH_H + topH/2, zPos)
 		tp.Color = BRICK_CLR; tp.Material = Enum.Material.Brick; tp.Parent = workspace
 
-		-- Dark columns flanking arch (slightly protrude)
-		for _, x in ipairs({-ARCH_W/2 - 1.5, ARCH_W/2 + 1.5}) do
-			local col = Instance.new("Part")
-			col.Anchored = true; col.Size = Vector3.new(3, BLDG_H, BLDG_D + 1.5)
-			col.Position = Vector3.new(x, baseY + BLDG_H/2, zPos)
-			col.Color = COL_CLR; col.Material = Enum.Material.SmoothPlastic; col.Parent = workspace
-		end
+		-- Grass cap (top strip, matching boundary walls)
+		local gc = Instance.new("Part")
+		gc.Anchored = true; gc.Size = Vector3.new(BLDG_W, 2, BLDG_D)
+		gc.Position = Vector3.new(0, baseY + BLDG_H + 1, zPos)
+		gc.Color = Color3.fromRGB(80, 168, 60); gc.Material = Enum.Material.Grass
+		gc.CanCollide = true; gc.Parent = workspace
 
-		-- Dark void fill (the archway opening is just a dark face, skins pass through)
+		-- Dark fill inside the arch (solid opaque, no gaps) — non-collidable so skins walk through
 		local void = Instance.new("Part")
-		void.Anchored = true; void.Size = Vector3.new(ARCH_W - 0.5, ARCH_H, BLDG_D + 0.2)
+		void.Anchored = true
+		void.Size = Vector3.new(ARCH_W + 1, ARCH_H + 1, BLDG_D + 2)  -- oversize to seal all edges
 		void.Position = Vector3.new(0, baseY + ARCH_H/2, zPos)
 		void.Color = VOID_CLR; void.Material = Enum.Material.SmoothPlastic
-		void.CanCollide = false; void.Parent = workspace
+		void.CanCollide = false; void.Transparency = 0; void.Parent = workspace
 
-		-- Wide billboard sign above
-		local signH = 5
-		local sign = Instance.new("Part")
-		sign.Anchored = true; sign.Size = Vector3.new(BLDG_W + 6, signH, 0.8)
-		sign.Position = Vector3.new(0, baseY + BLDG_H + signH/2 + 0.5, zPos)
-		sign.Color = SIGN_CLR; sign.Material = Enum.Material.SmoothPlastic
-		sign.CanCollide = false; sign.Parent = workspace
+		-- Glowing neon frame around arch opening (player-facing side)
+		local frameSide = isStart and 1 or -1
+		local neonClr = Color3.fromRGB(0, 200, 255)
+		local frameZ = zPos - frameSide * (BLDG_D/2 + 0.2)
+		-- Horizontal bar (top of arch)
+		local hBar = Instance.new("Part")
+		hBar.Anchored = true; hBar.Size = Vector3.new(ARCH_W, 0.5, 0.5)
+		hBar.Position = Vector3.new(0, baseY + ARCH_H, frameZ)
+		hBar.Color = neonClr; hBar.Material = Enum.Material.Neon
+		hBar.CanCollide = false; hBar.Parent = workspace
+		-- Left bar
+		local lBar = Instance.new("Part")
+		lBar.Anchored = true; lBar.Size = Vector3.new(0.5, ARCH_H, 0.5)
+		lBar.Position = Vector3.new(-ARCH_W/2, baseY + ARCH_H/2, frameZ)
+		lBar.Color = neonClr; lBar.Material = Enum.Material.Neon
+		lBar.CanCollide = false; lBar.Parent = workspace
+		-- Right bar
+		local rBar = lBar:Clone()
+		rBar.Position = Vector3.new(ARCH_W/2, baseY + ARCH_H/2, frameZ)
+		rBar.Parent = workspace
 
-		local sg = Instance.new("SurfaceGui")
-		sg.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
-		sg.CanvasSize = Vector2.new(800, 130)
-		-- NormalId.Back = +Z face, NormalId.Front = -Z face
-		sg.Face   = isStart and Enum.NormalId.Back or Enum.NormalId.Front
-		sg.Parent = sign
-		local lbl = Instance.new("TextLabel")
-		lbl.Size = UDim2.fromScale(1, 1); lbl.BackgroundTransparency = 1
-		lbl.Text = "Légendaire garanti dans ??\nMyhtique garanti dans ??"
-		lbl.TextScaled = true; lbl.Font = Enum.Font.GothamBold
-		lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.Parent = sg
-
-		-- Red carpet bridging from portal arch to belt end
-		-- Portal inner face is at zPos ± BLDG_D/2; belt ends at BELT_START/END_Z
+		-- Red carpet bridging from portal inner face to belt end
 		local carpetDir  = isStart and 1 or -1
 		local innerFaceZ = zPos + carpetDir * BLDG_D / 2
 		local beltEndZ   = isStart and BELT_START_Z or BELT_END_Z
-		local carpetLen  = math.abs(beltEndZ - innerFaceZ) + 2  -- +2 for overlap
+		local carpetLen  = math.abs(beltEndZ - innerFaceZ) + 2
 		local carpetCtrZ = innerFaceZ + carpetDir * carpetLen / 2
 		local carpet = Instance.new("Part")
 		carpet.Anchored  = true
@@ -967,37 +971,6 @@ function ShopSystem.createShopPads()
 
 	buildPortal(-140)   -- north portal, embedded in north wall
 	buildPortal( 140)   -- south portal, embedded in south wall
-
-	-- SHOP sign at the north end of belt
-	local signPost = Instance.new("Part")
-	signPost.Anchored   = true
-	signPost.Size       = Vector3.new(0.3, 8, 0.3)
-	signPost.Position   = Vector3.new(BELT_WIDTH / 2 + 2, BELT_Y + 4, BELT_START_Z - 2)
-	signPost.BrickColor = BrickColor.new("Dark orange")
-	signPost.Material   = Enum.Material.SmoothPlastic
-	signPost.CanCollide = false
-	signPost.Parent     = workspace
-
-	local signBoard = Instance.new("Part")
-	signBoard.Anchored   = true
-	signBoard.Size       = Vector3.new(0.3, 4, 14)
-	signBoard.Position   = Vector3.new(BELT_WIDTH / 2 + 2, BELT_Y + 9, BELT_START_Z + 5)
-	signBoard.BrickColor = BrickColor.new("Really black")
-	signBoard.Material   = Enum.Material.SmoothPlastic
-	signBoard.CanCollide = false
-	signBoard.Parent     = workspace
-
-	local signGui = Instance.new("SurfaceGui")
-	signGui.Face   = Enum.NormalId.Right
-	signGui.Parent = signBoard
-	local signLabel = Instance.new("TextLabel")
-	signLabel.Size                   = UDim2.new(1, 0, 1, 0)
-	signLabel.BackgroundTransparency = 1
-	signLabel.Text                   = "🛒  SKIN SHOP\nPress E to buy!"
-	signLabel.TextScaled             = true
-	signLabel.Font                   = Enum.Font.GothamBold
-	signLabel.TextColor3             = Color3.fromRGB(255, 220, 50)
-	signLabel.Parent                 = signGui
 
 	-- -----------------------------------------------------------------------
 	-- Active conveyor skins (body part → true) — move along +Z
@@ -1017,7 +990,7 @@ function ShopSystem.createShopPads()
 			local newZ = body.Position.Z + BELT_SPEED * dt
 			body.CFrame = CFrame.new(body.Position.X, body.Position.Y, newZ)
 				* CFrame.Angles(0, tick() * 0.8, 0)
-			if newZ >= BELT_END_Z then
+			if newZ >= DESPAWN_Z then
 				local model = body.Parent
 				conveyorItems[body] = nil
 				if model and model:IsA("Model") then
@@ -1042,7 +1015,7 @@ function ShopSystem.createShopPads()
 			end
 			local chosen = purchasable[math.random(1, #purchasable)]
 			if chosen then
-				local spawnPos = Vector3.new(0, BELT_Y + chosen.size / 2 + 0.3, BELT_START_Z)
+				local spawnPos = Vector3.new(0, BELT_Y + chosen.size, SPAWN_Z)
 				local body = ShopSystem.spawnSkin(chosen, spawnPos, nil, _skinOwner, nil)
 				if body then
 					conveyorItems[body] = true
@@ -1219,8 +1192,8 @@ function ShopSystem.createShopPads()
 
 	-- ProximityPrompt instead of Touched
 	local gachaPrompt = Instance.new("ProximityPrompt")
-	gachaPrompt.ActionText            = "Spin Gacha (FREE)"
-	gachaPrompt.ObjectText            = "GACHA MACHINE — 30 min cooldown"
+	gachaPrompt.ActionText            = "Tourner (GRATUIT)"
+	gachaPrompt.ObjectText            = "TOURBILLON DIVIN — 30 min de recharge"
 	gachaPrompt.HoldDuration          = 0
 	gachaPrompt.MaxActivationDistance = 10
 	gachaPrompt.Parent                = gachaPad
@@ -1268,19 +1241,19 @@ end
 function ShopSystem.handleFuseRequest(player, id1, id2)
 	local collection = _playerCollection[player]
 	if not collection then
-		NotificationEvent:FireClient(player, "You have no skins to fuse!", Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "Tu n'as pas de brainrots à fusionner !", Color3.fromRGB(255, 80, 80))
 		return
 	end
 	local count1 = collection[id1] or 0
 	local count2 = collection[id2] or 0
 	if id1 == id2 then
 		if count1 < 2 then
-			NotificationEvent:FireClient(player, "Need 2 copies to fuse the same skin!", Color3.fromRGB(255, 80, 80))
+			NotificationEvent:FireClient(player, "Il faut 2 exemplaires pour fusionner le même brainrot !", Color3.fromRGB(255, 80, 80))
 			return
 		end
 	else
 		if count1 < 1 or count2 < 1 then
-			NotificationEvent:FireClient(player, "You don't own one of those skins!", Color3.fromRGB(255, 80, 80))
+			NotificationEvent:FireClient(player, "Tu ne possèdes pas l'un de ces brainrots !", Color3.fromRGB(255, 80, 80))
 			return
 		end
 	end
@@ -1299,7 +1272,7 @@ function ShopSystem.handleFuseRequest(player, id1, id2)
 		if not need1 and not need2 then break end
 	end
 	if #toDestroy < 2 then
-		NotificationEvent:FireClient(player, "Couldn't find both skins in your base!", Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "Impossible de trouver les deux brainrots dans ta base !", Color3.fromRGB(255, 80, 80))
 		return
 	end
 	for _, part in ipairs(toDestroy) do
@@ -1333,14 +1306,14 @@ end
 function ShopSystem.handleFuseChoose(player, choiceIndex)
 	local options = _fusionPending[player]
 	if not options or not options[choiceIndex] then
-		NotificationEvent:FireClient(player, "No pending fusion result!", Color3.fromRGB(255, 80, 80))
+		NotificationEvent:FireClient(player, "Aucune fusion en attente !", Color3.fromRGB(255, 80, 80))
 		return
 	end
 	_fusionPending[player] = nil
 	local chosen = options[choiceIndex]
 	local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
 	if not slotIndex then
-		NotificationEvent:FireClient(player, "Base full! Free a slot first.", Color3.fromRGB(255, 180, 0))
+		NotificationEvent:FireClient(player, "Base pleine ! Libère un emplacement d'abord.", Color3.fromRGB(255, 180, 0))
 		return
 	end
 	local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size / 2, slotPos.Z)
@@ -1349,7 +1322,7 @@ function ShopSystem.handleFuseChoose(player, choiceIndex)
 	_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
 	CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
 	local rarityColor = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
-	NotificationEvent:FireClient(player, "Fusion result: [" .. chosen.rarity .. "] " .. chosen.name .. "!", rarityColor)
+	NotificationEvent:FireClient(player, "Résultat fusion : [" .. chosen.rarity .. "] " .. chosen.name .. "!", rarityColor)
 end
 
 -- =========================================================================
@@ -1627,7 +1600,7 @@ function ShopSystem.createFusionMachine()
 
 		local prompt = Instance.new("ProximityPrompt")
 		prompt.ActionText            = "Deposit Skin"
-		prompt.ObjectText            = "Fusion Slot " .. slotNum
+		prompt.ObjectText            = "Emplacement Fusion " .. slotNum
 		prompt.HoldDuration          = 0
 		prompt.MaxActivationDistance = 8
 		prompt.Parent                = ped
@@ -1637,18 +1610,18 @@ function ShopSystem.createFusionMachine()
 			-- Player must be carrying a skin they own
 			local carried = _carrying[trigPlayer]
 			if not carried then
-				NotificationEvent:FireClient(trigPlayer, "Carry a skin to this slot first!", Color3.fromRGB(255, 180, 0))
+				NotificationEvent:FireClient(trigPlayer, "Porte un brainrot vers cet emplacement d'abord !", Color3.fromRGB(255, 180, 0))
 				return
 			end
 			if _skinOwner[carried] ~= trigPlayer then
-				NotificationEvent:FireClient(trigPlayer, "You can only fuse your own skins!", Color3.fromRGB(255, 80, 80))
+				NotificationEvent:FireClient(trigPlayer, "Tu ne peux fusionner que tes propres brainrots !", Color3.fromRGB(255, 80, 80))
 				return
 			end
 
 			local bId   = carried:GetAttribute("SkinId") or ""
 			local bData = SkinData.getById(bId)
 			if not bData then
-				NotificationEvent:FireClient(trigPlayer, "Unknown skin!", Color3.fromRGB(255, 80, 80))
+				NotificationEvent:FireClient(trigPlayer, "Brainrot inconnu !", Color3.fromRGB(255, 80, 80))
 				return
 			end
 
@@ -1704,7 +1677,7 @@ function ShopSystem.createFusionMachine()
 				_fusionDisplays[trigPlayer][slotNumCopy] = ball
 			end
 
-			NotificationEvent:FireClient(trigPlayer, "Deposited " .. bData.name .. " into slot " .. slotNumCopy .. "!", Color3.fromRGB(100, 200, 255))
+			NotificationEvent:FireClient(trigPlayer, bData.name .. " déposé dans l'emplacement " .. slotNumCopy .. " !", Color3.fromRGB(100, 200, 255))
 
 			-- Both slots filled → auto-pick one random result and spawn it
 			if deposits[1] and deposits[2] then
@@ -1716,10 +1689,10 @@ function ShopSystem.createFusionMachine()
 				local chosen = options[math.random(1, #options)]
 				local slotIdx, slotPos = BaseSystem.getNextSlot(trigPlayer, _playerBases)
 				if not slotIdx then
-					NotificationEvent:FireClient(trigPlayer, "Base full! Free a slot first.", Color3.fromRGB(255, 180, 0))
+					NotificationEvent:FireClient(trigPlayer, "Base pleine ! Libère un emplacement d'abord.", Color3.fromRGB(255, 180, 0))
 					return
 				end
-				local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size / 2, slotPos.Z)
+				local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size, slotPos.Z)
 
 				-- Flash the orb white then back to cycling
 				local orbRef = workspace:FindFirstChild("FusionOrb")
@@ -1734,7 +1707,7 @@ function ShopSystem.createFusionMachine()
 				end
 
 				-- Build the actual skin character at the machine so it walks to base
-				local walkStartPos = Vector3.new(MACHINE_X, dest.Y, MACHINE_Z)
+				local walkStartPos = Vector3.new(MACHINE_X, BELT_Y + chosen.size, MACHINE_Z)
 				local walkModel = Instance.new("Model")
 				walkModel.Name   = "FusionWalk_" .. chosen.name
 				walkModel.Parent = workspace
@@ -1796,7 +1769,7 @@ function ShopSystem.createFusionMachine()
 								_playerCollection[trigPlayer][chosen.id] = (_playerCollection[trigPlayer][chosen.id] or 0) + 1
 								CollectionUpdatedEvent:FireClient(trigPlayer, _playerCollection[trigPlayer])
 								local rc = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
-								NotificationEvent:FireClient(trigPlayer, "Fusion: [" .. chosen.rarity .. "] " .. chosen.name .. "!", rc)
+								NotificationEvent:FireClient(trigPlayer, "Fusion : [" .. chosen.rarity .. "] " .. chosen.name .. " !", rc)
 							end
 						end
 						return

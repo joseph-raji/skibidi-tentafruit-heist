@@ -146,16 +146,15 @@ local function buildGroundFloor(folder, pos, faceSign)
 	local TRIM_COLOR           = Color3.fromRGB(190, 193, 200)
 	local BAR_COLOR            = Color3.fromRGB(210, 20, 20)
 	local SIGN_COLOR           = Color3.fromRGB(95, 58, 18)
-	local GRASS_COLOR          = Color3.fromRGB(106, 127, 63)
-	local YARD_COLOR           = Color3.fromRGB(90, 140, 50)
+	local BETON_COLOR          = Color3.fromRGB(110, 112, 115)  -- béton / concrete
 	local FOUNDATION_COLOR     = Color3.fromRGB(65, 68, 76)
 
-	-- Plot ground slab
+	-- Plot ground slab — béton (concrete)
 	makePart(
 		folder, "PlotGround",
 		Vector3.new(BASE_SIZE, 1, BASE_SIZE),
 		CFrame.new(pos.X, pos.Y - 0.5, pos.Z),
-		GRASS_COLOR, 0, Enum.Material.Grass, true
+		BETON_COLOR, 0, Enum.Material.Concrete, true
 	)
 
 	local bCX          = pos.X + faceSign * (-6)
@@ -276,7 +275,7 @@ local function buildGroundFloor(folder, pos, faceSign)
 		ROOF_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- Yard (green strip between building front and plot edge)
+	-- Yard (strip between building front and plot edge) — béton like the rest of the plot
 	local plotFrontEdgeX = pos.X + faceSign * (BASE_SIZE / 2)
 	local yardLengthX    = math.abs(plotFrontEdgeX - frontFaceX)
 	local yardCenterX    = (plotFrontEdgeX + frontFaceX) / 2
@@ -284,7 +283,7 @@ local function buildGroundFloor(folder, pos, faceSign)
 		folder, "Yard",
 		Vector3.new(yardLengthX, 0.2, BUILDING_WIDTH),
 		CFrame.new(yardCenterX, foundBaseY + 0.1, pos.Z),
-		YARD_COLOR, 0, Enum.Material.Grass, false
+		BETON_COLOR, 0, Enum.Material.Concrete, false
 	)
 end
 
@@ -299,17 +298,20 @@ local function buildSign(folder, pos, faceSign, playerName)
 	local surfaceGui          = Instance.new("SurfaceGui")
 	surfaceGui.Face           = faceSign > 0 and Enum.NormalId.Right or Enum.NormalId.Left
 	surfaceGui.SizingMode     = Enum.SurfaceGuiSizingMode.FixedSize
-	surfaceGui.CanvasSize     = Vector2.new(500, 100)
+	surfaceGui.CanvasSize     = Vector2.new(1400, 100)  -- wider canvas = smaller text relative to sign
 	surfaceGui.Parent         = signBoard
 
 	local nameLabel                    = Instance.new("TextLabel")
 	nameLabel.Size                     = UDim2.fromScale(1, 1)
 	nameLabel.BackgroundTransparency   = 1
 	nameLabel.Text                     = playerName
-	nameLabel.TextScaled               = true
+	nameLabel.TextScaled               = false
+	nameLabel.TextSize                 = 42
 	nameLabel.Font                     = Enum.Font.GothamBold
 	nameLabel.TextColor3               = Color3.fromRGB(255, 255, 255)
 	nameLabel.TextStrokeTransparency   = 0.3
+	nameLabel.TextXAlignment           = Enum.TextXAlignment.Center
+	nameLabel.TextYAlignment           = Enum.TextYAlignment.Center
 	nameLabel.Parent                   = surfaceGui
 end
 

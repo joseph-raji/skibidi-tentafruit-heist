@@ -92,7 +92,7 @@ function ProgressionSystem.rebirth(player, playerBases, skinOwner, playerCollect
 	if money < REBIRTH_COST then
 		evtNotification:FireClient(
 			player,
-			"Need $" .. REBIRTH_COST .. " to rebirth! You have $" .. math.floor(money),
+			"Il te faut " .. REBIRTH_COST .. "$ pour renaître ! Tu as " .. math.floor(money) .. "$",
 			Color3.fromRGB(220, 50, 50)
 		)
 		return
@@ -102,7 +102,7 @@ function ProgressionSystem.rebirth(player, playerBases, skinOwner, playerCollect
 	if rebirthCount >= MAX_REBIRTHS then
 		evtNotification:FireClient(
 			player,
-			"You have reached the maximum of " .. MAX_REBIRTHS .. " rebirths!",
+			"Tu as atteint le maximum de " .. MAX_REBIRTHS .. " renaissances !",
 			Color3.fromRGB(220, 50, 50)
 		)
 		return
@@ -151,7 +151,7 @@ function ProgressionSystem.rebirth(player, playerBases, skinOwner, playerCollect
 	evtRebirthComplete:FireClient(player, newMultiplier)
 	evtNotification:FireClient(
 		player,
-		"REBIRTH! Income x" .. string.format("%.1f", newMultiplier) .. " (+" .. newRebirthCount * 10 .. "%)!",
+		"RENAISSANCE ! Revenus x" .. string.format("%.1f", newMultiplier) .. " (+" .. newRebirthCount * 10 .. "%) !",
 		Color3.fromRGB(255, 185, 0)
 	)
 end
@@ -247,7 +247,7 @@ function ProgressionSystem.setupRebirthPad(playerBases)
 		-- Check player is carrying a skin
 		local skin = _carrying and _carrying[player]
 		if not skin then
-			evtNotification:FireClient(player, "Carry a skin here to sacrifice it for REBIRTH!", Color3.fromRGB(255, 220, 50))
+			evtNotification:FireClient(player, "Porte un brainrot ici pour le sacrifier et renaître !", Color3.fromRGB(255, 220, 50))
 			return
 		end
 

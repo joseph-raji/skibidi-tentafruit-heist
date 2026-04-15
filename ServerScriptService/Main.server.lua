@@ -93,7 +93,7 @@ baseplate.Parent     = workspace
 do
 	local H       = 35    -- wall body height (studs)
 	local T       = 4     -- thickness
-	local GAP     = 24    -- portal opening width (centred, X: -12 to +12)
+	local GAP     = 34    -- portal opening width (centred); wider than BELT_WIDTH=30 so carpet fits
 	local SIDE_W  = (300 - GAP) / 2   -- 138 studs each side panel
 	local STONE   = Color3.fromRGB(88, 90, 96)
 	local GRASS   = Color3.fromRGB(80, 168, 60)
@@ -351,22 +351,22 @@ local function onPlayerAdded(player)
 			local skinDef = SkinDataModule.getById(skinId)
 			if skinDef then
 				local slotIndex, slotPos = BaseSystem.getNextSlot(player, playerBases)
-				local fallbackY = pos.Y + 2.2 + skinDef.size / 2
-				local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + skinDef.size / 2, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
+				local fallbackY = pos.Y + 2.2 + skinDef.size
+				local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + skinDef.size, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
 				ShopSystem.spawnSkin(skinDef, spawnPos, player, skinOwner, slotIndex)
 				playerCollection[player][skinId] = (playerCollection[player][skinId] or 0) + 1
 			end
 		end
 		CollectionUpdated:FireClient(player, playerCollection[player])
-		Notification:FireClient(player, "Welcome back! Your skins have been restored.", Color3.fromRGB(0, 220, 255))
+		Notification:FireClient(player, "Bon retour ! Tes brainrots ont été restaurés.", Color3.fromRGB(0, 220, 255))
 	else
 		-- New player: give free starter
 		local commons = SkinData.getByRarity("Common")
 		if commons and #commons > 0 then
 			local starterSkin = commons[1]
 			local slotIndex, slotPos = BaseSystem.getNextSlot(player, playerBases)
-			local fallbackY = pos.Y + 2.2 + starterSkin.size / 2
-			local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + starterSkin.size / 2, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
+			local fallbackY = pos.Y + 2.2 + starterSkin.size
+			local spawnPos = slotPos and Vector3.new(slotPos.X, slotPos.Y + starterSkin.size, slotPos.Z) or Vector3.new(pos.X, fallbackY, pos.Z)
 			ShopSystem.spawnSkin(starterSkin, spawnPos, player, skinOwner, slotIndex)
 
 			playerCollection[player][starterSkin.id] = 1
@@ -374,7 +374,7 @@ local function onPlayerAdded(player)
 
 			Notification:FireClient(
 				player,
-				"Welcome! You received a free " .. starterSkin.name .. "!",
+				"Bienvenue ! Tu as reçu " .. starterSkin.name .. " gratuitement !",
 				Color3.fromRGB(0, 220, 100)
 			)
 		end
