@@ -20,12 +20,20 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 		clone:SetPrimaryPartCFrame(CFrame.new(pos))
 	end
 	model.PrimaryPart = clone.PrimaryPart
-	local animController = clone:FindFirstChildOfClass("AnimationController")
-		or clone:FindFirstChildOfClass("Humanoid")
-	if animController then
-		local anim = clone:FindFirstChildOfClass("Animation")
-		if anim then
-			local track = animController:LoadAnimation(anim)
+	local anim = clone:FindFirstChildWhichIsA("Animation", true)
+	if anim then
+		local animator = clone:FindFirstChildWhichIsA("Animator", true)
+		if not animator then
+			-- No Animator found — create one inside an AnimationController
+			local ctrl = clone:FindFirstChildWhichIsA("AnimationController", true)
+				or clone:FindFirstChildWhichIsA("Humanoid", true)
+			if ctrl then
+				animator = Instance.new("Animator")
+				animator.Parent = ctrl
+			end
+		end
+		if animator then
+			local track = animator:LoadAnimation(anim)
 			track:Play()
 		end
 	end
