@@ -88,53 +88,6 @@ baseplate.BrickColor = BrickColor.new("Bright green")
 baseplate.Material   = Enum.Material.Grass
 baseplate.Parent     = workspace
 
--- Central dirt road running down the Z axis (20 studs wide, X=-10 to X=10)
-local road = Instance.new("Part")
-road.Name       = "CentralRoad"
-road.Size       = Vector3.new(20, 0.5, 280)
-road.Position   = Vector3.new(0, -0.25, 0)
-road.Anchored   = true
-road.BrickColor = BrickColor.new("Brown")
-road.Material   = Enum.Material.SmoothPlastic
-road.Parent     = workspace
-
--- Brown/dirt border strips along the left and right edges
-local leftBorder = Instance.new("Part")
-leftBorder.Name     = "LeftBorder"
-leftBorder.Size     = Vector3.new(10, 0.5, 280)
-leftBorder.Position = Vector3.new(-145, -0.25, 0)
-leftBorder.Anchored = true
-leftBorder.BrickColor = BrickColor.new("Brown")
-leftBorder.Material = Enum.Material.SmoothPlastic
-leftBorder.Parent   = workspace
-
-local rightBorder = Instance.new("Part")
-rightBorder.Name     = "RightBorder"
-rightBorder.Size     = Vector3.new(10, 0.5, 280)
-rightBorder.Position = Vector3.new(145, -0.25, 0)
-rightBorder.Anchored = true
-rightBorder.BrickColor = BrickColor.new("Brown")
-rightBorder.Material = Enum.Material.SmoothPlastic
-rightBorder.Parent   = workspace
-
--- Boundary water (visual only, large blue ring around the map)
-local waterParts = {
-	{ size = Vector3.new(700, 2, 50),  pos = Vector3.new(0,    -1.5,  375) },
-	{ size = Vector3.new(700, 2, 50),  pos = Vector3.new(0,    -1.5, -375) },
-	{ size = Vector3.new(50,  2, 700), pos = Vector3.new( 375, -1.5,    0) },
-	{ size = Vector3.new(50,  2, 700), pos = Vector3.new(-375, -1.5,    0) },
-}
-for _, w in ipairs(waterParts) do
-	local water = Instance.new("Part")
-	water.Size         = w.size
-	water.Position     = w.pos
-	water.Anchored     = true
-	water.BrickColor   = BrickColor.new("Cyan")
-	water.Material     = Enum.Material.Water
-	water.Transparency = 0.3
-	water.Parent       = workspace
-end
-
 -- Atmosphere and sky
 local atmosphere = Instance.new("Atmosphere")
 atmosphere.Density = 0.3

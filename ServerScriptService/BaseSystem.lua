@@ -27,12 +27,6 @@ local ENTRANCE_GAP     = 12   -- width of open entrance in front wall
 local MAX_FLOORS       = 5
 local SLOTS_PER_FLOOR  = 10   -- 5 left + 5 right
 
--- Neon red bars on front face
-local NEON_BAR_COUNT = 5
-local NEON_BAR_W     = 2
-local NEON_BAR_H     = 7
-local NEON_BAR_D     = 0.5
-
 -- Shield / lock
 local LOCK_SHIELD_DURATION = 15
 local LOCK_COOLDOWN        = 30
@@ -146,13 +140,15 @@ end
 -- ============================================================
 
 local function buildGroundFloor(folder, pos, faceSign)
-	local FOUNDATION_COLOR     = Color3.fromRGB(80,  80,  80)
-	local WALL_COLOR           = Color3.fromRGB(130, 130, 135)
-	local ROOF_COLOR           = Color3.fromRGB(190, 190, 195)
-	local INTERIOR_FLOOR_COLOR = Color3.fromRGB(60,  60,  60)
-	local NEON_RED             = Color3.fromRGB(255, 30,  30)
+	local WALL_COLOR           = Color3.fromRGB(52, 55, 63)
+	local ROOF_COLOR           = Color3.fromRGB(38, 40, 48)
+	local INTERIOR_FLOOR_COLOR = Color3.fromRGB(48, 50, 58)
+	local TRIM_COLOR           = Color3.fromRGB(190, 193, 200)
+	local BAR_COLOR            = Color3.fromRGB(210, 20, 20)
+	local SIGN_COLOR           = Color3.fromRGB(95, 58, 18)
 	local GRASS_COLOR          = Color3.fromRGB(106, 127, 63)
-	local YARD_COLOR           = Color3.fromRGB(90,  140, 50)
+	local YARD_COLOR           = Color3.fromRGB(90, 140, 50)
+	local FOUNDATION_COLOR     = Color3.fromRGB(65, 68, 76)
 
 	-- Plot ground slab
 	makePart(
@@ -162,14 +158,12 @@ local function buildGroundFloor(folder, pos, faceSign)
 		GRASS_COLOR, 0, Enum.Material.Grass, true
 	)
 
-	-- Building center: bCX is along X (depth axis), pos.Z is the Z center
-	local bCX = pos.X + faceSign * (-6)
-
-	-- Foundation (dark grey SmoothPlastic, covers building footprint, 2 studs tall)
-	-- The foundation sits just above plot ground level
-	local foundBaseY  = pos.Y  -- top of plot ground
-	local foundTopY   = foundBaseY + FLOOR_THICKNESS
+	local bCX          = pos.X + faceSign * (-6)
+	local foundBaseY   = pos.Y
+	local foundTopY    = foundBaseY + FLOOR_THICKNESS
 	local foundCenterY = foundBaseY + FLOOR_THICKNESS / 2
+
+	-- Foundation
 	makePart(
 		folder, "Foundation",
 		Vector3.new(BUILDING_DEPTH, FLOOR_THICKNESS, BUILDING_WIDTH),
@@ -177,7 +171,7 @@ local function buildGroundFloor(folder, pos, faceSign)
 		FOUNDATION_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- Interior floor (dark grey, sits on top of foundation)
+	-- Interior floor
 	makePart(
 		folder, "InteriorFloor",
 		Vector3.new(BUILDING_DEPTH, 0.2, BUILDING_WIDTH),
@@ -185,29 +179,25 @@ local function buildGroundFloor(folder, pos, faceSign)
 		INTERIOR_FLOOR_COLOR, 0, Enum.Material.SmoothPlastic, false
 	)
 
-	-- Walls Y center: foundTopY + WALL_HEIGHT/2
-	local wallY    = foundTopY + WALL_HEIGHT / 2
-	local halfDepth = BUILDING_DEPTH / 2
-	local halfWidth = BUILDING_WIDTH / 2
+	local halfDepth  = BUILDING_DEPTH / 2
+	local halfWidth  = BUILDING_WIDTH / 2
+	local frontFaceX = bCX + faceSign * halfDepth
+	local wallY      = foundTopY + WALL_HEIGHT / 2
 
-	-- Back wall (opposite side from road)
-	-- Back is away from road. For faceSign=+1 (house at X<0, faces +X), back is at lower X.
-	-- Back wall center X = bCX - faceSign * halfDepth
-	local backWallX = bCX - faceSign * halfDepth
+	-- Back wall
 	makePart(
 		folder, "WallBack",
 		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, BUILDING_WIDTH),
-		CFrame.new(backWallX, wallY, pos.Z),
-		WALL_COLOR, 0, Enum.Material.Concrete, true
+		CFrame.new(bCX - faceSign * halfDepth, wallY, pos.Z),
+		WALL_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- Left side wall (full depth, along X axis)
-	-- Left side: Z = pos.Z - halfWidth
+	-- Left side wall
 	makePart(
 		folder, "WallLeft",
 		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
 		CFrame.new(bCX, wallY, pos.Z - halfWidth),
-		WALL_COLOR, 0, Enum.Material.Concrete, true
+		WALL_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
 	-- Right side wall
@@ -215,36 +205,70 @@ local function buildGroundFloor(folder, pos, faceSign)
 		folder, "WallRight",
 		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
 		CFrame.new(bCX, wallY, pos.Z + halfWidth),
-		WALL_COLOR, 0, Enum.Material.Concrete, true
+		WALL_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- Front wall with entrance gap (12 studs) in center
-	-- Front face X = bCX + faceSign * halfDepth
-	local frontFaceX = bCX + faceSign * halfDepth
-	local segmentWidth = (BUILDING_WIDTH - ENTRANCE_GAP) / 2
+	-- -----------------------------------------------------------------------
+	-- Front display window: brown sign header + silver trim + red bars
+	-- -----------------------------------------------------------------------
+	local topBeamH  = 2.5   -- height of brown sign header at top
+	local sillH     = 1.0   -- height of bottom sill
+	local pillarW   = 2.5   -- width of each side pillar
+	local openH     = WALL_HEIGHT - topBeamH - sillH   -- 6.5
+	local openY     = foundTopY + sillH + openH / 2
 
-	-- Left segment (Z < pos.Z - ENTRANCE_GAP/2)
-	local fwLeftZ = pos.Z - ENTRANCE_GAP / 2 - segmentWidth / 2
+	-- Brown sign header (named SignBoard so buildSign can attach text)
 	makePart(
-		folder, "WallFrontLeft",
-		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
-		CFrame.new(frontFaceX, wallY, fwLeftZ),
-		WALL_COLOR, 0, Enum.Material.Concrete, true
+		folder, "SignBoard",
+		Vector3.new(WALL_THICKNESS + 0.2, topBeamH, BUILDING_WIDTH),
+		CFrame.new(frontFaceX, foundTopY + WALL_HEIGHT - topBeamH / 2, pos.Z),
+		SIGN_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- Right segment (Z > pos.Z + ENTRANCE_GAP/2)
-	local fwRightZ = pos.Z + ENTRANCE_GAP / 2 + segmentWidth / 2
+	-- Bottom sill
 	makePart(
-		folder, "WallFrontRight",
-		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
-		CFrame.new(frontFaceX, wallY, fwRightZ),
-		WALL_COLOR, 0, Enum.Material.Concrete, true
+		folder, "FrontSill",
+		Vector3.new(WALL_THICKNESS + 0.2, sillH, BUILDING_WIDTH),
+		CFrame.new(frontFaceX, foundTopY + sillH / 2, pos.Z),
+		TRIM_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- Flat roof (light grey, overhanging by ROOF_OVERHANG, 1.5 studs thick)
+	-- Left pillar
+	makePart(
+		folder, "FrontPillarL",
+		Vector3.new(WALL_THICKNESS + 0.2, openH, pillarW),
+		CFrame.new(frontFaceX, openY, pos.Z - halfWidth + pillarW / 2),
+		TRIM_COLOR, 0, Enum.Material.SmoothPlastic, true
+	)
+
+	-- Right pillar
+	makePart(
+		folder, "FrontPillarR",
+		Vector3.new(WALL_THICKNESS + 0.2, openH, pillarW),
+		CFrame.new(frontFaceX, openY, pos.Z + halfWidth - pillarW / 2),
+		TRIM_COLOR, 0, Enum.Material.SmoothPlastic, true
+	)
+
+	-- Red vertical bars filling the opening (non-collidable, decorative)
+	local displayWidth = BUILDING_WIDTH - pillarW * 2
+	local barCount     = 10
+	local barSpacing   = displayWidth / (barCount + 1)
+	for i = 1, barCount do
+		local barZ = pos.Z - halfWidth + pillarW + barSpacing * i
+		makePart(
+			folder, "DisplayBar" .. i,
+			Vector3.new(0.45, openH, 0.45),
+			CFrame.new(frontFaceX, openY, barZ),
+			BAR_COLOR, 0, Enum.Material.Neon, false
+		)
+	end
+
+	-- -----------------------------------------------------------------------
+	-- Flat roof
+	-- -----------------------------------------------------------------------
 	local roofWidth = BUILDING_WIDTH + ROOF_OVERHANG * 2
 	local roofDepth = BUILDING_DEPTH + ROOF_OVERHANG * 2
-	local roofY = foundTopY + WALL_HEIGHT + ROOF_THICKNESS / 2
+	local roofY     = foundTopY + WALL_HEIGHT + ROOF_THICKNESS / 2
 	makePart(
 		folder, "Roof",
 		Vector3.new(roofDepth, ROOF_THICKNESS, roofWidth),
@@ -252,28 +276,10 @@ local function buildGroundFloor(folder, pos, faceSign)
 		ROOF_COLOR, 0, Enum.Material.SmoothPlastic, true
 	)
 
-	-- 5 vertical red neon bars on the front face exterior
-	local barY = foundTopY + WALL_HEIGHT / 2
-	local barSpacing = BUILDING_WIDTH / (NEON_BAR_COUNT + 1)
-	for i = 1, NEON_BAR_COUNT do
-		local barZ = pos.Z - halfWidth + barSpacing * i
-		-- Bar sits just outside the front face
-		local barX = frontFaceX + faceSign * (WALL_THICKNESS / 2 + NEON_BAR_D / 2)
-		makePart(
-			folder, "NeonBar" .. i,
-			Vector3.new(NEON_BAR_D, NEON_BAR_H, NEON_BAR_W),
-			CFrame.new(barX, barY, barZ),
-			NEON_RED, 0, Enum.Material.Neon, false
-		)
-	end
-
-	-- Green yard slab in front of building (between front face and plot edge toward road)
-	-- Plot front edge at X = pos.X + faceSign * (BASE_SIZE / 2)
-	-- Building front face at X = frontFaceX
-	-- Yard spans from frontFaceX to plotFrontEdge along X, full building width along Z
+	-- Yard (green strip between building front and plot edge)
 	local plotFrontEdgeX = pos.X + faceSign * (BASE_SIZE / 2)
-	local yardLengthX = math.abs(plotFrontEdgeX - frontFaceX)
-	local yardCenterX = (plotFrontEdgeX + frontFaceX) / 2
+	local yardLengthX    = math.abs(plotFrontEdgeX - frontFaceX)
+	local yardCenterX    = (plotFrontEdgeX + frontFaceX) / 2
 	makePart(
 		folder, "Yard",
 		Vector3.new(yardLengthX, 0.2, BUILDING_WIDTH),
@@ -287,42 +293,24 @@ end
 -- ============================================================
 
 local function buildSign(folder, pos, faceSign, playerName)
-	local halfBase = BASE_SIZE / 2
-	local postX    = pos.X + faceSign * (halfBase - 1)
-	local postH    = 5
-	local postBaseY = pos.Y
-	local postCenterY = postBaseY + postH / 2
+	local signBoard = folder:FindFirstChild("SignBoard")
+	if not signBoard then return end
 
-	makePart(
-		folder, "SignPost",
-		Vector3.new(0.4, postH, 0.4),
-		CFrame.new(postX, postCenterY, pos.Z),
-		Color3.fromRGB(30, 30, 30), 0, Enum.Material.Metal, true
-	)
+	local surfaceGui          = Instance.new("SurfaceGui")
+	surfaceGui.Face           = faceSign > 0 and Enum.NormalId.Right or Enum.NormalId.Left
+	surfaceGui.SizingMode     = Enum.SurfaceGuiSizingMode.FixedSize
+	surfaceGui.CanvasSize     = Vector2.new(500, 100)
+	surfaceGui.Parent         = signBoard
 
-	local boardY = postBaseY + postH + 1
-	local signBoard = makePart(
-		folder, "SignBoard",
-		Vector3.new(7, 2, 0.4),
-		CFrame.new(postX, boardY, pos.Z),
-		Color3.fromRGB(20, 20, 20), 0, Enum.Material.SmoothPlastic, false
-	)
-
-	local surfaceGui = Instance.new("SurfaceGui")
-	surfaceGui.Face       = Enum.NormalId.Front
-	surfaceGui.SizingMode = Enum.SurfaceGuiSizingMode.FixedSize
-	surfaceGui.CanvasSize = Vector2.new(350, 100)
-	surfaceGui.Parent     = signBoard
-
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size                  = UDim2.fromScale(1, 1)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text                  = playerName
-	nameLabel.TextScaled            = true
-	nameLabel.Font                  = Enum.Font.GothamBold
-	nameLabel.TextColor3            = Color3.fromRGB(255, 255, 255)
-	nameLabel.TextStrokeTransparency = 0.3
-	nameLabel.Parent                = surfaceGui
+	local nameLabel                    = Instance.new("TextLabel")
+	nameLabel.Size                     = UDim2.fromScale(1, 1)
+	nameLabel.BackgroundTransparency   = 1
+	nameLabel.Text                     = playerName
+	nameLabel.TextScaled               = true
+	nameLabel.Font                     = Enum.Font.GothamBold
+	nameLabel.TextColor3               = Color3.fromRGB(255, 255, 255)
+	nameLabel.TextStrokeTransparency   = 0.3
+	nameLabel.Parent                   = surfaceGui
 end
 
 -- ============================================================
