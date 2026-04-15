@@ -88,29 +88,42 @@ baseplate.BrickColor = BrickColor.new("Bright green")
 baseplate.Material   = Enum.Material.Grass
 baseplate.Parent     = workspace
 
--- Visible boundary walls — short stone ledge around the map perimeter
+-- Boundary walls — tall Minecraft-style (gray stone body + green grass top)
+-- N/S walls have a 24-stud gap centred at X=0 for the belt portal
 do
-	local H  = 8    -- wall height (studs) — enough to block players
-	local T  = 4    -- wall thickness
-	local CLR = Color3.fromRGB(52, 55, 63)   -- dark charcoal, matches buildings
-	local walls = {
-		-- North / South (span full X width)
-		{ size = Vector3.new(300 + T*2, H, T), pos = Vector3.new(0, H/2 - 0.5, -140) },
-		{ size = Vector3.new(300 + T*2, H, T), pos = Vector3.new(0, H/2 - 0.5,  140) },
-		-- West / East (span full Z depth)
-		{ size = Vector3.new(T, H, 280), pos = Vector3.new(-150, H/2 - 0.5, 0) },
-		{ size = Vector3.new(T, H, 280), pos = Vector3.new( 150, H/2 - 0.5, 0) },
-	}
-	for _, w in ipairs(walls) do
-		local wall = Instance.new("Part")
-		wall.Anchored   = true
-		wall.Size       = w.size
-		wall.Position   = w.pos
-		wall.Color      = CLR
-		wall.Material   = Enum.Material.SmoothPlastic
-		wall.CanCollide = true
-		wall.Parent     = workspace
+	local H       = 35    -- wall body height (studs)
+	local T       = 4     -- thickness
+	local GAP     = 24    -- portal opening width (centred, X: -12 to +12)
+	local SIDE_W  = (300 - GAP) / 2   -- 138 studs each side panel
+	local STONE   = Color3.fromRGB(88, 90, 96)
+	local GRASS   = Color3.fromRGB(80, 168, 60)
+	local baseY   = H / 2 - 0.5   -- wall body centre Y (bottom sits on ground)
+	local topY    = H - 0.5 + 1   -- grass strip centre Y
+
+	local function wallPart(size, pos, color, mat)
+		local w = Instance.new("Part")
+		w.Anchored  = true; w.Size = size; w.Position = pos
+		w.Color = color; w.Material = mat or Enum.Material.SmoothPlastic
+		w.CanCollide = true; w.Parent = workspace
 	end
+
+	-- North (Z = -140): two stone sections + grass cap
+	wallPart(Vector3.new(SIDE_W, H, T), Vector3.new(-(GAP/2 + SIDE_W/2), baseY, -140), STONE)
+	wallPart(Vector3.new(SIDE_W, H, T), Vector3.new( (GAP/2 + SIDE_W/2), baseY, -140), STONE)
+	wallPart(Vector3.new(300,    2, T), Vector3.new(0, topY, -140), GRASS, Enum.Material.Grass)
+
+	-- South (Z = +140): same
+	wallPart(Vector3.new(SIDE_W, H, T), Vector3.new(-(GAP/2 + SIDE_W/2), baseY,  140), STONE)
+	wallPart(Vector3.new(SIDE_W, H, T), Vector3.new( (GAP/2 + SIDE_W/2), baseY,  140), STONE)
+	wallPart(Vector3.new(300,    2, T), Vector3.new(0, topY,  140), GRASS, Enum.Material.Grass)
+
+	-- West (X = -150): full stone + grass cap
+	wallPart(Vector3.new(T, H, 280), Vector3.new(-150, baseY, 0), STONE)
+	wallPart(Vector3.new(T, 2, 280), Vector3.new(-150, topY,  0), GRASS, Enum.Material.Grass)
+
+	-- East (X = +150): full stone + grass cap
+	wallPart(Vector3.new(T, H, 280), Vector3.new( 150, baseY, 0), STONE)
+	wallPart(Vector3.new(T, 2, 280), Vector3.new( 150, topY,  0), GRASS, Enum.Material.Grass)
 end
 
 -- Atmosphere and sky

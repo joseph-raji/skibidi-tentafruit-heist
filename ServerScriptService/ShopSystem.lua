@@ -905,12 +905,12 @@ function ShopSystem.createShopPads()
 		local isStart = (zPos < 0)
 		local baseY   = BELT_Y + 0.25
 
-		local BLDG_W  = 30
-		local BLDG_H  = 18
-		local BLDG_D  = 5
-		local ARCH_W  = 18
-		local ARCH_H  = 13
-		local sideW   = (BLDG_W - ARCH_W) / 2   -- 6 per side
+		local BLDG_W  = 24    -- matches the wall gap exactly
+		local BLDG_H  = 35    -- same height as boundary walls
+		local BLDG_D  = 4
+		local ARCH_W  = 16    -- belt width
+		local ARCH_H  = 14
+		local sideW   = (BLDG_W - ARCH_W) / 2   -- 4 per side
 
 		local BRICK_CLR  = Color3.fromRGB(88, 63, 48)
 		local COL_CLR    = Color3.fromRGB(50, 52, 60)
@@ -970,19 +970,25 @@ function ShopSystem.createShopPads()
 		lbl.TextScaled = true; lbl.Font = Enum.Font.GothamBold
 		lbl.TextColor3 = Color3.fromRGB(255, 255, 255); lbl.Parent = sg
 
-		-- Red carpet from arch outward onto belt
-		local carpetDir = isStart and 1 or -1
-		local carpetLen = 8
+		-- Red carpet bridging from portal arch to belt end
+		-- Portal inner face is at zPos ± BLDG_D/2; belt ends at BELT_START/END_Z
+		local carpetDir  = isStart and 1 or -1
+		local innerFaceZ = zPos + carpetDir * BLDG_D / 2
+		local beltEndZ   = isStart and BELT_START_Z or BELT_END_Z
+		local carpetLen  = math.abs(beltEndZ - innerFaceZ) + 2  -- +2 for overlap
+		local carpetCtrZ = innerFaceZ + carpetDir * carpetLen / 2
 		local carpet = Instance.new("Part")
-		carpet.Anchored = true
-		carpet.Size = Vector3.new(BELT_WIDTH, 0.3, carpetLen)
-		carpet.Position = Vector3.new(0, BELT_Y + 0.05, zPos + carpetDir * (BLDG_D/2 + carpetLen/2))
-		carpet.Color = Color3.fromRGB(180, 20, 20); carpet.Material = Enum.Material.Fabric
-		carpet.CanCollide = false; carpet.Parent = workspace
+		carpet.Anchored  = true
+		carpet.Size      = Vector3.new(BELT_WIDTH, 0.3, carpetLen)
+		carpet.Position  = Vector3.new(0, BELT_Y + 0.05, carpetCtrZ)
+		carpet.Color     = Color3.fromRGB(180, 20, 20)
+		carpet.Material  = Enum.Material.Fabric
+		carpet.CanCollide = false
+		carpet.Parent    = workspace
 	end
 
-	buildPortal(BELT_START_Z - 1)
-	buildPortal(BELT_END_Z   + 1)
+	buildPortal(-140)   -- north portal, embedded in north wall
+	buildPortal( 140)   -- south portal, embedded in south wall
 
 	-- SHOP sign at the north end of belt
 	local signPost = Instance.new("Part")
