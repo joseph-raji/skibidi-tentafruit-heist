@@ -151,7 +151,9 @@ function StealSystem.claimSkin(player, playerBases, skinOwner, carrying, playerC
 	local halfSize = BASE_SIZE / 2 - 4
 	local randomX = basePos.X + math.random(-halfSize, halfSize)
 	local randomZ = basePos.Z + math.random(-halfSize, halfSize)
-	skin.CFrame = CFrame.new(randomX, basePos.Y + 3, randomZ)
+	local floorSurfaceY = baseData.position.Y + 2.2
+	local bodySize = skin:GetAttribute("BodySize") or 2
+	skin.CFrame = CFrame.new(randomX, floorSurfaceY + bodySize, randomZ)
 	skin.Anchored = true
 
 	-- Re-attach touch events with new owner so it can be stolen again

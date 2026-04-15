@@ -748,7 +748,7 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 	})
 
 	-- Build actual skin character at the machine and walk it to base
-	local walkStartPos = Vector3.new(GACHA_X, BELT_Y + result.size, GACHA_Z)
+	local walkStartPos = Vector3.new(GACHA_X, BELT_Y + 0.3 + result.size, GACHA_Z)
 	local walkModel = Instance.new("Model")
 	walkModel.Name   = "GachaWalk_" .. result.name
 	walkModel.Parent = workspace
@@ -1025,7 +1025,7 @@ function ShopSystem.createShopPads()
 			end
 			local chosen = purchasable[math.random(1, #purchasable)]
 			if chosen then
-				local spawnPos = Vector3.new(0, BELT_Y + chosen.size, SPAWN_Z)
+				local spawnPos = Vector3.new(0, BELT_Y + 0.3 + chosen.size, SPAWN_Z)
 				local body = ShopSystem.spawnSkin(chosen, spawnPos, nil, _skinOwner, nil)
 				if body then
 					conveyorItems[body] = true
@@ -1717,7 +1717,7 @@ function ShopSystem.createFusionMachine()
 				end
 
 				-- Build the actual skin character at the machine so it walks to base
-				local walkStartPos = Vector3.new(MACHINE_X, BELT_Y + chosen.size, MACHINE_Z)
+				local walkStartPos = Vector3.new(MACHINE_X, BELT_Y + 0.3 + chosen.size, MACHINE_Z)
 				local walkModel = Instance.new("Model")
 				walkModel.Name   = "FusionWalk_" .. chosen.name
 				walkModel.Parent = workspace
