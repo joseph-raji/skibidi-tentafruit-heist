@@ -839,7 +839,7 @@ end
 -- =========================================================================
 
 local BELT_LENGTH  = 210  -- spans Z=-105 to Z=105 (all 8 bases)
-local BELT_WIDTH   = 8    -- studs wide along X
+local BELT_WIDTH   = 16   -- studs wide along X
 local BELT_SPEED   = 7    -- studs per second (items move along +Z)
 local BELT_Y       = 0.5  -- height
 local BELT_START_Z = -BELT_LENGTH / 2   -- -105
@@ -869,7 +869,7 @@ function ShopSystem.createShopPads()
 	for i = 0, STRIPE_COUNT - 1 do
 		local stripe = Instance.new("Part")
 		stripe.Anchored   = true
-		stripe.Size       = Vector3.new(BELT_WIDTH - 1, 0.05, 2)
+		stripe.Size       = Vector3.new(BELT_WIDTH - 2, 0.05, 2)
 		stripe.BrickColor = BrickColor.new("Bright orange")
 		stripe.Material   = Enum.Material.Neon
 		stripe.CanCollide = false
@@ -890,51 +890,62 @@ function ShopSystem.createShopPads()
 	end)
 
 	-- -----------------------------------------------------------------------
-	-- Entry portal (glowing neon arch at each end of belt — at Z extremes)
+	-- Entry portal — clean gold/white arch matching red carpet aesthetic
 	-- -----------------------------------------------------------------------
-	local function buildPortal(zPos, color)
+	local PILLAR_COLOR = Color3.fromRGB(200, 170, 60)   -- gold
+	local ARCH_COLOR   = Color3.fromRGB(220, 190, 80)   -- lighter gold
+	local PILLAR_H     = 12
+	local PILLAR_W     = 1.2
+
+	local function buildPortal(zPos)
+		-- Left pillar
 		local pillarL = Instance.new("Part")
 		pillarL.Anchored   = true
-		pillarL.Size       = Vector3.new(0.6, 10, 0.6)
-		pillarL.Position   = Vector3.new(-BELT_WIDTH / 2 - 0.5, BELT_Y + 5, zPos)
-		pillarL.BrickColor = BrickColor.new("Really black")
-		pillarL.Material   = Enum.Material.Neon
+		pillarL.Size       = Vector3.new(PILLAR_W, PILLAR_H, PILLAR_W)
+		pillarL.Position   = Vector3.new(-BELT_WIDTH / 2 - 1, BELT_Y + PILLAR_H / 2, zPos)
+		pillarL.Color      = PILLAR_COLOR
+		pillarL.Material   = Enum.Material.SmoothPlastic
 		pillarL.CanCollide = false
 		pillarL.Parent     = workspace
 
-		local pillarR = Instance.new("Part")
-		pillarR.Anchored   = true
-		pillarR.Size       = Vector3.new(0.6, 10, 0.6)
-		pillarR.Position   = Vector3.new(BELT_WIDTH / 2 + 0.5, BELT_Y + 5, zPos)
-		pillarR.BrickColor = BrickColor.new("Really black")
-		pillarR.Material   = Enum.Material.Neon
-		pillarR.CanCollide = false
-		pillarR.Parent     = workspace
+		-- Right pillar
+		local pillarR = pillarL:Clone()
+		pillarR.Position = Vector3.new(BELT_WIDTH / 2 + 1, BELT_Y + PILLAR_H / 2, zPos)
+		pillarR.Parent   = workspace
 
+		-- Horizontal arch bar
 		local arch = Instance.new("Part")
 		arch.Anchored   = true
-		arch.Size       = Vector3.new(BELT_WIDTH + 2, 0.6, 0.6)
-		arch.Position   = Vector3.new(0, BELT_Y + 10.3, zPos)
-		arch.BrickColor = BrickColor.new("Really black")
-		arch.Material   = Enum.Material.Neon
+		arch.Size       = Vector3.new(BELT_WIDTH + 2 + PILLAR_W * 2, PILLAR_W, PILLAR_W)
+		arch.Position   = Vector3.new(0, BELT_Y + PILLAR_H + PILLAR_W / 2, zPos)
+		arch.Color      = ARCH_COLOR
+		arch.Material   = Enum.Material.SmoothPlastic
 		arch.CanCollide = false
 		arch.Parent     = workspace
 
-		local archLight = Instance.new("PointLight")
-		archLight.Brightness = 4
-		archLight.Range      = 18
-		archLight.Color      = color
-		archLight.Parent     = arch
+		-- Pillar caps (small gold balls on top of each pillar)
+		for _, xSide in ipairs({ -BELT_WIDTH / 2 - 1, BELT_WIDTH / 2 + 1 }) do
+			local cap = Instance.new("Part")
+			cap.Shape     = Enum.PartType.Ball
+			cap.Anchored  = true
+			cap.Size      = Vector3.new(PILLAR_W * 2, PILLAR_W * 2, PILLAR_W * 2)
+			cap.Position  = Vector3.new(xSide, BELT_Y + PILLAR_H + PILLAR_W, zPos)
+			cap.Color     = Color3.fromRGB(255, 215, 50)
+			cap.Material  = Enum.Material.Neon
+			cap.CanCollide = false
+			cap.Parent    = workspace
+		end
 
-		RunService.Heartbeat:Connect(function()
-			if not arch or not arch.Parent then return end
-			local c = Color3.fromHSV((tick() * 0.4) % 1, 0.9, 1)
-			arch.Color = c; pillarL.Color = c; pillarR.Color = c; archLight.Color = c
-		end)
+		-- Subtle warm light (no color cycling)
+		local light = Instance.new("PointLight")
+		light.Brightness = 1.5
+		light.Range      = 20
+		light.Color      = Color3.fromRGB(255, 200, 80)
+		light.Parent     = arch
 	end
 
-	buildPortal(BELT_START_Z - 1, Color3.fromRGB(0, 200, 255))
-	buildPortal(BELT_END_Z   + 1, Color3.fromRGB(255, 80, 200))
+	buildPortal(BELT_START_Z - 1)
+	buildPortal(BELT_END_Z   + 1)
 
 	-- SHOP sign at the north end of belt
 	local signPost = Instance.new("Part")

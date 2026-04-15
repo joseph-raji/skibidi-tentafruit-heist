@@ -259,13 +259,13 @@ local RebirthLabel = makeLabel(RebirthFrame, "🌀 Rebirths: 0 | Multiplier: x1"
 
 local function updateRebirth()
 	local count = LocalPlayer:GetAttribute("RebirthCount") or 0
-	local mult = LocalPlayer:GetAttribute("Multiplier") or 1
+	local mult = LocalPlayer:GetAttribute("MoneyMultiplier") or 1
 	RebirthLabel.Text = "🌀 Rebirths: " .. count .. " | Multiplier: x" .. mult
 end
 
 updateRebirth()
 LocalPlayer:GetAttributeChangedSignal("RebirthCount"):Connect(updateRebirth)
-LocalPlayer:GetAttributeChangedSignal("Multiplier"):Connect(updateRebirth)
+LocalPlayer:GetAttributeChangedSignal("MoneyMultiplier"):Connect(updateRebirth)
 
 -- ─────────────────────────────────────────────────────────
 -- 4. REBIRTH BUTTON (right side, middle — replaces old Lock Base button)
