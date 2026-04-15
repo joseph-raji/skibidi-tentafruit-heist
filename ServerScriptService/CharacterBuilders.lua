@@ -190,8 +190,13 @@ builders["poire_belle"] = function(pos, model, s)
 	return buildFromImportedMesh(pos, model, s, "PoireSkin")
 end
 
--- banane_bro (Common): yellow tilted cylinder head, brown tips
+-- banane_bro (Common): custom imported mesh (BananeSkin)
 builders["banane_bro"] = function(pos, model, s)
+	return buildFromImportedMesh(pos, model, s, "BananeSkin")
+end
+
+-- banane_bro_fallback (procedural, kept for reference)
+local function _banane_bro_procedural(pos, model, s)
 	local tor = buildBase(pos, model, s, YEL, DYEL)
 	local hc  = pos + Vector3.new(0, s * 0.76, 0)
 	local hs  = s * 0.65
