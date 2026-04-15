@@ -177,6 +177,11 @@ builders["myrtille_babe"] = function(pos, model, s)
 	return buildFromImportedMesh(pos, model, s, "MyrtilleSkin")
 end
 
+-- noisette_king (Uncommon): custom imported mesh (NoisetteSkin)
+builders["noisette_king"] = function(pos, model, s)
+	return buildFromImportedMesh(pos, model, s, "NoisetteSkin")
+end
+
 -- banane_bro (Common): yellow tilted cylinder head, brown tips
 builders["banane_bro"] = function(pos, model, s)
 	local tor = buildBase(pos, model, s, YEL, DYEL)

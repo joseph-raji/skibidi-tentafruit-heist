@@ -145,6 +145,19 @@ SkinData.list = {
 	},
 
 	{
+		id          = "noisette_king",
+		name        = "Noisette King",
+		rarity      = "Uncommon",
+		income      = 165,
+		cost        = 1650,
+		color       = BrickColor.new("Brown"),
+		glowColor   = Color3.fromRGB(180, 110, 30),
+		size        = 3.5,
+		description = "Hazelnut royalty. Crunchy on the outside, surprisingly soft inside.",
+		dropWeight  = 25,
+	},
+
+	{
 		id          = "myrtille_babe",
 		name        = "Myrtille Babe",
 		rarity      = "Uncommon",
