@@ -170,6 +170,19 @@ SkinData.list = {
 		dropWeight  = 25,
 	},
 
+	{
+		id          = "poire_belle",
+		name        = "Poire Belle",
+		rarity      = "Uncommon",
+		income      = 155,
+		cost        = 1550,
+		color       = BrickColor.new("Lime green"),
+		glowColor   = Color3.fromRGB(180, 230, 80),
+		size        = 3.5,
+		description = "Elegant pear duchess. Surprisingly sharp elbows.",
+		dropWeight  = 25,
+	},
+
 	-- =====================================================================
 	-- RARE (5) — income 400-500/s, cost nil (gacha-only), dropWeight 12, size 4
 	-- =====================================================================
