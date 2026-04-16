@@ -23,9 +23,9 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 		end
 	end
 
-	-- Scale to match the skin's size parameter using Y height so feet land on the floor
+	-- Scale so the longest axis = s*2, keeping the model proportional
 	local extents = clone:GetExtentsSize()
-	local currentHeight = extents.Y  -- use Y specifically, not max(X,Y,Z)
+	local currentHeight = math.max(extents.X, extents.Y, extents.Z)
 	if currentHeight > 0 then
 		clone:ScaleTo(s * 2 / currentHeight)
 	end

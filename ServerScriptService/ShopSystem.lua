@@ -1117,6 +1117,7 @@ function ShopSystem.createShopPads()
 	-- Only the imported/FBX brainrots with a buy price appear on the belt
 	local FBX_IDS = {
 		FraisefSkin   = true,
+		FraisehSkin   = true,
 		banane_bro    = true,
 		myrtille_babe = true,
 		noisette_king = true,
