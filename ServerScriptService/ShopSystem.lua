@@ -54,6 +54,11 @@ local GACHA_COST = 0          -- Free spins
 local GACHA_COOLDOWN = 1800   -- 30 minutes in seconds
 local _gachaCooldown = {}     -- [player] → last spin timestamp
 
+-- Chest lid references (set by createShopPads, used by spinGacha for animation)
+local _gachaChestLid      = nil
+local _gachaChestLidBaseY = nil
+local _gachaPadY          = nil
+
 -- =========================================================================
 -- Rarity colors for UI labels
 -- =========================================================================
@@ -766,8 +771,19 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 		income = result.income,
 	})
 
+	-- Open chest lid
+	if _gachaChestLid and _gachaChestLid.Parent and _gachaChestLidBaseY then
+		TweenService:Create(
+			_gachaChestLid,
+			TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{Position = Vector3.new(_gachaChestLid.Position.X, _gachaChestLidBaseY + 6, _gachaChestLid.Position.Z)}
+		):Play()
+	end
+
 	-- Build actual skin character at the machine and walk it to base
-	local walkStartPos = Vector3.new(GACHA_X, BELT_Y + 0.3 + result.size, GACHA_Z)
+	-- Start above the open chest opening (padY + 4.5 = top of chest base)
+	local chestTopY = (_gachaPadY or 0.75) + 4.5
+	local walkStartPos = Vector3.new(GACHA_X, chestTopY + result.size, GACHA_Z)
 	local walkModel = Instance.new("Model")
 	walkModel.Name   = "GachaWalk_" .. result.name
 	walkModel.Parent = workspace
@@ -822,6 +838,14 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 			else
 				walkConn:Disconnect(); _flyingBodies[walkBody] = nil
 				walkModel:Destroy()
+				-- Close chest lid
+				if _gachaChestLid and _gachaChestLid.Parent and _gachaChestLidBaseY then
+					TweenService:Create(
+						_gachaChestLid,
+						TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In),
+						{Position = Vector3.new(_gachaChestLid.Position.X, _gachaChestLidBaseY, _gachaChestLid.Position.Z)}
+					):Play()
+				end
 				if player and player.Parent then
 					ShopSystem.spawnSkin(result, dest, player, skinOwner, slotIndex)
 					if not playerCollection[player] then playerCollection[player] = {} end
@@ -1092,6 +1116,11 @@ function ShopSystem.createShopPads()
 	chestLid.CFrame = CFrame.new(CX, CY + 4.5 + 1.25, CZ)
 	chestLid.Color = Color3.fromRGB(160, 100, 50); chestLid.Material = Enum.Material.WoodPlanks
 	chestLid.CanCollide = true; chestLid.Parent = workspace
+
+	-- Store references so spinGacha can animate the lid
+	_gachaChestLid      = chestLid
+	_gachaChestLidBaseY = CY + 4.5 + 1.25
+	_gachaPadY          = padY
 
 	-- Metal bands (horizontal straps around base)
 	for _, yOff in ipairs({1, 3.2}) do
