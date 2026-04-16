@@ -145,6 +145,10 @@ function ProgressionSystem.rebirth(player, playerBases, skinOwner, playerCollect
 	if BaseSystem then
 		local newTotal = BaseSystem.grantSlot(player, _playerBases)
 		player:SetAttribute("MaxSlots", newTotal)
+		-- Wire the ProximityPrompt on the newly created slot plate
+		if ShopSystem then
+			ShopSystem.initBasePlates(player)
+		end
 	end
 
 	-- Fire events
