@@ -31,40 +31,45 @@ local REBIRTH_COST = 50
 
 -- Equipment items (mirrors ItemsSystem.ITEMS)
 local ITEMS = {
-	{ id = "power_bat",      name = "Power Bat",       category = "Weapon",   cost = 500,  icon = "🏏", description = "2x range, stuns enemies 2s" },
-	{ id = "rocket_bat",     name = "Rocket Bat",       category = "Weapon",   cost = 2500, icon = "🚀", description = "AOE blast — drops ALL carriers nearby" },
-	{ id = "grappling_hook", name = "Grappling Hook",   category = "Mobility", cost = 1500, icon = "🪝", description = "Zip forward to any point" },
-	{ id = "speed_boots",    name = "Speed Boots",       category = "Mobility", cost = 600,  icon = "👟", description = "50% speed boost for 20s (consumable)" },
-	{ id = "invis_cap",      name = "Invisibility Cap", category = "Stealth",  cost = 1000, icon = "🪄", description = "Turn invisible for 10s (consumable)" },
-	{ id = "spike_trap",     name = "Spike Trap",        category = "Trap",     cost = 350,  icon = "⚡", description = "Slows enemies who step on it" },
-	{ id = "alarm_trap",     name = "Alarm Trap",         category = "Trap",     cost = 450,  icon = "🔔", description = "Notifies you when enemy enters base" },
-	{ id = "freeze_trap",    name = "Freeze Trap",        category = "Trap",     cost = 900,  icon = "❄️", description = "Anchors enemy in place for 3s" },
-	{ id = "bouncer_trap",   name = "Bouncer",            category = "Trap",     cost = 1200, icon = "🌀", description = "Launches intruders out of your base" },
-	{ id = "shield_bubble",  name = "Shield Bubble",      category = "Defense",  cost = 800,  icon = "🛡️", description = "Absorbs one bat hit (consumable)" },
+	{ id = "power_bat",      name = "Batte Puissante",    category = "Arme",      cost = 500,  icon = "🏏", description = "2x portée, étourdit les ennemis 2s" },
+	{ id = "rocket_bat",     name = "Batte Roquette",     category = "Arme",      cost = 2500, icon = "🚀", description = "Explosion AoE — fait lâcher TOUS les porteurs proches" },
+	{ id = "grappling_hook", name = "Grappin",            category = "Mobilité",  cost = 1500, icon = "🪝", description = "Propulse vers n'importe quel point" },
+	{ id = "speed_boots",    name = "Bottes de Vitesse",  category = "Mobilité",  cost = 600,  icon = "👟", description = "+50% vitesse pendant 20s (consommable)" },
+	{ id = "invis_cap",      name = "Cape d'Invisibilité",category = "Furtivité", cost = 1000, icon = "🪄", description = "Invisible pendant 10s (consommable)" },
+	{ id = "spike_trap",     name = "Piège à Pics",       category = "Piège",     cost = 350,  icon = "⚡", description = "Ralentit les ennemis qui marchent dessus" },
+	{ id = "alarm_trap",     name = "Piège Alarme",       category = "Piège",     cost = 450,  icon = "🔔", description = "Alerte quand un ennemi entre dans ta base" },
+	{ id = "freeze_trap",    name = "Piège Glacial",      category = "Piège",     cost = 900,  icon = "❄️", description = "Immobilise l'ennemi pendant 3s" },
+	{ id = "bouncer_trap",   name = "Éjecteur",           category = "Piège",     cost = 1200, icon = "🌀", description = "Éjecte les intrus hors de ta base" },
+	{ id = "shield_bubble",  name = "Bouclier",           category = "Défense",   cost = 800,  icon = "🛡️", description = "Absorbe un coup de batte (consommable)" },
 }
 
 local CATEGORY_COLOR = {
-	Weapon   = Color3.fromRGB(220, 60,  60),
-	Mobility = Color3.fromRGB(80,  140, 255),
-	Stealth  = Color3.fromRGB(200, 200, 200),
-	Trap     = Color3.fromRGB(255, 160, 30),
-	Defense  = Color3.fromRGB(0,   210, 220),
+	Arme      = Color3.fromRGB(220, 60,  60),
+	Mobilité  = Color3.fromRGB(80,  140, 255),
+	Furtivité = Color3.fromRGB(200, 200, 200),
+	Piège     = Color3.fromRGB(255, 160, 30),
+	Défense   = Color3.fromRGB(0,   210, 220),
 }
 
 local RARITY_COLOR = {
-	Common    = Color3.fromRGB(160, 160, 160),
-	Uncommon  = Color3.fromRGB(80,  200, 80),
-	Rare      = Color3.fromRGB(60,  120, 255),
-	Epic      = Color3.fromRGB(180, 60,  255),
-	Legendary = Color3.fromRGB(255, 180, 0),
+	Common      = Color3.fromRGB(160, 160, 160),
+	Uncommon    = Color3.fromRGB(80,  200, 80),
+	Rare        = Color3.fromRGB(60,  120, 255),
+	Epic        = Color3.fromRGB(180, 60,  255),
+	Legendary   = Color3.fromRGB(255, 180, 0),
+	-- French aliases (for display tables)
+	Commun      = Color3.fromRGB(160, 160, 160),
+	["Peu commun"] = Color3.fromRGB(80, 200, 80),
+	["Épique"]  = Color3.fromRGB(180, 60,  255),
+	["Légendaire"] = Color3.fromRGB(255, 180, 0),
 }
 
 local GACHA_ODDS = {
-	{ rarity = "Common",    chance = "50%" },
-	{ rarity = "Uncommon",  chance = "25%" },
-	{ rarity = "Rare",      chance = "12%" },
-	{ rarity = "Epic",      chance = "5%"  },
-	{ rarity = "Legendary", chance = "1%"  },
+	{ rarity = "Commun",      chance = "50%" },
+	{ rarity = "Peu commun",  chance = "25%" },
+	{ rarity = "Rare",        chance = "12%" },
+	{ rarity = "Épique",      chance = "5%"  },
+	{ rarity = "Légendaire",  chance = "1%"  },
 }
 
 local RARITY_ORDER = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
@@ -318,13 +323,13 @@ local function makeFilterBtn(name, order)
 end
 
 makeFilterBtn("ALL",      1)
-makeFilterBtn("Weapon",   2)
-makeFilterBtn("Mobility", 3)
-makeFilterBtn("Stealth",  4)
-makeFilterBtn("Trap",     5)
-makeFilterBtn("Defense",  6)
+makeFilterBtn("Arme",     2)
+makeFilterBtn("Mobilité", 3)
+makeFilterBtn("Furtivité",4)
+makeFilterBtn("Piège",    5)
+makeFilterBtn("Défense",  6)
 -- French display labels for filter buttons
-local filterLabels = { ALL="TOUS", Weapon="Arme", Mobility="Mobilité", Stealth="Furtif", Trap="Piège", Defense="Défense" }
+local filterLabels = { ALL="TOUS", ["Arme"]="Arme", ["Mobilité"]="Mobilité", ["Furtivité"]="Furtivité", ["Piège"]="Piège", ["Défense"]="Défense" }
 for name, btn in pairs(filterButtons) do
 	btn.Text = filterLabels[name] or name
 end
@@ -909,7 +914,8 @@ NotificationEvent.OnClientEvent:Connect(function(data)
 		end
 
 		refreshPullHistory()
-		showResultPopup("✨ " .. rarity .. ": " .. name .. "!", color)
+		local RARITY_FR_SHOP = { Common="Commun", Uncommon="Peu commun", Rare="Rare", Epic="Épique", Legendary="Légendaire" }
+		showResultPopup("✨ " .. (RARITY_FR_SHOP[rarity] or rarity) .. " : " .. name .. " !", color)
 	end
 end)
 
@@ -980,7 +986,7 @@ local FusTitleLabel = Instance.new("TextLabel")
 FusTitleLabel.Size                   = UDim2.new(1, -52, 1, 0)
 FusTitleLabel.Position               = UDim2.new(0, 14, 0, 0)
 FusTitleLabel.BackgroundTransparency = 1
-FusTitleLabel.Text                   = "⚡ FUSION MACHINE"
+FusTitleLabel.Text                   = "⚡ MACHINE À FUSION"
 FusTitleLabel.TextScaled             = true
 FusTitleLabel.Font                   = Enum.Font.GothamBold
 FusTitleLabel.TextColor3             = Color3.fromRGB(255, 255, 100)
@@ -1043,10 +1049,32 @@ FusSlot2Label.TextColor3             = Color3.fromRGB(180, 180, 220)
 FusSlot2Label.ZIndex                 = 53
 FusSlot2Label.Parent                 = FusSelBar
 
+-- Preview label (shows fusion result before committing)
+local FusPreviewBar = Instance.new("Frame")
+FusPreviewBar.Size             = UDim2.new(1, -20, 0, 44)
+FusPreviewBar.Position         = UDim2.new(0, 10, 0, 116)
+FusPreviewBar.BackgroundColor3 = Color3.fromRGB(20, 16, 36)
+FusPreviewBar.BorderSizePixel  = 0
+FusPreviewBar.ZIndex           = 52
+FusPreviewBar.Parent           = FusPanel
+corner(FusPreviewBar, 8)
+
+local FusPreviewLabel = Instance.new("TextLabel")
+FusPreviewLabel.Size                   = UDim2.new(1, -12, 1, 0)
+FusPreviewLabel.Position               = UDim2.new(0, 6, 0, 0)
+FusPreviewLabel.BackgroundTransparency = 1
+FusPreviewLabel.Text                   = "Sélectionne 2 brainrots pour voir le résultat"
+FusPreviewLabel.TextScaled             = true
+FusPreviewLabel.Font                   = Enum.Font.Gotham
+FusPreviewLabel.TextColor3             = Color3.fromRGB(160, 160, 180)
+FusPreviewLabel.TextXAlignment         = Enum.TextXAlignment.Center
+FusPreviewLabel.ZIndex                 = 53
+FusPreviewLabel.Parent                 = FusPreviewBar
+
 -- Scrollable collection list
 local FusScroll = Instance.new("ScrollingFrame")
-FusScroll.Size                = UDim2.new(1, -20, 1, -180)
-FusScroll.Position            = UDim2.new(0, 10, 0, 116)
+FusScroll.Size                = UDim2.new(1, -20, 1, -234)
+FusScroll.Position            = UDim2.new(0, 10, 0, 168)
 FusScroll.BackgroundColor3    = Color3.fromRGB(20, 20, 32)
 FusScroll.BorderSizePixel     = 0
 FusScroll.ScrollBarThickness  = 4
@@ -1071,7 +1099,7 @@ local FuseBtn = Instance.new("TextButton")
 FuseBtn.Size             = UDim2.new(0, 200, 0, 44)
 FuseBtn.Position         = UDim2.new(0.5, -100, 1, -54)
 FuseBtn.BackgroundColor3 = Color3.fromRGB(80, 30, 160)
-FuseBtn.Text             = "⚡ FUSE"
+FuseBtn.Text             = "⚡ FUSIONNER"
 FuseBtn.TextScaled       = true
 FuseBtn.Font             = Enum.Font.GothamBold
 FuseBtn.TextColor3       = Color3.fromRGB(255, 255, 100)
@@ -1080,41 +1108,19 @@ FuseBtn.Parent           = FusPanel
 corner(FuseBtn, 10)
 stroke(FuseBtn, Color3.fromRGB(160, 80, 255), 2)
 
--- Result overlay (shown after server picks 4 options)
-local FusResultPanel = Instance.new("Frame")
-FusResultPanel.Size                   = UDim2.new(1, 0, 1, 0)
-FusResultPanel.BackgroundColor3       = Color3.fromRGB(12, 10, 22)
-FusResultPanel.BackgroundTransparency = 0.05
-FusResultPanel.BorderSizePixel        = 0
-FusResultPanel.Visible                = false
-FusResultPanel.ZIndex                 = 60
-FusResultPanel.Parent                 = FusPanel
-corner(FusResultPanel, 14)
-
-local FusResultTitle = Instance.new("TextLabel")
-FusResultTitle.Size                   = UDim2.new(1, 0, 0, 50)
-FusResultTitle.Position               = UDim2.new(0, 0, 0, 8)
-FusResultTitle.BackgroundTransparency = 1
-FusResultTitle.Text                   = "Pick your fusion result!"
-FusResultTitle.TextScaled             = true
-FusResultTitle.Font                   = Enum.Font.GothamBold
-FusResultTitle.TextColor3             = Color3.fromRGB(255, 255, 100)
-FusResultTitle.ZIndex                 = 61
-FusResultTitle.Parent                 = FusResultPanel
-
--- 4 result cards (2x2 grid)
-local resultCards = {}
-local cardPositions = {
-	UDim2.new(0, 10,    0, 66),
-	UDim2.new(0.5, 5,   0, 66),
-	UDim2.new(0, 10,    0, 278),
-	UDim2.new(0.5, 5,   0, 278),
-}
+-- Helpers
+local function computeFusionId(id1, id2)
+	local n1 = id1:match("^(.-)Skin$") or id1:match("^(.-)skin$") or id1
+	local n2 = id2:match("^(.-)Skin$") or id2:match("^(.-)skin$") or id2
+	n1 = n1:sub(1,1):upper() .. n1:sub(2)
+	n2 = n2:sub(1,1):upper() .. n2:sub(2)
+	local t = {n1, n2}; table.sort(t)
+	return t[1] .. t[2] .. "Skin"
+end
 
 local function closeFusion()
 	if not fusionOpen then return end
 	fusionOpen = false
-	FusResultPanel.Visible = false
 	local tween = TweenService:Create(FusPanel, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 		Position = UDim2.new(0.5, -260, 1.5, 0)
 	})
@@ -1125,69 +1131,40 @@ local function closeFusion()
 	end)
 end
 
-for i = 1, 4 do
-	local card = Instance.new("Frame")
-	card.Size             = UDim2.new(0.5, -15, 0, 198)
-	card.Position         = cardPositions[i]
-	card.BackgroundColor3 = Color3.fromRGB(28, 24, 46)
-	card.BorderSizePixel  = 0
-	card.ZIndex           = 61
-	card.Parent           = FusResultPanel
-	corner(card, 10)
-	stroke(card, Color3.fromRGB(100, 60, 180), 1.5)
-
-	local cardLabel = Instance.new("TextLabel")
-	cardLabel.Size                   = UDim2.new(1, -8, 1, -44)
-	cardLabel.Position               = UDim2.new(0, 4, 0, 4)
-	cardLabel.BackgroundTransparency = 1
-	cardLabel.Text                   = ""
-	cardLabel.TextScaled             = true
-	cardLabel.Font                   = Enum.Font.Gotham
-	cardLabel.TextColor3             = Color3.fromRGB(220, 220, 255)
-	cardLabel.TextWrapped            = true
-	cardLabel.ZIndex                 = 62
-	cardLabel.Parent                 = card
-
-	local pickBtn = Instance.new("TextButton")
-	pickBtn.Size             = UDim2.new(0.7, 0, 0, 32)
-	pickBtn.Position         = UDim2.new(0.15, 0, 1, -36)
-	pickBtn.BackgroundColor3 = Color3.fromRGB(60, 160, 60)
-	pickBtn.Text             = "PICK"
-	pickBtn.TextScaled       = true
-	pickBtn.Font             = Enum.Font.GothamBold
-	pickBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
-	pickBtn.ZIndex           = 63
-	pickBtn.Parent           = card
-	corner(pickBtn, 6)
-
-	local idx = i
-	pickBtn.MouseButton1Click:Connect(function()
-		FuseChooseEvent:FireServer(idx)
-		closeFusion()
-	end)
-
-	resultCards[i] = { card = card, label = cardLabel, pickBtn = pickBtn }
-end
-
--- Helpers
 local function updateSelectionLabels()
 	local id1 = fusionSelected[1]
 	local id2 = fusionSelected[2]
 	if id1 then
 		local d = SkinData.getById(id1)
-		FusSlot1Label.Text      = "Slot 1: " .. (d and d.name or id1)
+		FusSlot1Label.Text       = "Slot 1 : " .. (d and d.name or id1)
 		FusSlot1Label.TextColor3 = Color3.fromRGB(100, 255, 180)
 	else
-		FusSlot1Label.Text      = "Slot 1: —"
+		FusSlot1Label.Text       = "Slot 1 : —"
 		FusSlot1Label.TextColor3 = Color3.fromRGB(180, 180, 220)
 	end
 	if id2 then
 		local d = SkinData.getById(id2)
-		FusSlot2Label.Text      = "Slot 2: " .. (d and d.name or id2)
+		FusSlot2Label.Text       = "Slot 2 : " .. (d and d.name or id2)
 		FusSlot2Label.TextColor3 = Color3.fromRGB(100, 255, 180)
 	else
-		FusSlot2Label.Text      = "Slot 2: —"
+		FusSlot2Label.Text       = "Slot 2 : —"
 		FusSlot2Label.TextColor3 = Color3.fromRGB(180, 180, 220)
+	end
+	-- Update preview
+	if id1 and id2 then
+		local resultId   = computeFusionId(id1, id2)
+		local resultData = SkinData.getById(resultId)
+		if resultData then
+			local rc = RARITY_COLOR[resultData.rarity] or Color3.fromRGB(220, 220, 220)
+			FusPreviewLabel.Text       = "→ " .. resultData.name .. "  [" .. resultData.rarity .. "]  " .. resultData.income .. "$/s"
+			FusPreviewLabel.TextColor3 = rc
+		else
+			FusPreviewLabel.Text       = "→ Fusion inédite (" .. resultId .. ") — pas encore dans le jeu"
+			FusPreviewLabel.TextColor3 = Color3.fromRGB(180, 140, 255)
+		end
+	else
+		FusPreviewLabel.Text       = "Sélectionne 2 brainrots pour voir le résultat"
+		FusPreviewLabel.TextColor3 = Color3.fromRGB(160, 160, 180)
 	end
 end
 
@@ -1235,7 +1212,8 @@ local function buildFusionList(collectionData)
 				rarL.Size                   = UDim2.new(0.36, 0, 1, 0)
 				rarL.Position               = UDim2.new(0.62, 0, 0, 0)
 				rarL.BackgroundTransparency = 1
-				rarL.Text                   = def.rarity
+				local RARITY_FR_FUS = { Common="Commun", Uncommon="Peu commun", Rare="Rare", Epic="Épique", Legendary="Légendaire" }
+				rarL.Text                   = RARITY_FR_FUS[def.rarity] or def.rarity
 				rarL.TextScaled             = true
 				rarL.Font                   = Enum.Font.Gotham
 				rarL.TextColor3             = rarityColor
@@ -1277,7 +1255,7 @@ local function buildFusionList(collectionData)
 		local empty = Instance.new("TextLabel")
 		empty.Size                   = UDim2.new(1, 0, 0, 44)
 		empty.BackgroundTransparency = 1
-		empty.Text                   = "You have no skins to fuse!"
+		empty.Text                   = "Aucun brainrot à fusionner !"
 		empty.TextScaled             = true
 		empty.Font                   = Enum.Font.Gotham
 		empty.TextColor3             = Color3.fromRGB(160, 160, 180)
@@ -1291,7 +1269,6 @@ local function openFusion(collectionData)
 	if fusionOpen then return end
 	fusionOpen = true
 	fusionSelected = {}
-	FusResultPanel.Visible = false
 	updateSelectionLabels()
 	buildFusionList(collectionData or {})
 	FusPanel.Position  = UDim2.new(0.5, -260, 1.5, 0)
@@ -1307,29 +1284,15 @@ OpenFusionEvent.OnClientEvent:Connect(function(collectionData)
 	openFusion(collectionData)
 end)
 
-FuseOptionsEvent.OnClientEvent:Connect(function(options)
-	local labels = { "▼ WORSE", "▼ WORSE", "▲ BETTER", "★ LEGENDARY" }
-	for i = 1, 4 do
-		local opt  = options[i]
-		local card = resultCards[i]
-		if card and opt then
-			local rColor = RARITY_COLOR[opt.rarity] or Color3.fromRGB(200, 200, 200)
-			card.label.Text      = labels[i] .. "\n\n" .. opt.name .. "\n[" .. opt.rarity .. "]\n$" .. (opt.income or 0) .. "/s"
-			card.label.TextColor3 = rColor
-			card.pickBtn.Visible = true
-		elseif card then
-			card.label.Text      = "—"
-			card.pickBtn.Visible = false
-		end
-	end
-	FusResultPanel.Visible = true
-end)
+-- FuseOptionsEvent no longer used (fusion is deterministic)
+FuseOptionsEvent.OnClientEvent:Connect(function() end)
 
 FuseBtn.MouseButton1Click:Connect(function()
 	local id1 = fusionSelected[1]
 	local id2 = fusionSelected[2]
 	if not id1 or not id2 then return end
 	FuseRequestEvent:FireServer(id1, id2)
+	closeFusion()
 end)
 
 FusCloseBtn.MouseButton1Click:Connect(closeFusion)

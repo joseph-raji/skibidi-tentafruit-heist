@@ -19,7 +19,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright red"),
 		glowColor   = Color3.fromRGB(255, 50, 80),
 		size        = 3,
-		description = "Tiny strawberry kid with seed freckles. Always crying for no reason.",
+		description = "Petit gamin fraise avec des graines en taches de rousseur. Pleure tout le temps sans raison.",
 		dropWeight  = 50,
 	},
 
@@ -32,7 +32,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright yellow"),
 		glowColor   = Color3.fromRGB(255, 220, 0),
 		size        = 3,
-		description = "Tall bendy banana dude. Slips on himself constantly.",
+		description = "Grand mec banane tout tordu. Glisse sur lui-même en permanence.",
 		dropWeight  = 50,
 	},
 
@@ -45,7 +45,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright orange"),
 		glowColor   = Color3.fromRGB(255, 140, 0),
 		size        = 3,
-		description = "Citrus queen with glowing skin. Smells amazing, fights dirty.",
+		description = "Reine des agrumes à la peau lumineuse. Sent divinement bon, se bat comme une sale.",
 		dropWeight  = 50,
 	},
 
@@ -58,7 +58,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright violet"),
 		glowColor   = Color3.fromRGB(120, 0, 200),
 		size        = 3,
-		description = "Shriveled grape man. Claims to be the main character.",
+		description = "Bonhomme raisin tout ratatiné. Convaincu d'être le personnage principal.",
 		dropWeight  = 50,
 	},
 
@@ -71,7 +71,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright red"),
 		glowColor   = Color3.fromRGB(200, 30, 30),
 		size        = 3,
-		description = "Cannot decide if fruit or vegetable. Identity crisis daily.",
+		description = "Incapable de décider si c'est un fruit ou un légume. Crise d'identité quotidienne.",
 		dropWeight  = 50,
 	},
 
@@ -88,7 +88,7 @@ SkinData.list = {
 		color       = BrickColor.new("Neon orange"),
 		glowColor   = Color3.fromRGB(255, 160, 0),
 		size        = 3.5,
-		description = "Tropical mango diva. Too juicy for this world.",
+		description = "Diva mangue tropicale. Trop juteuse pour ce monde.",
 		dropWeight  = 25,
 	},
 
@@ -101,7 +101,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright yellow"),
 		glowColor   = Color3.fromRGB(255, 200, 50),
 		size        = 3.5,
-		description = "Spiky pineapple warrior. Crown made of actual leaves.",
+		description = "Guerrier ananas hérissé. Couronne faite de vraies feuilles.",
 		dropWeight  = 25,
 	},
 
@@ -114,7 +114,7 @@ SkinData.list = {
 		color       = BrickColor.new("Crimson"),
 		glowColor   = Color3.fromRGB(200, 0, 50),
 		size        = 3.5,
-		description = "Twin cherry siblings always attached. Never separated.",
+		description = "Jumeaux cerises toujours collés l'un à l'autre. Jamais séparés.",
 		dropWeight  = 25,
 	},
 
@@ -127,7 +127,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright green"),
 		glowColor   = Color3.fromRGB(0, 200, 80),
 		size        = 3.5,
-		description = "Green outside, red inside. Full of seeds and bad decisions.",
+		description = "Vert à l'extérieur, rouge à l'intérieur. Plein de graines et de mauvaises décisions.",
 		dropWeight  = 25,
 	},
 
@@ -140,7 +140,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright green"),
 		glowColor   = Color3.fromRGB(100, 255, 50),
 		size        = 3.5,
-		description = "Lime girl. Extremely sour personality. Iconic.",
+		description = "Fille citron vert. Personnalité extrêmement acide. Iconique.",
 		dropWeight  = 25,
 	},
 
@@ -153,7 +153,7 @@ SkinData.list = {
 		color       = BrickColor.new("Brown"),
 		glowColor   = Color3.fromRGB(180, 110, 30),
 		size        = 3.5,
-		description = "Hazelnut royalty. Crunchy on the outside, surprisingly soft inside.",
+		description = "Royauté noisette. Croustillant à l'extérieur, étonnamment doux à l'intérieur.",
 		dropWeight  = 25,
 	},
 
@@ -166,7 +166,7 @@ SkinData.list = {
 		color       = BrickColor.new("Dark indigo"),
 		glowColor   = Color3.fromRGB(100, 0, 220),
 		size        = 3.5,
-		description = "Tiny blueberry with big attitude. Leaves purple stains everywhere.",
+		description = "Petite myrtille avec une grande attitude. Laisse des taches violettes partout.",
 		dropWeight  = 25,
 	},
 
@@ -179,7 +179,7 @@ SkinData.list = {
 		color       = BrickColor.new("Lime green"),
 		glowColor   = Color3.fromRGB(180, 230, 80),
 		size        = 3.5,
-		description = "Elegant pear duchess. Surprisingly sharp elbows.",
+		description = "Duchesse poire élégante. Des coudes étonnamment tranchants.",
 		dropWeight  = 25,
 	},
 
@@ -196,7 +196,7 @@ SkinData.list = {
 		color       = BrickColor.new("Earth green"),
 		glowColor   = Color3.fromRGB(80, 160, 60),
 		size        = 4,
-		description = "Avocado influencer. Costs too much. Worth it.",
+		description = "Avocat influenceur. Coûte trop cher. Ça vaut le coup.",
 		dropWeight  = 12,
 	},
 
@@ -209,7 +209,7 @@ SkinData.list = {
 		color       = BrickColor.new("Hot pink"),
 		glowColor   = Color3.fromRGB(255, 0, 150),
 		size        = 4,
-		description = "Pink and white spotted legend. Mysterious origin.",
+		description = "Légende rose et blanche tachetée. Origine mystérieuse.",
 		dropWeight  = 12,
 	},
 
@@ -222,7 +222,7 @@ SkinData.list = {
 		color       = BrickColor.new("Dark green"),
 		glowColor   = Color3.fromRGB(60, 120, 40),
 		size        = 4,
-		description = "Fuzzy brown outside, electric green inside. Silent but deadly.",
+		description = "Poilu et marron dehors, vert électrique dedans. Silencieux mais redoutable.",
 		dropWeight  = 12,
 	},
 
@@ -235,7 +235,7 @@ SkinData.list = {
 		color       = BrickColor.new("Dark purple"),
 		glowColor   = Color3.fromRGB(100, 0, 150),
 		size        = 4,
-		description = "Ancient fig sage. Speaks only in riddles.",
+		description = "Sage figue antique. Ne parle qu'en énigmes.",
 		dropWeight  = 12,
 	},
 
@@ -248,7 +248,7 @@ SkinData.list = {
 		color       = BrickColor.new("Neon orange"),
 		glowColor   = Color3.fromRGB(255, 100, 50),
 		size        = 4,
-		description = "Exotic papaya warrior. Tropical origin, global impact.",
+		description = "Guerrier papaye exotique. Origine tropicale, impact mondial.",
 		dropWeight  = 12,
 	},
 
@@ -265,7 +265,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright red"),
 		glowColor   = Color3.fromRGB(255, 0, 60),
 		size        = 4.5,
-		description = "Final form strawberry. Seeds turned into diamonds.",
+		description = "Fraise en forme finale. Ses graines sont devenues des diamants.",
 		dropWeight  = 5,
 	},
 
@@ -278,7 +278,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright yellow"),
 		glowColor   = Color3.fromRGB(255, 255, 0),
 		size        = 4.5,
-		description = "Ultra-curved chaos. Classified as a weapon in 12 countries.",
+		description = "Chaos ultra-courbé. Classé comme arme dans 12 pays.",
 		dropWeight  = 5,
 	},
 
@@ -291,7 +291,7 @@ SkinData.list = {
 		color       = BrickColor.new("Royal purple"),
 		glowColor   = Color3.fromRGB(200, 0, 255),
 		size        = 4.5,
-		description = "Rainbow grape divinity. Changes color with mood.",
+		description = "Divinité raisin arc-en-ciel. Change de couleur selon l'humeur.",
 		dropWeight  = 5,
 	},
 
@@ -304,7 +304,7 @@ SkinData.list = {
 		color       = BrickColor.new("Bright orange"),
 		glowColor   = Color3.fromRGB(255, 180, 0),
 		size        = 4.5,
-		description = "Sigma pineapple grindset. Does not explain himself.",
+		description = "Mentalité sigma ananas. Ne s'explique jamais.",
 		dropWeight  = 5,
 	},
 
@@ -317,7 +317,7 @@ SkinData.list = {
 		color       = BrickColor.new("Hot pink"),
 		glowColor   = Color3.fromRGB(255, 50, 100),
 		size        = 4.5,
-		description = "Exploded watermelon reformed as plasma being.",
+		description = "Pastèque explosée reformée en être de plasma.",
 		dropWeight  = 5,
 	},
 
@@ -334,7 +334,7 @@ SkinData.list = {
 		color       = BrickColor.new("Neon orange"),
 		glowColor   = Color3.fromRGB(255, 140, 0),
 		size        = 5,
-		description = "Forged in a tropical star. Smells like the universe.",
+		description = "Forgée dans une étoile tropicale. Sent comme l'univers.",
 		dropWeight  = 1,
 	},
 
@@ -347,7 +347,7 @@ SkinData.list = {
 		color       = BrickColor.new("Hot pink"),
 		glowColor   = Color3.fromRGB(255, 0, 100),
 		size        = 5,
-		description = "The first strawberry. The last strawberry. Eternal.",
+		description = "La première fraise. La dernière fraise. Éternelle.",
 		dropWeight  = 1,
 	},
 
@@ -360,7 +360,7 @@ SkinData.list = {
 		color       = BrickColor.new("White"),
 		glowColor   = Color3.fromRGB(200, 200, 255),
 		size        = 5,
-		description = "Ghost banana. Passed away but refuses to leave.",
+		description = "Banane fantôme. Décédée mais refuse de partir.",
 		dropWeight  = 1,
 	},
 
@@ -373,7 +373,7 @@ SkinData.list = {
 		color       = BrickColor.new("Deep orange"),
 		glowColor   = Color3.fromRGB(255, 50, 0),
 		size        = 5,
-		description = "Dragon fruit that achieved sentience and vengeance.",
+		description = "Fruit du dragon qui a atteint la conscience et la vengeance.",
 		dropWeight  = 1,
 	},
 
@@ -386,7 +386,7 @@ SkinData.list = {
 		color       = BrickColor.new("Royal purple"),
 		glowColor   = Color3.fromRGB(150, 0, 255),
 		size        = 5,
-		description = "The original. The one who started it all. Unmatchable.",
+		description = "L'original. Celui qui a tout déclenché. Inégalable.",
 		dropWeight  = 1,
 	},
 }

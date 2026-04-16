@@ -205,7 +205,7 @@ CarryFrame.Parent = ScreenGui
 addCorner(CarryFrame, 12)
 addStroke(CarryFrame, Color3.fromRGB(255, 120, 30), 1.5)
 
-local CarryLabel = makeLabel(CarryFrame, "🏃 Carrying Skin! Run to your base!", nil, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
+local CarryLabel = makeLabel(CarryFrame, "🏃 Tu portes un brainrot ! Retourne à ta base !", nil, Enum.Font.GothamBold, Color3.fromRGB(255, 255, 255))
 
 -- Pulsing glow animation
 local carryPulseTween
@@ -229,8 +229,8 @@ end
 local function updateCarrying()
 	local carrying = LocalPlayer:GetAttribute("IsCarrying")
 	if carrying then
-		local skinName = LocalPlayer:GetAttribute("CarryingSkinName") or "Skin"
-		CarryLabel.Text = "🏃 Carrying " .. skinName .. "! Run to your base!"
+		local skinName = LocalPlayer:GetAttribute("CarryingSkinName") or "Brainrot"
+		CarryLabel.Text = "🏃 Tu portes " .. skinName .. " ! Retourne à ta base !"
 		CarryFrame.Visible = true
 		startCarryPulse()
 	else
@@ -254,12 +254,12 @@ local RebirthFrame = makeDarkFrame(
 )
 addStroke(RebirthFrame, Color3.fromRGB(160, 100, 255), 1.5)
 
-local RebirthLabel = makeLabel(RebirthFrame, "🌀 Rebirths: 0 | Multiplier: x1", nil, Enum.Font.Gotham, Color3.fromRGB(180, 140, 255))
+local RebirthLabel = makeLabel(RebirthFrame, "🌀 Renaissances: 0 | Multiplicateur: x1", nil, Enum.Font.Gotham, Color3.fromRGB(180, 140, 255))
 
 local function updateRebirth()
 	local count = LocalPlayer:GetAttribute("RebirthCount") or 0
 	local mult = LocalPlayer:GetAttribute("MoneyMultiplier") or 1
-	RebirthLabel.Text = "🌀 Rebirths: " .. count .. " | Multiplier: x" .. mult
+	RebirthLabel.Text = "🌀 Renaissances: " .. count .. " | Multiplicateur: x" .. mult
 end
 
 updateRebirth()
@@ -281,7 +281,7 @@ local RebirthActionBtn = Instance.new("TextButton")
 RebirthActionBtn.Name               = "RebirthButton"
 RebirthActionBtn.Size               = UDim2.new(1, 0, 1, 0)
 RebirthActionBtn.BackgroundTransparency = 1
-RebirthActionBtn.Text               = "🌀 Rebirth\n$50"
+RebirthActionBtn.Text               = "🌀 Renaissance\n50$"
 RebirthActionBtn.TextScaled         = true
 RebirthActionBtn.Font               = Enum.Font.GothamBold
 RebirthActionBtn.TextColor3         = Color3.fromRGB(200, 150, 255)
@@ -447,7 +447,7 @@ if SkinStolenEvent then
 		doRedFlash()
 		showAttackBorder()
 		showToast(
-			"😡 " .. (thiefName or "Someone") .. " stole your " .. (skinName or "Skin") .. "!",
+			"😡 " .. (thiefName or "Quelqu'un") .. " t'a volé " .. (skinName or "ton brainrot") .. " !",
 			Color3.fromRGB(180, 30, 30)
 		)
 	end)
@@ -479,7 +479,7 @@ local function spawnClaimPopup(skinName)
 	popup.Size = UDim2.new(0, 400, 0, 70)
 	popup.Position = UDim2.new(0.5, -200, 0.5, 0)
 	popup.BackgroundTransparency = 1
-	popup.Text = "⭐ " .. (skinName or "Skin") .. " CLAIMED!"
+	popup.Text = "⭐ " .. (skinName or "Brainrot") .. " RÉCUPÉRÉ !"
 	popup.TextScaled = true
 	popup.Font = Enum.Font.GothamBold
 	popup.TextColor3 = Color3.fromRGB(255, 215, 0)
@@ -533,7 +533,7 @@ RebirthBigLabel.Parent = ScreenGui
 
 if RebirthCompleteEvent then
 	RebirthCompleteEvent.OnClientEvent:Connect(function(multiplier)
-		RebirthBigLabel.Text = "🌀 REBORN!  x" .. (multiplier or "?") .. " MULTIPLIER!"
+		RebirthBigLabel.Text = "🌀 RENAISSANCE !  x" .. (multiplier or "?") .. " MULTIPLICATEUR !"
 		RebirthBigLabel.TextTransparency = 0
 		RebirthFlash.BackgroundTransparency = 0
 
@@ -560,7 +560,7 @@ local HintFrame = makeDarkFrame(
 
 makeLabel(
 	HintFrame,
-	"Touch enemy skins to steal | Return to base to claim | Shop in center",
+	"Touche les brainrots ennemis pour voler | Retourne à ta base pour récupérer | Boutique au centre",
 	nil,
 	Enum.Font.Gotham,
 	Color3.fromRGB(210, 210, 210)
@@ -625,7 +625,7 @@ local function makeBottomButton(text, color, strokeColor, parent)
 	return btn
 end
 
-local ShopButton = makeBottomButton("🛒 SHOP", Color3.fromRGB(30, 130, 200), Color3.fromRGB(80, 180, 255), BottomRightHolder)
+local ShopButton = makeBottomButton("🛒 BOUTIQUE", Color3.fromRGB(30, 130, 200), Color3.fromRGB(80, 180, 255), BottomRightHolder)
 local PokedexButton = makeBottomButton("📖 POKÉDEX", Color3.fromRGB(80, 170, 60), Color3.fromRGB(120, 220, 80), BottomRightHolder)
 
 ShopButton.MouseButton1Click:Connect(function()
@@ -670,7 +670,7 @@ local SellLabel = Instance.new("TextLabel")
 SellLabel.Size               = UDim2.new(1, 0, 0.45, 0)
 SellLabel.Position           = UDim2.new(0, 0, 0, 0)
 SellLabel.BackgroundTransparency = 1
-SellLabel.Text               = "HOLD F — DISCARD SKIN"
+SellLabel.Text               = "MAINTIENS F — JETER BRAINROT"
 SellLabel.TextScaled         = true
 SellLabel.Font               = Enum.Font.GothamBold
 SellLabel.TextColor3         = Color3.fromRGB(255, 160, 50)
@@ -747,7 +747,7 @@ BuyHintFrame.ZIndex = 4
 
 local BuyHintLabel = makeLabel(
 	BuyHintFrame,
-	"Press E near a skin to buy it",
+	"Appuie sur E près d'un brainrot pour l'acheter",
 	nil,
 	Enum.Font.Gotham,
 	Color3.fromRGB(220, 220, 255),
@@ -814,14 +814,28 @@ end)
 local GachaResultEvent = RemoteEvents and RemoteEvents:WaitForChild("GachaResult", 10)
 
 local RARITY_SLOTS = {
-	{ name = "Common",    color = Color3.fromRGB(160, 160, 160) },
-	{ name = "Uncommon",  color = Color3.fromRGB(50,  200, 80)  },
-	{ name = "Rare",      color = Color3.fromRGB(60,  120, 255) },
-	{ name = "Epic",      color = Color3.fromRGB(180, 0,   255) },
-	{ name = "Legendary", color = Color3.fromRGB(255, 200, 0)   },
+	{ name = "Commun",       color = Color3.fromRGB(160, 160, 160) },
+	{ name = "Peu commun",   color = Color3.fromRGB(50,  200, 80)  },
+	{ name = "Rare",         color = Color3.fromRGB(60,  120, 255) },
+	{ name = "Épique",       color = Color3.fromRGB(180, 0,   255) },
+	{ name = "Légendaire",   color = Color3.fromRGB(255, 200, 0)   },
 }
-local RARITY_INDEX_MAP = {}
-for i, r in ipairs(RARITY_SLOTS) do RARITY_INDEX_MAP[r.name] = i end
+-- Map English rarity names (sent by server) to slot index
+local RARITY_INDEX_MAP = {
+	Common    = 1,
+	Uncommon  = 2,
+	Rare      = 3,
+	Epic      = 4,
+	Legendary = 5,
+}
+-- French display names for rarity
+local RARITY_FR = {
+	Common    = "Commun",
+	Uncommon  = "Peu commun",
+	Rare      = "Rare",
+	Epic      = "Épique",
+	Legendary = "Légendaire",
+}
 
 -- Build wheel overlay (hidden by default)
 local WheelGui = Instance.new("ScreenGui")
@@ -859,7 +873,7 @@ local WheelTitle = Instance.new("TextLabel")
 WheelTitle.Size                   = UDim2.new(1, 0, 0, 48)
 WheelTitle.Position               = UDim2.new(0, 0, 0, 0)
 WheelTitle.BackgroundTransparency = 1
-WheelTitle.Text                   = "🎰  GACHA SPIN"
+WheelTitle.Text                   = "🎰  OUVRIR COFFRE"
 WheelTitle.TextScaled             = true
 WheelTitle.Font                   = Enum.Font.GothamBold
 WheelTitle.TextColor3             = Color3.fromRGB(255, 220, 50)
@@ -955,7 +969,7 @@ WheelCloseBtn.Size             = UDim2.new(0, 160, 0, 44)
 WheelCloseBtn.Position         = UDim2.new(0.5, -80, 0, 260)
 WheelCloseBtn.BackgroundColor3 = Color3.fromRGB(60, 40, 100)
 WheelCloseBtn.BorderSizePixel  = 0
-WheelCloseBtn.Text             = "Continue"
+WheelCloseBtn.Text             = "Continuer"
 WheelCloseBtn.TextScaled       = true
 WheelCloseBtn.Font             = Enum.Font.GothamBold
 WheelCloseBtn.TextColor3       = Color3.fromRGB(255, 255, 255)
@@ -1018,7 +1032,7 @@ local function stopGachaWheel(resultData)
 	elseif resultData.rarity == "Legendary" then rc = Color3.fromRGB(255, 200, 0)
 	end
 	WheelResultLabel.TextColor3 = rc
-	WheelResultLabel.Text       = "✨ " .. (resultData.rarity or "?") .. "\n" .. (resultData.name or "?") .. "  +" .. (resultData.income or 0) .. "$/s"
+	WheelResultLabel.Text       = "✨ " .. (RARITY_FR[resultData.rarity] or resultData.rarity or "?") .. "\n" .. (resultData.name or "?") .. "  +" .. (resultData.income or 0) .. "$/s"
 	WheelResult.Visible   = true
 	WheelCloseBtn.Visible = true
 end

@@ -1116,9 +1116,9 @@ function ShopSystem.createShopPads()
 	lock.Color = Color3.fromRGB(255, 210, 0); lock.Material = Enum.Material.Neon
 	lock.CanCollide = false; lock.Parent = workspace
 
-	-- Glow light from chest
+	-- Glow light from chest (on chestBase so it actually illuminates)
 	local chestLight = Instance.new("PointLight")
-	chestLight.Brightness = 3; chestLight.Range = 20
+	chestLight.Brightness = 4; chestLight.Range = 25
 	chestLight.Color = Color3.fromRGB(255, 200, 50)
 	chestLight.Parent = chestBase
 
@@ -1128,7 +1128,6 @@ function ShopSystem.createShopPads()
 		local hue = (tick() * 0.3) % 1
 		local glowCol = Color3.fromHSV(hue, 0.7, 1)
 		lock.Color = glowCol; chestLight.Color = glowCol
-		gachaPad.Color = glowCol; gachaLight.Color = glowCol
 	end)
 
 	-- Billboard above chest
@@ -1146,13 +1145,14 @@ function ShopSystem.createShopPads()
 	wsub.TextScaled = true; wsub.Font = Enum.Font.Gotham
 	wsub.TextColor3 = Color3.fromRGB(220, 220, 255); wsub.Parent = wbb
 
-	-- ProximityPrompt on the chest
+	-- ProximityPrompt on the chest lid (at eye level, line-of-sight disabled)
 	local gachaPrompt = Instance.new("ProximityPrompt")
 	gachaPrompt.ActionText            = "Ouvrir (GRATUIT)"
 	gachaPrompt.ObjectText            = "COFFRE AU TRÉSOR — 30 min de recharge"
 	gachaPrompt.HoldDuration          = 0
-	gachaPrompt.MaxActivationDistance = 12
-	gachaPrompt.Parent                = chestBase
+	gachaPrompt.MaxActivationDistance = 15
+	gachaPrompt.RequiresLineOfSight   = false
+	gachaPrompt.Parent                = chestLid
 
 	gachaPrompt.Triggered:Connect(function(player)
 		ShopSystem.spinGacha(player, _playerBases, _skinOwner, _playerCollection)
@@ -1160,38 +1160,21 @@ function ShopSystem.createShopPads()
 end
 
 -- =========================================================================
--- Fusion system (UI-based): pick 2 skins from collection, see 4 results
+-- Fusion system (UI-based): fuse 2 skins → deterministic result
+-- Naming rule: strip "Skin" suffix, sort alphabetically, join, re-add "Skin"
+-- Example: fraiseSkin + bananeSkin → BananeFraiseSkin
 -- =========================================================================
 
-local RARITY_INDEX = { Common = 1, Uncommon = 2, Rare = 3, Epic = 4, Legendary = 5 }
-local INDEX_RARITY = { "Common", "Uncommon", "Rare", "Epic", "Legendary" }
-local _fusionPending = {}  -- [player] → list of 4 skinData options
-
-local function pickRandom(rarityName)
-	local list = SkinData.getByRarity(rarityName)
-	if not list or #list == 0 then return nil end
-	return list[math.random(1, #list)]
-end
-
-local function generateFusionOptions(id1, id2)
-	local d1 = SkinData.getById(id1)
-	local d2 = SkinData.getById(id2)
-	local tier1 = d1 and (RARITY_INDEX[d1.rarity] or 1) or 1
-	local tier2 = d2 and (RARITY_INDEX[d2.rarity] or 1) or 1
-	local avgTier = math.floor((tier1 + tier2) / 2)
-
-	local worseTier = math.max(1, avgTier - 1)
-	local opt1 = pickRandom(INDEX_RARITY[worseTier])
-	local opt2 = pickRandom(INDEX_RARITY[worseTier])
-	for _ = 1, 5 do
-		local candidate = pickRandom(INDEX_RARITY[worseTier])
-		if candidate and opt1 and candidate.id ~= opt1.id then opt2 = candidate; break end
-	end
-
-	local betterTier = math.min(5, avgTier + 1)
-	local opt3 = pickRandom(INDEX_RARITY[betterTier])
-	local opt4 = pickRandom("Legendary")
-	return { opt1 or opt3, opt2 or opt3, opt3, opt4 }
+local function computeFusionId(id1, id2)
+	-- Strip "Skin" suffix (case-insensitive trailing match)
+	local n1 = id1:match("^(.-)Skin$") or id1:match("^(.-)skin$") or id1
+	local n2 = id2:match("^(.-)Skin$") or id2:match("^(.-)skin$") or id2
+	-- Capitalise first letter for clean name
+	n1 = n1:sub(1,1):upper() .. n1:sub(2)
+	n2 = n2:sub(1,1):upper() .. n2:sub(2)
+	local names = {n1, n2}
+	table.sort(names)
+	return names[1] .. names[2] .. "Skin"
 end
 
 function ShopSystem.handleFuseRequest(player, id1, id2)
@@ -1214,6 +1197,15 @@ function ShopSystem.handleFuseRequest(player, id1, id2)
 		end
 	end
 
+	-- Compute result id
+	local resultId = computeFusionId(id1, id2)
+	local resultData = SkinData.getById(resultId)
+	if not resultData then
+		NotificationEvent:FireClient(player, "Ce brainrot fusion (" .. resultId .. ") n'existe pas encore — reviens plus tard !", Color3.fromRGB(200, 150, 255))
+		return
+	end
+
+	-- Consume the two input skins from the base
 	local toDestroy = {}
 	local need1, need2 = true, true
 	for skin, owner in pairs(_skinOwner) do
@@ -1248,37 +1240,23 @@ function ShopSystem.handleFuseRequest(player, id1, id2)
 	end
 	CollectionUpdatedEvent:FireClient(player, collection)
 
-	local options = generateFusionOptions(id1, id2)
-	_fusionPending[player] = options
-	local clientOptions = {}
-	for _, opt in ipairs(options) do
-		if opt then
-			table.insert(clientOptions, { id = opt.id, name = opt.name, rarity = opt.rarity, income = opt.income })
-		end
-	end
-	FuseOptionsEvent:FireClient(player, clientOptions)
-end
-
-function ShopSystem.handleFuseChoose(player, choiceIndex)
-	local options = _fusionPending[player]
-	if not options or not options[choiceIndex] then
-		NotificationEvent:FireClient(player, "Aucune fusion en attente !", Color3.fromRGB(255, 80, 80))
-		return
-	end
-	_fusionPending[player] = nil
-	local chosen = options[choiceIndex]
+	-- Spawn the fusion result
 	local slotIndex, slotPos = BaseSystem.getNextSlot(player, _playerBases)
 	if not slotIndex then
 		NotificationEvent:FireClient(player, "Base pleine ! Libère un emplacement d'abord.", Color3.fromRGB(255, 180, 0))
 		return
 	end
-	local dest = Vector3.new(slotPos.X, slotPos.Y + chosen.size, slotPos.Z)
-	ShopSystem.spawnSkin(chosen, dest, player, _skinOwner, slotIndex)
+	local dest = Vector3.new(slotPos.X, slotPos.Y + resultData.size, slotPos.Z)
+	ShopSystem.spawnSkin(resultData, dest, player, _skinOwner, slotIndex)
 	if not _playerCollection[player] then _playerCollection[player] = {} end
-	_playerCollection[player][chosen.id] = (_playerCollection[player][chosen.id] or 0) + 1
+	_playerCollection[player][resultData.id] = (_playerCollection[player][resultData.id] or 0) + 1
 	CollectionUpdatedEvent:FireClient(player, _playerCollection[player])
-	local rarityColor = RARITY_COLOR[chosen.rarity] or Color3.fromRGB(255, 255, 255)
-	NotificationEvent:FireClient(player, "Résultat fusion : [" .. chosen.rarity .. "] " .. chosen.name .. "!", rarityColor)
+	local rarityColor = RARITY_COLOR[resultData.rarity] or Color3.fromRGB(255, 255, 255)
+	NotificationEvent:FireClient(player, "Fusion réussie ! Tu obtiens [" .. resultData.rarity .. "] " .. resultData.name .. " !", rarityColor)
+end
+
+function ShopSystem.handleFuseChoose(player, _choiceIndex)
+	-- No-op: fusion is now deterministic, no choice needed
 end
 
 -- =========================================================================

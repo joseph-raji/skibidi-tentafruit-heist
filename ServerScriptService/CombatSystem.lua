@@ -41,7 +41,7 @@ function CombatSystem.dropSkin(player, carrying)
 
 	evtNotification:FireClient(
 		player,
-		"You were hit! Dropped the skin!",
+		"Tu t'es pris un coup ! Brainrot lâché !",
 		Color3.fromRGB(220, 50, 50)
 	)
 end
@@ -110,8 +110,8 @@ function CombatSystem.detectHit(attacker, carrying, playerBases, skinOwner)
 					end
 				end
 			end
-			evtNotification:FireClient(attacker, "🛡️ Their shield blocked your hit!", Color3.fromRGB(100, 200, 255))
-			evtNotification:FireClient(target, "🛡️ Shield blocked a hit!", Color3.fromRGB(100, 200, 255))
+			evtNotification:FireClient(attacker, "🛡️ Son bouclier a bloqué ton coup !", Color3.fromRGB(100, 200, 255))
+			evtNotification:FireClient(target, "🛡️ Bouclier a bloqué un coup !", Color3.fromRGB(100, 200, 255))
 			hitSomeone = true
 			continue
 		end
@@ -123,19 +123,19 @@ function CombatSystem.detectHit(attacker, carrying, playerBases, skinOwner)
 			CombatSystem.dropSkin(target, carrying)
 			evtNotification:FireClient(
 				attacker,
-				"Hit! You made " .. target.Name .. " drop their skin!",
+				"Touché ! Tu as fait lâcher le brainrot de " .. target.Name .. " !",
 				Color3.fromRGB(50, 220, 100)
 			)
 			hitSomeone = true
 		else
 			evtNotification:FireClient(
 				attacker,
-				"Hit " .. target.Name .. "! (They weren't carrying anything)",
+				"Touché " .. target.Name .. " ! (Il ne portait rien)",
 				Color3.fromRGB(255, 200, 50)
 			)
 			evtNotification:FireClient(
 				target,
-				attacker.Name .. " hit you with a Skibidi Bat!",
+				attacker.Name .. " t'a frappé avec une Batte Skibidi !",
 				Color3.fromRGB(220, 50, 50)
 			)
 			hitSomeone = true
@@ -145,7 +145,7 @@ function CombatSystem.detectHit(attacker, carrying, playerBases, skinOwner)
 	if not hitSomeone then
 		evtNotification:FireClient(
 			attacker,
-			"Swing and a miss! No one in range.",
+			"Dans le vide ! Personne à portée.",
 			Color3.fromRGB(180, 180, 180)
 		)
 	end
@@ -154,7 +154,7 @@ end
 function CombatSystem.createBatTool()
 	local tool = Instance.new("Tool")
 	tool.Name = "Skibidi Bat"
-	tool.ToolTip = "Hit carriers to make them drop!"
+	tool.ToolTip = "Frappe les porteurs pour les faire lâcher !"
 	tool.RequiresHandle = true
 
 	-- Handle: main bat body (tall, brown, Wood material)

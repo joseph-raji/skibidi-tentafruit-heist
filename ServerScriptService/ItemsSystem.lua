@@ -171,7 +171,7 @@ end
 local function makePowerBatTool()
 	local tool = Instance.new("Tool")
 	tool.Name            = "Power Bat"
-	tool.ToolTip         = "2x range, stuns for 2s"
+	tool.ToolTip         = "2x portée, étourdit 2s"
 	tool.RequiresHandle  = true
 	tool.CanBeDropped    = false
 
@@ -229,8 +229,8 @@ local function makePowerBatTool()
 				_carrying[target] = nil
 				target:SetAttribute("IsCarrying", false)
 				target:SetAttribute("CarryingSkinName", "")
-				evtNotification:FireClient(target, "Power Bat hit! You dropped the skin!", Color3.fromRGB(255, 100, 0))
-				evtNotification:FireClient(player, "Power hit! " .. target.Name .. " dropped their skin!", Color3.fromRGB(100, 255, 100))
+				evtNotification:FireClient(target, "Batte Puissante ! Tu as lâché le brainrot !", Color3.fromRGB(255, 100, 0))
+				evtNotification:FireClient(player, "Coup puissant ! " .. target.Name .. " a lâché son brainrot !", Color3.fromRGB(100, 255, 100))
 			end
 
 			-- Stun 2s
@@ -246,7 +246,7 @@ end
 local function makeRocketBatTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Rocket Bat"
-	tool.ToolTip        = "AOE blast — drops ALL carriers nearby"
+	tool.ToolTip        = "Explosion AoE — fait lâcher TOUS les porteurs proches"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -267,7 +267,7 @@ local function makeRocketBatTool()
 		local player = Players:GetPlayerFromCharacter(tool.Parent)
 		if not player then return end
 		if hasCooldown(player, "rocket_bat", 5) then
-			evtNotification:FireClient(player, "Rocket Bat recharging...", Color3.fromRGB(200, 100, 50))
+			evtNotification:FireClient(player, "Batte Roquette en recharge...", Color3.fromRGB(200, 100, 50))
 			return
 		end
 		setCooldown(player, "rocket_bat")
@@ -311,14 +311,14 @@ local function makeRocketBatTool()
 				_carrying[target] = nil
 				target:SetAttribute("IsCarrying", false)
 				target:SetAttribute("CarryingSkinName", "")
-				evtNotification:FireClient(target, "Rocket Bat BLAST! Dropped!", Color3.fromRGB(255, 50, 0))
+				evtNotification:FireClient(target, "Batte Roquette BOOM ! Lâché !", Color3.fromRGB(255, 50, 0))
 			end
 
 			applyStun(target, 3)
 			flashCharacter(target.Character, Color3.fromRGB(255, 50, 0), 0.6)
 		end
 
-		evtNotification:FireClient(player, "ROCKET BAT — BOOM!", Color3.fromRGB(255, 150, 0))
+		evtNotification:FireClient(player, "BATTE ROQUETTE — BOOM !", Color3.fromRGB(255, 150, 0))
 	end)
 
 	return tool
@@ -328,7 +328,7 @@ end
 local function makeGrapplingHookTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Grappling Hook"
-	tool.ToolTip        = "Zip forward to a surface"
+	tool.ToolTip        = "Propulse vers une surface"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -348,7 +348,7 @@ local function makeGrapplingHookTool()
 		local player = Players:GetPlayerFromCharacter(tool.Parent)
 		if not player then return end
 		if hasCooldown(player, "grappling_hook", 4) then
-			evtNotification:FireClient(player, "Grappling Hook cooling down...", Color3.fromRGB(150, 150, 150))
+			evtNotification:FireClient(player, "Grappin en refroidissement...", Color3.fromRGB(150, 150, 150))
 			return
 		end
 
@@ -367,7 +367,7 @@ local function makeGrapplingHookTool()
 
 		local result = workspace:Raycast(origin, lookDir * 60, raycastParams)
 		if not result then
-			evtNotification:FireClient(player, "Nothing to latch onto!", Color3.fromRGB(180, 180, 180))
+			evtNotification:FireClient(player, "Rien à accrocher !", Color3.fromRGB(180, 180, 180))
 			return
 		end
 
@@ -438,7 +438,7 @@ end
 local function makeSpeedBootsTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Speed Boots"
-	tool.ToolTip        = "50% speed boost for 20s"
+	tool.ToolTip        = "+50% vitesse pendant 20s"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -463,7 +463,7 @@ local function makeSpeedBootsTool()
 		if not hum then tool:Destroy(); return end
 
 		hum.WalkSpeed = 28
-		evtNotification:FireClient(player, "⚡ Speed boost active for 20s!", Color3.fromRGB(80, 120, 255))
+		evtNotification:FireClient(player, "⚡ Boost de vitesse actif pendant 20s !", Color3.fromRGB(80, 120, 255))
 
 		task.delay(20, function()
 			if hum and hum.Parent then
@@ -482,7 +482,7 @@ end
 local function makeInvisCapTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Invisibility Cap"
-	tool.ToolTip        = "Turn invisible for 10s"
+	tool.ToolTip        = "Invisible pendant 10s"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -519,7 +519,7 @@ local function makeInvisCapTool()
 		local origNameDist = hum and hum.NameDisplayDistance or 100
 		if hum then hum.NameDisplayDistance = 0 end
 
-		evtNotification:FireClient(player, "🪄 Invisible for 10s! Go steal!", Color3.fromRGB(200, 200, 255))
+		evtNotification:FireClient(player, "🪄 Invisible pendant 10s ! Va voler !", Color3.fromRGB(200, 200, 255))
 
 		task.delay(10, function()
 			-- Restore transparencies
@@ -544,7 +544,7 @@ end
 local function makeSpikeTrapTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Spike Trap"
-	tool.ToolTip        = "Slows enemies who step on it"
+	tool.ToolTip        = "Ralentit les ennemis qui marchent dessus"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -563,7 +563,7 @@ local function makeSpikeTrapTool()
 		if not player then return end
 
 		if getTrapCount(player, "spike_trap") >= MAX_TRAPS then
-			evtNotification:FireClient(player, "Max spike traps placed (3)!", Color3.fromRGB(255, 80, 80))
+			evtNotification:FireClient(player, "Maximum de pièges à pics posés (3) !", Color3.fromRGB(255, 80, 80))
 			return
 		end
 
@@ -599,7 +599,7 @@ local function makeSpikeTrapTool()
 			local hum = victimChar:FindFirstChildOfClass("Humanoid")
 			if hum then
 				hum.WalkSpeed = 8
-				evtNotification:FireClient(victim, "Caught a spike trap! Slowed!", Color3.fromRGB(150, 150, 150))
+				evtNotification:FireClient(victim, "Piège à pics ! Ralenti !", Color3.fromRGB(150, 150, 150))
 				task.delay(3, function()
 					if hum and hum.Parent then hum.WalkSpeed = 16 end
 					slowDebounce[victim] = nil
@@ -618,7 +618,7 @@ local function makeSpikeTrapTool()
 			end
 		end)
 
-		evtNotification:FireClient(player, "Spike trap placed!", Color3.fromRGB(200, 200, 200))
+		evtNotification:FireClient(player, "Piège à pics posé !", Color3.fromRGB(200, 200, 200))
 	end)
 
 	return tool
@@ -628,7 +628,7 @@ end
 local function makeAlarmTrapTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Alarm Trap"
-	tool.ToolTip        = "Alerts you when enemy enters your base"
+	tool.ToolTip        = "Alerte quand un ennemi entre dans ta base"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -647,7 +647,7 @@ local function makeAlarmTrapTool()
 		if not player then return end
 
 		if getTrapCount(player, "alarm_trap") >= MAX_TRAPS then
-			evtNotification:FireClient(player, "Max alarm traps placed (2)!", Color3.fromRGB(255, 80, 80))
+			evtNotification:FireClient(player, "Maximum de pièges alarme posés (2) !", Color3.fromRGB(255, 80, 80))
 			return
 		end
 
@@ -698,7 +698,7 @@ local function makeAlarmTrapTool()
 			alarmDebounce[key] = true
 			task.delay(4, function() alarmDebounce[key] = nil end)
 
-			evtNotification:FireClient(owner, "🔔 " .. victim.Name .. " is in your base!", Color3.fromRGB(255, 220, 0))
+			evtNotification:FireClient(owner, "🔔 " .. victim.Name .. " est dans ta base !", Color3.fromRGB(255, 220, 0))
 		end)
 
 		-- Remove after 120s
@@ -710,7 +710,7 @@ local function makeAlarmTrapTool()
 			end
 		end)
 
-		evtNotification:FireClient(player, "Alarm trap placed!", Color3.fromRGB(255, 220, 0))
+		evtNotification:FireClient(player, "Piège alarme posé !", Color3.fromRGB(255, 220, 0))
 	end)
 
 	return tool
@@ -720,7 +720,7 @@ end
 local function makeFreezeTrapTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Freeze Trap"
-	tool.ToolTip        = "Anchors enemies for 3 seconds"
+	tool.ToolTip        = "Immobilise les ennemis pendant 3 secondes"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -739,7 +739,7 @@ local function makeFreezeTrapTool()
 		if not player then return end
 
 		if getTrapCount(player, "freeze_trap") >= MAX_TRAPS then
-			evtNotification:FireClient(player, "Max freeze traps placed (2)!", Color3.fromRGB(255, 80, 80))
+			evtNotification:FireClient(player, "Maximum de pièges glaciaux posés (2) !", Color3.fromRGB(255, 80, 80))
 			return
 		end
 
@@ -775,7 +775,7 @@ local function makeFreezeTrapTool()
 			local hum = victimChar:FindFirstChildOfClass("Humanoid")
 			if hum then
 				hum.WalkSpeed = 0
-				evtNotification:FireClient(victim, "Frozen solid! 3 seconds...", Color3.fromRGB(0, 200, 220))
+				evtNotification:FireClient(victim, "Gelé ! 3 secondes...", Color3.fromRGB(0, 200, 220))
 				flashCharacter(victimChar, Color3.fromRGB(100, 220, 255), 3)
 				task.delay(3, function()
 					if hum and hum.Parent then hum.WalkSpeed = 16 end
@@ -795,7 +795,7 @@ local function makeFreezeTrapTool()
 			end
 		end)
 
-		evtNotification:FireClient(player, "Freeze trap placed!", Color3.fromRGB(0, 200, 220))
+		evtNotification:FireClient(player, "Piège glacial posé !", Color3.fromRGB(0, 200, 220))
 	end)
 
 	return tool
@@ -805,7 +805,7 @@ end
 local function makeBouncerTrapTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Bouncer"
-	tool.ToolTip        = "Launches intruders out of your base"
+	tool.ToolTip        = "Éjecte les intrus hors de ta base"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -824,7 +824,7 @@ local function makeBouncerTrapTool()
 		if not player then return end
 
 		if getTrapCount(player, "bouncer_trap") >= MAX_TRAPS then
-			evtNotification:FireClient(player, "Max bouncers placed (2)!", Color3.fromRGB(255, 80, 80))
+			evtNotification:FireClient(player, "Maximum d'éjecteurs posés (2) !", Color3.fromRGB(255, 80, 80))
 			return
 		end
 
@@ -895,7 +895,7 @@ local function makeBouncerTrapTool()
 				if attachment and attachment.Parent then attachment:Destroy() end
 			end)
 
-			evtNotification:FireClient(victim, "Bounced out of the base!", Color3.fromRGB(255, 0, 128))
+			evtNotification:FireClient(victim, "Éjecté hors de la base !", Color3.fromRGB(255, 0, 128))
 		end)
 
 		-- Remove after 90s
@@ -907,7 +907,7 @@ local function makeBouncerTrapTool()
 			end
 		end)
 
-		evtNotification:FireClient(player, "Bouncer placed!", Color3.fromRGB(255, 0, 128))
+		evtNotification:FireClient(player, "Éjecteur posé !", Color3.fromRGB(255, 0, 128))
 	end)
 
 	return tool
@@ -917,7 +917,7 @@ end
 local function makeShieldBubbleTool()
 	local tool = Instance.new("Tool")
 	tool.Name           = "Shield Bubble"
-	tool.ToolTip        = "Absorbs one bat hit"
+	tool.ToolTip        = "Absorbe un coup de batte"
 	tool.RequiresHandle = true
 	tool.CanBeDropped   = false
 
@@ -962,7 +962,7 @@ local function makeShieldBubbleTool()
 		weld.Parent = root
 
 		player:SetAttribute("HasShield", true)
-		evtNotification:FireClient(player, "🛡️ Shield active!", Color3.fromRGB(0, 200, 220))
+		evtNotification:FireClient(player, "🛡️ Bouclier actif !", Color3.fromRGB(0, 200, 220))
 
 		-- Auto-expire after 30s
 		task.delay(30, function()
@@ -1015,7 +1015,7 @@ function ItemsSystem.buyItem(player, itemId)
 
 	local money = player:GetAttribute("Money") or 0
 	if money < itemData.cost then
-		evtNotification:FireClient(player, "Not enough money! Need $" .. itemData.cost, Color3.fromRGB(255, 80, 80))
+		evtNotification:FireClient(player, "Pas assez d'argent ! Il te faut $" .. itemData.cost, Color3.fromRGB(255, 80, 80))
 		return false
 	end
 
@@ -1043,7 +1043,7 @@ function ItemsSystem.buyItem(player, itemId)
 
 	evtNotification:FireClient(
 		player,
-		"Bought " .. itemData.icon .. " " .. itemData.name .. "!",
+		"Acheté " .. itemData.icon .. " " .. itemData.name .. " !",
 		Color3.fromRGB(100, 255, 100)
 	)
 	return true

@@ -350,7 +350,7 @@ function StealSystem.sellSkin(player, playerBases, skinOwner, carrying, playerCo
 	end
 
 	evtCollectionUpdated:FireClient(player, playerCollection[player] or {})
-	evtNotification:FireClient(player, bName .. " discarded!", Color3.fromRGB(255, 160, 50))
+	evtNotification:FireClient(player, bName .. " jeté !", Color3.fromRGB(255, 160, 50))
 end
 
 return StealSystem

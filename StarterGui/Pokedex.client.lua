@@ -170,7 +170,7 @@ HeaderBottomFill.ZIndex           = 7
 HeaderBottomFill.Parent           = Header
 
 local TitleLabel = Instance.new("TextLabel")
-TitleLabel.Text              = "SKIN POKÉDEX"
+TitleLabel.Text              = "POKÉDEX"
 TitleLabel.TextSize          = 20
 TitleLabel.Font              = Enum.Font.GothamBlack
 TitleLabel.TextColor3        = Color3.fromRGB(200, 160, 255)
@@ -183,7 +183,7 @@ TitleLabel.Parent            = Header
 
 local ProgressLabel = Instance.new("TextLabel")
 ProgressLabel.Name           = "ProgressLabel"
-ProgressLabel.Text           = "0 / 25 collected"
+ProgressLabel.Text           = "0 / 25 collectés"
 ProgressLabel.TextSize       = 13
 ProgressLabel.Font           = Enum.Font.GothamBold
 ProgressLabel.TextColor3     = TEXT_DIM
@@ -224,12 +224,13 @@ FilterLayout.Padding              = UDim.new(0, 6)
 FilterLayout.Parent               = FilterRow
 
 local filterOptions = { "ALL", "Common", "Uncommon", "Rare", "Epic", "Legendary" }
+local filterDisplayLabels = { ALL = "TOUS", Common = "Commun", Uncommon = "Peu commun", Rare = "Rare", Epic = "Épique", Legendary = "Légendaire" }
 local filterBtns = {}
 
 for _, opt in ipairs(filterOptions) do
 	local color = RARITY_COLORS[opt] or Color3.fromRGB(180, 180, 220)
 	local btn = Instance.new("TextButton")
-	btn.Text             = opt
+	btn.Text             = filterDisplayLabels[opt] or opt
 	btn.TextSize         = 12
 	btn.Font             = Enum.Font.GothamBold
 	btn.TextColor3       = opt == "ALL" and TEXT_PRIMARY or color
@@ -281,7 +282,7 @@ makeStroke(StatsBar, Color3.fromRGB(55, 35, 100), 1.5)
 
 local StatsLabel = Instance.new("TextLabel")
 StatsLabel.Name              = "StatsLabel"
-StatsLabel.Text              = "Collected: 0/25  |  Total income: 0$/s  |  Best: None"
+StatsLabel.Text              = "Collectés : 0/25  |  Revenu total : 0$/s  |  Meilleur : Aucun"
 StatsLabel.TextSize          = 13
 StatsLabel.Font              = Enum.Font.GothamBold
 StatsLabel.TextColor3        = TEXT_PRIMARY
@@ -302,10 +303,10 @@ local function updateStats()
 	local rarest = getRarestOwned()
 	local bestName = rarest and rarest.name or "None"
 
-	ProgressLabel.Text = unique .. " / " .. TOTAL_SKINS .. " collected"
-	StatsLabel.Text = "Collected: " .. unique .. "/" .. TOTAL_SKINS
-		.. "  |  Total income: " .. string.format("%.1f", income) .. "$/s"
-		.. "  |  Best: " .. bestName
+	ProgressLabel.Text = unique .. " / " .. TOTAL_SKINS .. " collectés"
+	StatsLabel.Text = "Collectés : " .. unique .. "/" .. TOTAL_SKINS
+		.. "  |  Revenu total : " .. string.format("%.1f", income) .. "$/s"
+		.. "  |  Meilleur : " .. bestName
 end
 
 -- ============================================================
@@ -397,9 +398,10 @@ local function buildCard(skin, layoutOrder)
 		incLabel.Parent             = card
 
 		-- Rarity badge
+		local RARITY_FR_POKEDEX = { Common="Commun", Uncommon="Peu commun", Rare="Rare", Epic="Épique", Legendary="Légendaire" }
 		local rarityColor = RARITY_COLORS[skin.rarity] or TEXT_DIM
 		local rarityLabel = Instance.new("TextLabel")
-		rarityLabel.Text            = skin.rarity
+		rarityLabel.Text            = RARITY_FR_POKEDEX[skin.rarity] or skin.rarity
 		rarityLabel.TextSize        = 9
 		rarityLabel.Font            = Enum.Font.GothamBold
 		rarityLabel.TextColor3      = rarityColor
@@ -460,7 +462,7 @@ local function buildCard(skin, layoutOrder)
 		nameLabel.Parent        = card
 
 		local rarityLabel = Instance.new("TextLabel")
-		rarityLabel.Text        = "? Rarity"
+		rarityLabel.Text        = "? Rareté"
 		rarityLabel.TextSize    = 9
 		rarityLabel.Font        = Enum.Font.Gotham
 		rarityLabel.TextColor3  = Color3.fromRGB(70, 60, 90)
