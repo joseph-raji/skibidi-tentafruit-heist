@@ -500,7 +500,9 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 
 	for _, pz in ipairs({stairCenterZ - STAIR_WIDTH / 2 + PILLAR_W / 2,
 	                     stairCenterZ + STAIR_WIDTH / 2 - PILLAR_W / 2}) do
-		local pillarH = floorGroundY - pos.Y   -- full height from ground to this floor
+		-- Only the gap BELOW where the staircase begins (e.g. floor-3 stairs float above floor-2 level)
+		-- For floor-2 stairs prevFloorSurfaceY == pos.Y → pillarH = 0 → no pillars
+		local pillarH = prevFloorSurfaceY - pos.Y
 		if pillarH > 0.5 then
 			local pillarCY = pos.Y + pillarH / 2
 			makePart(folder, "StairPost" .. floorNum .. "_F_" .. math.floor(pz),
