@@ -571,24 +571,45 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 					StealSystem.setupSkinTouchEvents(body, buyer, _playerBases, _skinOwner, _carrying, _playerCollection)
 				end
 
-				-- Ground-level walk: 3-segment path
-			-- belt → just outside entrance (gap center) → just inside entrance → slot
+				-- Walk path: ground floor → entrance → (stairs if floor 2+) → slot
 				local WALK_SPEED = 14  -- studs / second
 				local dest = Vector3.new(slotPos.X, slotPos.Y + skinData.size, slotPos.Z)
 				local startPos = body.Position
-				local groundY = dest.Y
 
 				local bd2 = _playerBases[buyer]
 				local fs2  = bd2 and bd2.faceSign or 1
 				local bp2  = bd2 and bd2.position or dest
-				-- frontFaceX = basePos.X + faceSign*14  (halfDepth=20, center offset=6 → 20-6=14)
 				local frontFaceX = bp2.X + fs2 * 14
-				-- wp1: just outside the entrance gap, centered on base Z
-				local wp1 = Vector3.new(frontFaceX + fs2 * 2, groundY, bp2.Z)
-				-- wp2: just inside the entrance gap
-				local wp2 = Vector3.new(frontFaceX - fs2 * 3, groundY, bp2.Z)
+				local backWallX2 = bp2.X + fs2 * (-26)
 
-				local waypoints = { wp1, wp2, dest }
+				-- Determine which floor the destination slot is on
+				local floorNum2   = math.ceil(slotIndex / 10)
+				-- Y for walking on the ground floor surface
+				local groundSkinY = bp2.Y + 2.2 + skinData.size
+
+				local waypoints
+				if floorNum2 <= 1 then
+					-- Floor 1: straight walk to slot
+					waypoints = {
+						Vector3.new(frontFaceX + fs2 * 2, groundSkinY, bp2.Z),
+						Vector3.new(frontFaceX - fs2 * 3, groundSkinY, bp2.Z),
+						dest,
+					}
+				else
+					-- Floor 2+: walk to base entrance, then climb stairs on RIGHT side
+					-- Stairs: backWallX → (backWallX + faceSign*34) along building depth, at stairZ = bp2.Z + 21.5
+					local stairZ     = bp2.Z + 21.5   -- right side exterior
+					local landingX   = bp2.X + fs2 * 8  -- top of stairs
+					local destFloorSkinY = dest.Y
+					waypoints = {
+						Vector3.new(frontFaceX + fs2 * 2, groundSkinY, bp2.Z),        -- outside entrance
+						Vector3.new(frontFaceX + fs2 * 2, groundSkinY, stairZ),        -- right side of front
+						Vector3.new(backWallX2,            groundSkinY, stairZ),        -- stair base (back of building)
+						Vector3.new(landingX,              destFloorSkinY, stairZ),     -- top of stairs
+						Vector3.new(landingX,              destFloorSkinY, bp2.Z + 17), -- through right wall opening
+						dest,
+					}
+				end
 				local segment  = 1
 				local segStart = startPos
 				local segEnd   = waypoints[1]
@@ -877,7 +898,7 @@ local SPAWN_Z      = -140  -- skins spawn inside north portal
 local DESPAWN_Z    =  140  -- skins despawn inside south portal
 
 -- Number of stripes and their spacing (studs apart)
-local STRIPE_COUNT   = 14
+local STRIPE_COUNT   = 42   -- denser stripes so the full belt looks covered
 local STRIPE_SPACING = BELT_LENGTH / STRIPE_COUNT
 
 function ShopSystem.createShopPads()

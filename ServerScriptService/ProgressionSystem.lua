@@ -10,7 +10,7 @@ local ProgressionSystem = {}
 -- Config
 local REBIRTH_COST = 50
 local REBIRTH_MULTIPLIER = 1.5
-local MAX_REBIRTHS = 10
+local MAX_REBIRTHS = 16
 local INCOME_INTERVAL = 1
 local REBIRTH_PAD_DEBOUNCE_TIME = 3
 

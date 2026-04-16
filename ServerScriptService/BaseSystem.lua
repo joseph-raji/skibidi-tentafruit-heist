@@ -112,9 +112,9 @@ local function computeAllSlotPositions(pos)
 		-- to get the correct body-centre spawn position.
 		local floorSurfaceY
 		if floorIndex == 1 then
-			floorSurfaceY = pos.Y + 2.2
+			floorSurfaceY = pos.Y + 2.6   -- top of interior floor slab + small clearance
 		else
-			floorSurfaceY = pos.Y + (floorIndex - 1) * FLOOR_HEIGHT_STEP
+			floorSurfaceY = pos.Y + (floorIndex - 1) * FLOOR_HEIGHT_STEP + 0.4
 		end
 		local plateY = floorSurfaceY + 0.15  -- plate sits flush with floor
 
@@ -359,18 +359,18 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 		CFrame.new(backWallX, wallY, pos.Z),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Left wall: one segment from back, with 8-stud opening at the front end for stair access
-	local STAIR_OPENING_W = 8
-	local leftSegLen = BUILDING_DEPTH - STAIR_OPENING_W  -- 32 studs
+	-- Left wall: full (no stair opening)
 	makePart(folder, "WallLeft" .. floorNum,
-		Vector3.new(leftSegLen, WALL_HEIGHT, WALL_THICKNESS),
-		CFrame.new(backWallX + faceSign * leftSegLen / 2, wallY, pos.Z - halfWidth),
+		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(bCX, wallY, pos.Z - halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Right wall: full
+	-- Right wall: 8-stud opening at the FRONT end for stair access (stairs are on right/entrance side)
+	local STAIR_OPENING_W = 8
+	local rightSegLen = BUILDING_DEPTH - STAIR_OPENING_W  -- 32 studs from back
 	makePart(folder, "WallRight" .. floorNum,
-		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
-		CFrame.new(bCX, wallY, pos.Z + halfWidth),
+		Vector3.new(rightSegLen, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(backWallX + faceSign * rightSegLen / 2, wallY, pos.Z + halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
 	-- Front wall: two segments with entrance gap
@@ -414,8 +414,8 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local stairHeightTotal = floorGroundY - prevFloorSurfaceY
 	local stepH            = stairHeightTotal / STAIR_STEPS
 
-	-- Staircase sits just outside the left wall
-	local stairCenterZ = pos.Z - halfWidth - WALL_THICKNESS / 2 - STAIR_WIDTH / 2
+	-- Staircase sits just outside the RIGHT wall (entrance side)
+	local stairCenterZ = pos.Z + halfWidth + WALL_THICKNESS / 2 + STAIR_WIDTH / 2
 
 	for i = 1, STAIR_STEPS do
 		local stepCenterY = prevFloorSurfaceY + (i * stepH) / 2
