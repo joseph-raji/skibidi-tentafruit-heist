@@ -15,19 +15,19 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 			or clone:FindFirstChildWhichIsA("BasePart", true)
 	end
 
-	-- Scale to match the skin's size parameter (s*2 = total height)
-	local extents = clone:GetExtentsSize()
-	local currentHeight = math.max(extents.X, extents.Y, extents.Z)
-	if currentHeight > 0 then
-		clone:ScaleTo(s * 2 / currentHeight)
-	end
-
-	-- Anchor all parts and disable collision so the character can't be pushed
+	-- Anchor all parts BEFORE scaling to prevent gravity during the resize window
 	for _, part in ipairs(clone:GetDescendants()) do
 		if part:IsA("BasePart") then
 			part.Anchored   = true
 			part.CanCollide = false
 		end
+	end
+
+	-- Scale to match the skin's size parameter using Y height so feet land on the floor
+	local extents = clone:GetExtentsSize()
+	local currentHeight = extents.Y  -- use Y specifically, not max(X,Y,Z)
+	if currentHeight > 0 then
+		clone:ScaleTo(s * 2 / currentHeight)
 	end
 
 	-- Position: move every part individually (SetPrimaryPartCFrame does NOT move anchored parts).

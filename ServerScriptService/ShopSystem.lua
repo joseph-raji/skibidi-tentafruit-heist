@@ -920,14 +920,14 @@ end
 -- Public: createShopPads  (now a conveyor belt shop)
 -- =========================================================================
 
-local BELT_LENGTH  = 210  -- visual belt spans Z=-105 to Z=105 (all 8 bases)
 local BELT_WIDTH   = 24   -- studs wide along X
 local BELT_SPEED   = 7    -- studs per second (items move along +Z)
 local BELT_Y       = 0.5  -- height
-local BELT_START_Z = -BELT_LENGTH / 2   -- -105
-local BELT_END_Z   =  BELT_LENGTH / 2   -- +105
 local SPAWN_Z      = -140  -- skins spawn inside north portal
 local DESPAWN_Z    =  140  -- skins despawn inside south portal
+local BELT_START_Z = SPAWN_Z    -- belt carpet starts at north portal entry
+local BELT_END_Z   = DESPAWN_Z  -- belt carpet ends at south portal exit
+local BELT_LENGTH  = BELT_END_Z - BELT_START_Z  -- 280 studs, full portal-to-portal
 
 -- Number of stripes and their spacing (studs apart)
 local STRIPE_COUNT   = 14
@@ -1000,7 +1000,7 @@ function ShopSystem.createShopPads()
 		local lp = Instance.new("Part")
 		lp.Anchored = true; lp.Size = Vector3.new(sideW, BLDG_H, BLDG_D)
 		lp.Position = Vector3.new(-(ARCH_W/2 + sideW/2), baseY + BLDG_H/2, zPos)
-		lp.Color = BRICK_CLR; lp.Material = Enum.Material.Brick; lp.Parent = workspace
+		lp.Color = BRICK_CLR; lp.Material = Enum.Material.SmoothPlastic; lp.Parent = workspace
 
 		-- Right brick pillar
 		local rp = lp:Clone()
@@ -1029,6 +1029,17 @@ function ShopSystem.createShopPads()
 		void.Color = VOID_CLR; void.Material = Enum.Material.SmoothPlastic
 		void.CanCollide = false; void.Transparency = 0; void.Parent = workspace
 
+		-- Invisible barrier at the INNER face of the portal: blocks players from entering
+		-- but skins (CanCollide=false) pass right through unaffected.
+		local carpetDir2 = isStart and 1 or -1
+		local innerFaceZ = zPos + carpetDir2 * (BLDG_D / 2)  -- inner face toward belt center
+		local barrier = Instance.new("Part")
+		barrier.Anchored = true
+		barrier.Size = Vector3.new(ARCH_W, ARCH_H, 0.5)
+		barrier.Position = Vector3.new(0, baseY + ARCH_H / 2, innerFaceZ)
+		barrier.CanCollide = true; barrier.Transparency = 1
+		barrier.CastShadow = false; barrier.Parent = workspace
+
 		-- Glowing neon frame around arch opening (player-facing side)
 		local frameSide = isStart and 1 or -1
 		local neonClr = Color3.fromRGB(0, 200, 255)
@@ -1050,20 +1061,7 @@ function ShopSystem.createShopPads()
 		rBar.Position = Vector3.new(ARCH_W/2, baseY + ARCH_H/2, frameZ)
 		rBar.Parent = workspace
 
-		-- Red carpet from wall outer face all the way to the belt start/end
-		local carpetDir  = isStart and 1 or -1
-		local outerFaceZ = zPos - carpetDir * BLDG_D / 2   -- flush with outer wall face
-		local beltEndZ   = isStart and BELT_START_Z or BELT_END_Z
-		local carpetLen  = math.abs(beltEndZ - outerFaceZ) + 2
-		local carpetCtrZ = (outerFaceZ + beltEndZ) / 2
-		local carpet = Instance.new("Part")
-		carpet.Anchored  = true
-		carpet.Size      = Vector3.new(BELT_WIDTH, 0.3, carpetLen)
-		carpet.Position  = Vector3.new(0, BELT_Y + 0.05, carpetCtrZ)
-		carpet.Color     = Color3.fromRGB(180, 20, 20)
-		carpet.Material  = Enum.Material.Fabric
-		carpet.CanCollide = false
-		carpet.Parent    = workspace
+		-- No separate carpet segment here — the main ShopBelt now spans the full portal-to-portal length.
 	end
 
 	buildPortal(-140)   -- north portal, embedded in north wall

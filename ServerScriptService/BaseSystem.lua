@@ -484,6 +484,35 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 		Vector3.new(STAIR_STEP_D + 1, 0.4, STAIR_WIDTH),
 		CFrame.new(landingCenterX, floorGroundY + 0.2, stairCenterZ),
 		STAIR_COLOR, 0, Enum.Material.Concrete, true)
+
+	-- -----------------------------------------------------------------------
+	-- Structural support pillars under the staircase.
+	-- For floor 2: stairs start at ground level, so 4 corner posts the full stair height.
+	-- For floor 3: stairs start at floor-2 surface, so also add tall pillars from ground.
+	-- -----------------------------------------------------------------------
+	local PILLAR_W = 1.5
+	local stairTotalDepth = STAIR_STEP_D * STAIR_STEPS  -- 32 studs along depth axis
+
+	-- Front pair of pillars (at frontFaceX, both Z edges of staircase)
+	local stairFrontX = frontFaceX
+	-- Back pair of pillars (at the landing end)
+	local stairBackX  = frontFaceX - faceSign * stairTotalDepth
+
+	for _, pz in ipairs({stairCenterZ - STAIR_WIDTH / 2 + PILLAR_W / 2,
+	                     stairCenterZ + STAIR_WIDTH / 2 - PILLAR_W / 2}) do
+		local pillarH = floorGroundY - pos.Y   -- full height from ground to this floor
+		if pillarH > 0.5 then
+			local pillarCY = pos.Y + pillarH / 2
+			makePart(folder, "StairPost" .. floorNum .. "_F_" .. math.floor(pz),
+				Vector3.new(PILLAR_W, pillarH, PILLAR_W),
+				CFrame.new(stairFrontX, pillarCY, pz),
+				STAIR_COLOR, 0, Enum.Material.Concrete, true)
+			makePart(folder, "StairPost" .. floorNum .. "_B_" .. math.floor(pz),
+				Vector3.new(PILLAR_W, pillarH, PILLAR_W),
+				CFrame.new(stairBackX, pillarCY, pz),
+				STAIR_COLOR, 0, Enum.Material.Concrete, true)
+		end
+	end
 end
 
 -- ============================================================
@@ -809,6 +838,14 @@ function BaseSystem.lockBase(player, playerBases)
 	local STAIR_OPENING_W = 8  -- must match buildUpperFloor
 	local unlockedFloors  = baseData.unlockedFloors or 1
 
+	-- Stair geometry constants (must match buildUpperFloor)
+	local STAIR_WIDTH_LOCK = 8
+	local STAIR_STEPS_LOCK = 8
+	local STAIR_STEP_D_LOCK = 4
+	-- stairCenterZ: floor-2 stairs on LEFT side, floor-3 on RIGHT
+	local stairCenterZ_L = basePos.Z - (halfWidth + WALL_THICKNESS / 2 + STAIR_WIDTH_LOCK / 2)
+	local stairCenterZ_R = basePos.Z + (halfWidth + WALL_THICKNESS / 2 + STAIR_WIDTH_LOCK / 2)
+
 	if unlockedFloors >= 2 then
 		local groundWallY = foundTopY + WALL_HEIGHT / 2
 		local floor2WallY = basePos.Y + FLOOR_HEIGHT_STEP + WALL_HEIGHT / 2
@@ -820,19 +857,27 @@ function BaseSystem.lockBase(player, playerBases)
 		-- 3. Floor-2 LEFT wall back gap (player enters floor 2 from stair landing)
 		addLockPlane(backWallX + faceSign * (STAIR_OPENING_W / 2), floor2WallY,
 			basePos.Z - halfWidth, STAIR_OPENING_W, WALL_HEIGHT, WALL_THICKNESS)
+
+		-- 4. Block outdoor access to floor-2 staircase from the front (perpendicular to depth axis)
+		addLockPlane(frontFaceX, basePos.Y + FLOOR_HEIGHT_STEP / 2, stairCenterZ_L,
+			WALL_THICKNESS, FLOOR_HEIGHT_STEP, STAIR_WIDTH_LOCK)
 	end
 
 	if unlockedFloors >= 3 then
 		local floor2WallY = basePos.Y + FLOOR_HEIGHT_STEP + WALL_HEIGHT / 2
 		local floor3WallY = basePos.Y + 2 * FLOOR_HEIGHT_STEP + WALL_HEIGHT / 2
 
-		-- 4. Floor-2 RIGHT wall front gap (player exits floor 2 to reach floor-3 stairs)
+		-- 5. Floor-2 RIGHT wall front gap (player exits floor 2 to reach floor-3 stairs)
 		addLockPlane(frontFaceX - faceSign * (STAIR_OPENING_W / 2), floor2WallY,
 			basePos.Z + halfWidth, STAIR_OPENING_W, WALL_HEIGHT, WALL_THICKNESS)
 
-		-- 5. Floor-3 RIGHT wall back gap (player enters floor 3 from stair landing)
+		-- 6. Floor-3 RIGHT wall back gap (player enters floor 3 from stair landing)
 		addLockPlane(backWallX + faceSign * (STAIR_OPENING_W / 2), floor3WallY,
 			basePos.Z + halfWidth, STAIR_OPENING_W, WALL_HEIGHT, WALL_THICKNESS)
+
+		-- 7. Block outdoor access to floor-3 staircase from the front
+		addLockPlane(frontFaceX, basePos.Y + FLOOR_HEIGHT_STEP + FLOOR_HEIGHT_STEP / 2, stairCenterZ_R,
+			WALL_THICKNESS, FLOOR_HEIGHT_STEP, STAIR_WIDTH_LOCK)
 	end
 
 	-- Show red bars as visual indicator
