@@ -112,9 +112,9 @@ local function computeAllSlotPositions(pos)
 		-- to get the correct body-centre spawn position.
 		local floorSurfaceY
 		if floorIndex == 1 then
-			floorSurfaceY = pos.Y + 2.6   -- top of interior floor slab + small clearance
+			floorSurfaceY = pos.Y + 4.0   -- raised well above floor slab so skins sit on top
 		else
-			floorSurfaceY = pos.Y + (floorIndex - 1) * FLOOR_HEIGHT_STEP + 0.4
+			floorSurfaceY = pos.Y + (floorIndex - 1) * FLOOR_HEIGHT_STEP + 1.5
 		end
 		local plateY = floorSurfaceY + 0.15  -- plate sits flush with floor
 
@@ -359,30 +359,26 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 		CFrame.new(backWallX, wallY, pos.Z),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Left wall: full (no stair opening)
-	makePart(folder, "WallLeft" .. floorNum,
-		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
-		CFrame.new(bCX, wallY, pos.Z - halfWidth),
-		WALL_COLOR, 0, Enum.Material.Concrete, true)
-
-	-- Right wall: 8-stud opening at the FRONT end for stair access (stairs are on right/entrance side)
+	-- Left wall: 8-stud opening at the BACK end where stairs arrive
 	local STAIR_OPENING_W = 8
-	local rightSegLen = BUILDING_DEPTH - STAIR_OPENING_W  -- 32 studs from back
-	makePart(folder, "WallRight" .. floorNum,
-		Vector3.new(rightSegLen, WALL_HEIGHT, WALL_THICKNESS),
-		CFrame.new(backWallX + faceSign * rightSegLen / 2, wallY, pos.Z + halfWidth),
+	local leftSegLen = BUILDING_DEPTH - STAIR_OPENING_W  -- 32 studs from front end
+	makePart(folder, "WallLeft" .. floorNum,
+		Vector3.new(leftSegLen, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(frontFaceX - faceSign * leftSegLen / 2, wallY, pos.Z - halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Front wall: two segments with entrance gap
-	local segmentWidth = (BUILDING_WIDTH - ENTRANCE_GAP) / 2
-	makePart(folder, "WallFrontLeft" .. floorNum,
-		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
-		CFrame.new(frontFaceX, wallY, pos.Z - ENTRANCE_GAP / 2 - segmentWidth / 2),
+	-- Right wall: full
+	makePart(folder, "WallRight" .. floorNum,
+		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
+		CFrame.new(bCX, wallY, pos.Z + halfWidth),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
-	makePart(folder, "WallFrontRight" .. floorNum,
-		Vector3.new(WALL_THICKNESS, WALL_HEIGHT, segmentWidth),
-		CFrame.new(frontFaceX, wallY, pos.Z + ENTRANCE_GAP / 2 + segmentWidth / 2),
-		WALL_COLOR, 0, Enum.Material.Concrete, true)
+
+	-- Front wall: full glass (no entrance gap — access via side stairs only)
+	local GLASS_COLOR = Color3.fromRGB(180, 220, 255)
+	makePart(folder, "WallFront" .. floorNum,
+		Vector3.new(WALL_THICKNESS + 0.2, WALL_HEIGHT, BUILDING_WIDTH),
+		CFrame.new(frontFaceX, wallY, pos.Z),
+		GLASS_COLOR, 0.65, Enum.Material.Glass, false)
 
 	-- Roof (same style as original ground-floor roof)
 	local roofWidth = BUILDING_WIDTH + ROOF_OVERHANG * 2
@@ -414,20 +410,21 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local stairHeightTotal = floorGroundY - prevFloorSurfaceY
 	local stepH            = stairHeightTotal / STAIR_STEPS
 
-	-- Staircase sits just outside the RIGHT wall (entrance side)
-	local stairCenterZ = pos.Z + halfWidth + WALL_THICKNESS / 2 + STAIR_WIDTH / 2
+	-- Staircase on the LEFT side. Bottom step at FRONT (entrance side), top at BACK.
+	local stairCenterZ = pos.Z - halfWidth - WALL_THICKNESS / 2 - STAIR_WIDTH / 2
 
 	for i = 1, STAIR_STEPS do
 		local stepCenterY = prevFloorSurfaceY + (i * stepH) / 2
-		local stepCenterX = backWallX + faceSign * (i - 0.5) * STAIR_STEP_D
+		-- Step 1 is at the FRONT (frontFaceX), step 8 is toward the back
+		local stepCenterX = frontFaceX - faceSign * (i - 0.5) * STAIR_STEP_D
 		makePart(folder, "Stair" .. floorNum .. "_" .. i,
 			Vector3.new(STAIR_STEP_D, i * stepH, STAIR_WIDTH),
 			CFrame.new(stepCenterX, stepCenterY, stairCenterZ),
 			STAIR_COLOR, 0, Enum.Material.Concrete, true)
 	end
 
-	-- Landing platform at the top of the stairs, flush with the upper floor
-	local landingCenterX = backWallX + faceSign * (STAIR_STEPS + 0.5) * STAIR_STEP_D
+	-- Landing at the top (back of building), connects to floor interior via left wall opening
+	local landingCenterX = frontFaceX - faceSign * (STAIR_STEPS + 0.5) * STAIR_STEP_D
 	makePart(folder, "StairLanding" .. floorNum,
 		Vector3.new(STAIR_STEP_D + 1, 0.4, STAIR_WIDTH),
 		CFrame.new(landingCenterX, floorGroundY + 0.2, stairCenterZ),

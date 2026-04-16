@@ -596,17 +596,16 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 						dest,
 					}
 				else
-					-- Floor 2+: walk to base entrance, then climb stairs on RIGHT side
-					-- Stairs: backWallX → (backWallX + faceSign*34) along building depth, at stairZ = bp2.Z + 21.5
-					local stairZ     = bp2.Z + 21.5   -- right side exterior
-					local landingX   = bp2.X + fs2 * 8  -- top of stairs
+					-- Floor 2+: walk to base entrance, then climb stairs on LEFT side
+					-- Stairs: bottom at frontFaceX, top at (frontFaceX - faceSign*34), stairZ = bp2.Z - 21.5
+					local stairZ         = bp2.Z - 21.5   -- left side exterior
+					local stairTopX      = frontFaceX - fs2 * 34   -- landing at back
 					local destFloorSkinY = dest.Y
 					waypoints = {
-						Vector3.new(frontFaceX + fs2 * 2, groundSkinY, bp2.Z),        -- outside entrance
-						Vector3.new(frontFaceX + fs2 * 2, groundSkinY, stairZ),        -- right side of front
-						Vector3.new(backWallX2,            groundSkinY, stairZ),        -- stair base (back of building)
-						Vector3.new(landingX,              destFloorSkinY, stairZ),     -- top of stairs
-						Vector3.new(landingX,              destFloorSkinY, bp2.Z + 17), -- through right wall opening
+						Vector3.new(frontFaceX + fs2 * 2, groundSkinY, bp2.Z),         -- outside entrance
+						Vector3.new(frontFaceX + fs2 * 2, groundSkinY, stairZ),         -- left side of front (stair bottom)
+						Vector3.new(stairTopX,             destFloorSkinY, stairZ),      -- top of stairs (back)
+						Vector3.new(stairTopX,             destFloorSkinY, bp2.Z - 17),  -- through left wall opening into interior
 						dest,
 					}
 				end
@@ -898,7 +897,7 @@ local SPAWN_Z      = -140  -- skins spawn inside north portal
 local DESPAWN_Z    =  140  -- skins despawn inside south portal
 
 -- Number of stripes and their spacing (studs apart)
-local STRIPE_COUNT   = 42   -- denser stripes so the full belt looks covered
+local STRIPE_COUNT   = 14
 local STRIPE_SPACING = BELT_LENGTH / STRIPE_COUNT
 
 function ShopSystem.createShopPads()
@@ -1118,91 +1117,77 @@ function ShopSystem.createShopPads()
 	gachaLight.Parent     = gachaPad
 
 	-- -----------------------------------------------------------------------
-	-- COFFRE AU TRÉSOR — loot chest machine
+	-- COFFRE AU TRÉSOR — "Caisse" template from ReplicatedStorage
 	-- -----------------------------------------------------------------------
 	local CX = gachaPad.Position.X
 	local CZ = gachaPad.Position.Z
 	local CY = padY  -- top of pad
 
-	-- Chest base (lower box)
-	local chestBase = Instance.new("Part")
-	chestBase.Anchored = true; chestBase.Size = Vector3.new(7, 4.5, 5)
-	chestBase.CFrame = CFrame.new(CX, CY + 2.25, CZ)
-	chestBase.Color = Color3.fromRGB(139, 90, 43); chestBase.Material = Enum.Material.WoodPlanks
-	chestBase.CanCollide = true; chestBase.Parent = workspace
+	_gachaPadY = padY
 
-	-- Chest lid (slightly wider, arched top using WedgeParts on sides + flat center)
-	local chestLid = Instance.new("Part")
-	chestLid.Anchored = true; chestLid.Size = Vector3.new(7.4, 2.5, 5.4)
-	chestLid.CFrame = CFrame.new(CX, CY + 4.5 + 1.25, CZ)
-	chestLid.Color = Color3.fromRGB(160, 100, 50); chestLid.Material = Enum.Material.WoodPlanks
-	chestLid.CanCollide = true; chestLid.Parent = workspace
+	local promptParent  -- part to attach ProximityPrompt and billboard to
+	local caisseTemplate = game:GetService("ReplicatedStorage"):FindFirstChild("Caisse")
+	if caisseTemplate then
+		local caisse = caisseTemplate:Clone()
+		caisse.Parent = workspace
 
-	-- Store references so spinGacha can animate the lid
-	_gachaChestLid      = chestLid
-	_gachaChestLidBaseY = CY + 4.5 + 1.25
-	_gachaPadY          = padY
+		-- Anchor all parts, disable collision on non-primary parts
+		for _, p2 in ipairs(caisse:GetDescendants()) do
+			if p2:IsA("BasePart") then
+				p2.Anchored   = true
+				p2.CanCollide = false
+			end
+		end
 
-	-- Metal bands (horizontal straps around base)
-	for _, yOff in ipairs({1, 3.2}) do
-		local band = Instance.new("Part")
-		band.Anchored = true; band.Size = Vector3.new(7.2, 0.5, 5.2)
-		band.CFrame = CFrame.new(CX, CY + yOff, CZ)
-		band.Color = Color3.fromRGB(80, 80, 85); band.Material = Enum.Material.Metal
-		band.CanCollide = false; band.Parent = workspace
+		-- Set PrimaryPart if missing
+		if not caisse.PrimaryPart then
+			caisse.PrimaryPart = caisse:FindFirstChildWhichIsA("BasePart", true)
+		end
+
+		-- Place bottom of model at CY
+		if caisse.PrimaryPart then
+			local bbCF, bbSize = caisse:GetBoundingBox()
+			local currentBottomY = bbCF.Position.Y - bbSize.Y / 2
+			local pp = caisse.PrimaryPart
+			caisse:SetPrimaryPartCFrame(CFrame.new(
+				CX,
+				pp.Position.Y + (CY - currentBottomY),
+				CZ
+			))
+			_gachaChestLidBaseY = CY + bbSize.Y * 0.8  -- approx lid height for open animation
+			-- Look for a part named "Lid" or "Couvercle" for animation
+			local lid = caisse:FindFirstChild("Lid") or caisse:FindFirstChild("Couvercle")
+			_gachaChestLid = lid or caisse.PrimaryPart
+		end
+
+		promptParent = caisse.PrimaryPart or caisse:FindFirstChildWhichIsA("BasePart", true)
 	end
-	-- Metal band on lid
-	local lidBand = Instance.new("Part")
-	lidBand.Anchored = true; lidBand.Size = Vector3.new(7.5, 0.5, 5.5)
-	lidBand.CFrame = CFrame.new(CX, CY + 4.5 + 0.5, CZ)
-	lidBand.Color = Color3.fromRGB(80, 80, 85); lidBand.Material = Enum.Material.Metal
-	lidBand.CanCollide = false; lidBand.Parent = workspace
-
-	-- Gold lock in center front
-	local lock = Instance.new("Part")
-	lock.Anchored = true; lock.Shape = Enum.PartType.Ball
-	lock.Size = Vector3.new(1.2, 1.2, 1.2)
-	lock.CFrame = CFrame.new(CX - 3.7, CY + 2.5, CZ)
-	lock.Color = Color3.fromRGB(255, 210, 0); lock.Material = Enum.Material.Neon
-	lock.CanCollide = false; lock.Parent = workspace
-
-	-- Glow light from chest (on chestBase so it actually illuminates)
-	local chestLight = Instance.new("PointLight")
-	chestLight.Brightness = 4; chestLight.Range = 25
-	chestLight.Color = Color3.fromRGB(255, 200, 50)
-	chestLight.Parent = chestBase
-
-	-- Animate chest color cycling
-	RunService.Heartbeat:Connect(function()
-		if not chestBase or not chestBase.Parent then return end
-		local hue = (tick() * 0.3) % 1
-		local glowCol = Color3.fromHSV(hue, 0.7, 1)
-		lock.Color = glowCol; chestLight.Color = glowCol
-	end)
 
 	-- Billboard above chest
-	local wbb = Instance.new("BillboardGui")
-	wbb.Size = UDim2.new(0, 300, 0, 90); wbb.StudsOffset = Vector3.new(0, 8, 0)
-	wbb.Parent = chestLid
-	local wtitle = Instance.new("TextLabel")
-	wtitle.Size = UDim2.new(1,0,0.55,0); wtitle.BackgroundTransparency = 1
-	wtitle.Text = "COFFRE AU TRÉSOR"; wtitle.TextScaled = true
-	wtitle.Font = Enum.Font.GothamBold; wtitle.TextColor3 = Color3.fromRGB(255, 220, 0)
-	wtitle.TextStrokeTransparency = 0; wtitle.Parent = wbb
-	local wsub = Instance.new("TextLabel")
-	wsub.Size = UDim2.new(1,0,0.45,0); wsub.Position = UDim2.new(0,0,0.55,0)
-	wsub.BackgroundTransparency = 1; wsub.Text = "Tour gratuit — 30 min de cooldown"
-	wsub.TextScaled = true; wsub.Font = Enum.Font.Gotham
-	wsub.TextColor3 = Color3.fromRGB(220, 220, 255); wsub.Parent = wbb
+	if promptParent then
+		local wbb = Instance.new("BillboardGui")
+		wbb.Size = UDim2.new(0, 300, 0, 90); wbb.StudsOffset = Vector3.new(0, 8, 0)
+		wbb.Parent = promptParent
+		local wtitle = Instance.new("TextLabel")
+		wtitle.Size = UDim2.new(1,0,0.55,0); wtitle.BackgroundTransparency = 1
+		wtitle.Text = "COFFRE AU TRÉSOR"; wtitle.TextScaled = true
+		wtitle.Font = Enum.Font.GothamBold; wtitle.TextColor3 = Color3.fromRGB(255, 220, 0)
+		wtitle.TextStrokeTransparency = 0; wtitle.Parent = wbb
+		local wsub = Instance.new("TextLabel")
+		wsub.Size = UDim2.new(1,0,0.45,0); wsub.Position = UDim2.new(0,0,0.55,0)
+		wsub.BackgroundTransparency = 1; wsub.Text = "Tour gratuit — 30 min de cooldown"
+		wsub.TextScaled = true; wsub.Font = Enum.Font.Gotham
+		wsub.TextColor3 = Color3.fromRGB(220, 220, 255); wsub.Parent = wbb
+	end
 
-	-- ProximityPrompt on the chest lid (at eye level, line-of-sight disabled)
+	-- ProximityPrompt
 	local gachaPrompt = Instance.new("ProximityPrompt")
 	gachaPrompt.ActionText            = "Ouvrir (GRATUIT)"
 	gachaPrompt.ObjectText            = "COFFRE AU TRÉSOR — 30 min de recharge"
 	gachaPrompt.HoldDuration          = 0
 	gachaPrompt.MaxActivationDistance = 15
 	gachaPrompt.RequiresLineOfSight   = false
-	gachaPrompt.Parent                = chestLid
+	gachaPrompt.Parent                = promptParent or gachaPad
 
 	gachaPrompt.Triggered:Connect(function(player)
 		ShopSystem.spinGacha(player, _playerBases, _skinOwner, _playerCollection)

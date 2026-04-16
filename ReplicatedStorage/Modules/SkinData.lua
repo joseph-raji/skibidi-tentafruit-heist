@@ -62,18 +62,6 @@ SkinData.list = {
 		dropWeight  = 50,
 	},
 
-	{
-		id          = "tomate_basic",
-		name        = "Tomate Basic",
-		rarity      = "Common",
-		income      = 80,
-		cost        = 800,
-		color       = BrickColor.new("Bright red"),
-		glowColor   = Color3.fromRGB(200, 30, 30),
-		size        = 3,
-		description = "Incapable de décider si c'est un fruit ou un légume. Crise d'identité quotidienne.",
-		dropWeight  = 50,
-	},
 
 	-- =====================================================================
 	-- UNCOMMON (5) — income 150-200/s, cost 1500-2000, dropWeight 25, size 3.5
