@@ -30,19 +30,23 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 		end
 	end
 
-	-- Position: place model so bottom lands at pos.Y - s (= slotSurfaceY).
-	-- Single-step: get bounding box at current post-scale position, compute the
-	-- full X/Y/Z shift, then apply it once to avoid stale-position issues.
-	if clone.PrimaryPart then
+	-- Position: move every part individually (SetPrimaryPartCFrame does NOT move anchored parts).
+	-- Desired: bottom of bounding box at pos.Y - s (= slotSurfaceY), centered on pos.X/Z.
+	do
 		local bbCF, bbSize = clone:GetBoundingBox()
-		local currentBottomY = bbCF.Position.Y - bbSize.Y / 2
-		local desiredBottomY = pos.Y - s  -- bottom of model = slotSurfaceY
-		local pp = clone.PrimaryPart
-		clone:SetPrimaryPartCFrame(CFrame.new(
-			pp.Position.X + (pos.X - bbCF.Position.X),
-			pp.Position.Y + (desiredBottomY - currentBottomY),
-			pp.Position.Z + (pos.Z - bbCF.Position.Z)
-		))
+		local offsetX = pos.X - bbCF.Position.X
+		local offsetY = (pos.Y - s) - (bbCF.Position.Y - bbSize.Y / 2)
+		local offsetZ = pos.Z - bbCF.Position.Z
+		local delta   = Vector3.new(offsetX, offsetY, offsetZ)
+		for _, p2 in ipairs(clone:GetDescendants()) do
+			if p2:IsA("BasePart") then
+				p2.CFrame = p2.CFrame + delta
+			end
+		end
+		-- Also move the PrimaryPart itself
+		if clone.PrimaryPart then
+			clone.PrimaryPart.CFrame = clone.PrimaryPart.CFrame + delta
+		end
 	end
 	-- Mark this sub-model as FBX so CharacterBuilders.build rotates it correctly
 	clone:SetAttribute("_IsFBX", true)

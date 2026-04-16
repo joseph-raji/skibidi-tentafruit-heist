@@ -112,9 +112,9 @@ local function computeAllSlotPositions(pos)
 		-- to get the correct body-centre spawn position.
 		local floorSurfaceY
 		if floorIndex == 1 then
-			floorSurfaceY = pos.Y + 4.0   -- raised well above floor slab so skins sit on top
+			floorSurfaceY = pos.Y + 2.2
 		else
-			floorSurfaceY = pos.Y + (floorIndex - 1) * FLOOR_HEIGHT_STEP + 1.5
+			floorSurfaceY = pos.Y + (floorIndex - 1) * FLOOR_HEIGHT_STEP
 		end
 		local plateY = floorSurfaceY + 0.15  -- plate sits flush with floor
 
@@ -378,7 +378,7 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	makePart(folder, "WallFront" .. floorNum,
 		Vector3.new(WALL_THICKNESS + 0.2, WALL_HEIGHT, BUILDING_WIDTH),
 		CFrame.new(frontFaceX, wallY, pos.Z),
-		GLASS_COLOR, 0.65, Enum.Material.Glass, false)
+		GLASS_COLOR, 0.65, Enum.Material.Glass, true)
 
 	-- Roof (same style as original ground-floor roof)
 	local roofWidth = BUILDING_WIDTH + ROOF_OVERHANG * 2
