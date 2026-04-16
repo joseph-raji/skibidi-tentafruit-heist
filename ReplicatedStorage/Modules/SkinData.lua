@@ -11,7 +11,7 @@ SkinData.list = {
 	-- =====================================================================
 
 	{
-		id          = "fraise_jr",
+		id          = "FraisefSkin",
 		name        = "Fraise Jr",
 		rarity      = "Common",
 		income      = 50,
@@ -240,6 +240,19 @@ SkinData.list = {
 		dropWeight  = 12,
 	},
 
+	{
+		id          = "FraisehSkin",
+		name        = "Fraise Pouce",
+		rarity      = "Rare",
+		income      = 460,
+		cost        = nil,
+		color       = BrickColor.new("Bright red"),
+		glowColor   = Color3.fromRGB(255, 60, 90),
+		size        = 4,
+		description = "Fraise qui approuve tout. Son pouce en l'air est indestructible.",
+		dropWeight  = 12,
+	},
+
 	-- =====================================================================
 	-- EPIC (5) — income 1000-1200/s, cost nil (gacha-only), dropWeight 5, size 4.5
 	-- =====================================================================
@@ -376,6 +389,23 @@ SkinData.list = {
 		size        = 5,
 		description = "L'original. Celui qui a tout déclenché. Inégalable.",
 		dropWeight  = 1,
+	},
+
+	-- =====================================================================
+	-- FUSION EXCLUSIVES — dropWeight 0 (never from gacha, fusion only)
+	-- =====================================================================
+
+	{
+		id          = "FraisefFraisehSkin",
+		name        = "Fraise Fusion",
+		rarity      = "Epic",
+		income      = 1100,
+		cost        = nil,
+		color       = BrickColor.new("Hot pink"),
+		glowColor   = Color3.fromRGB(255, 30, 100),
+		size        = 4.5,
+		description = "Fraise normale + fraise pouce = quelque chose d'incompréhensible.",
+		dropWeight  = 0,
 	},
 }
 

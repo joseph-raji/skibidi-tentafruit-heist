@@ -406,6 +406,44 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 		ROOF_COLOR, 0, Enum.Material.SmoothPlastic, true)
 
 	-- -----------------------------------------------------------------------
+	-- Gap in the PREVIOUS floor's side wall so the player can walk out to
+	-- the exterior staircase. The front STAIR_OPENING_W studs are removed.
+	-- Floor 2 stairs are on LEFT → gap in ground floor WallLeft (front end).
+	-- Floor 3 stairs are on RIGHT → gap in floor-2 WallRight2 (front end).
+	-- -----------------------------------------------------------------------
+	local prevWallName, prevWallSideZ, prevWallColor, prevWallY
+	if floorNum == 2 then
+		prevWallName  = "WallLeft"
+		prevWallSideZ = pos.Z - halfWidth
+		prevWallColor = Color3.fromRGB(52, 55, 63)
+		prevWallY     = pos.Y + FLOOR_THICKNESS + WALL_HEIGHT / 2
+	else
+		local prevSuffix = floorNum - 1
+		if stairsOnLeft then
+			prevWallName  = "WallLeft"  .. prevSuffix
+			prevWallSideZ = pos.Z - halfWidth
+		else
+			prevWallName  = "WallRight" .. prevSuffix
+			prevWallSideZ = pos.Z + halfWidth
+		end
+		prevWallColor = Color3.fromRGB(130, 130, 135)
+		prevWallY     = pos.Y + (floorNum - 2) * FLOOR_HEIGHT_STEP + WALL_HEIGHT / 2
+	end
+
+	local prevSideWall = folder:FindFirstChild(prevWallName)
+	if prevSideWall then
+		prevSideWall:Destroy()
+		-- Rebuild covering only the back (BUILDING_DEPTH - STAIR_OPENING_W) studs,
+		-- leaving the front STAIR_OPENING_W studs open for stair access.
+		local gapSegLen     = BUILDING_DEPTH - STAIR_OPENING_W   -- 32
+		local gapSegCenterX = backWallX + faceSign * (gapSegLen / 2)
+		makePart(folder, prevWallName,
+			Vector3.new(gapSegLen, WALL_HEIGHT, WALL_THICKNESS),
+			CFrame.new(gapSegCenterX, prevWallY, prevWallSideZ),
+			prevWallColor, 0, Enum.Material.Concrete, true)
+	end
+
+	-- -----------------------------------------------------------------------
 	-- Exterior staircase on the LEFT side of the building.
 	-- 8 steps × 4 studs deep, 8 studs wide.
 	-- Floor 2 stairs: ground level → floor 2.
@@ -722,44 +760,80 @@ function BaseSystem.lockBase(player, playerBases)
 
 	local bCX        = basePos.X + faceSign * (-6)
 	local halfDepth  = BUILDING_DEPTH / 2
+	local halfWidth  = BUILDING_WIDTH / 2
 	local frontFaceX = bCX + faceSign * halfDepth
+	local backWallX  = bCX - faceSign * halfDepth
+	local foundTopY  = basePos.Y + FLOOR_THICKNESS
 
-	-- Window geometry (must match buildGroundFloor)
+	local lockPlanes = {}
+
+	-- Helper: create one invisible blocking plane; owner can pass through it.
+	local function addLockPlane(cx, cy, cz, sx, sy, sz)
+		local lp = Instance.new("Part")
+		lp.Name         = "LockPlane"
+		lp.Size         = Vector3.new(sx, sy, sz)
+		lp.CFrame       = CFrame.new(cx, cy, cz)
+		lp.Anchored     = true
+		lp.CanCollide   = true
+		lp.Transparency = 1
+		lp.CastShadow   = false
+		lp.Parent       = workspace
+
+		local passThroughActive = false
+		lp.Touched:Connect(function(hit)
+			local character = hit.Parent
+			if not character then return end
+			local touchPlayer = Players:GetPlayerFromCharacter(character)
+			if touchPlayer ~= player then return end
+			if passThroughActive then return end
+			passThroughActive = true
+			lp.CanCollide = false
+			task.delay(1.5, function()
+				if lp and lp.Parent then lp.CanCollide = true end
+				passThroughActive = false
+			end)
+		end)
+
+		table.insert(lockPlanes, lp)
+	end
+
+	-- 1. Ground floor front window
 	local topBeamH     = 2.5
 	local sillH        = 1.0
 	local pillarW      = 2.5
 	local openH        = WALL_HEIGHT - topBeamH - sillH        -- 11.5
-	local openCenterY  = basePos.Y + FLOOR_THICKNESS + sillH + openH / 2
+	local openCenterY  = foundTopY + sillH + openH / 2
 	local displayWidth = BUILDING_WIDTH - pillarW * 2          -- 29
+	addLockPlane(frontFaceX, openCenterY, basePos.Z, WALL_THICKNESS, openH, displayWidth)
 
-	-- Invisible plane spanning the full window — blocks others, owner passes through
-	local lockPlane = Instance.new("Part")
-	lockPlane.Name         = "LockPlane"
-	lockPlane.Size         = Vector3.new(WALL_THICKNESS, openH, displayWidth)
-	lockPlane.CFrame       = CFrame.new(frontFaceX, openCenterY, basePos.Z)
-	lockPlane.Anchored     = true
-	lockPlane.CanCollide   = true
-	lockPlane.Transparency = 1
-	lockPlane.CastShadow   = false
-	lockPlane.Parent       = workspace
+	local STAIR_OPENING_W = 8  -- must match buildUpperFloor
+	local unlockedFloors  = baseData.unlockedFloors or 1
 
-	-- Owner passthrough: temporarily disable collision when owner touches
-	local passThroughActive = false
-	lockPlane.Touched:Connect(function(hit)
-		local character = hit.Parent
-		if not character then return end
-		local touchPlayer = Players:GetPlayerFromCharacter(character)
-		if touchPlayer ~= player then return end
-		if passThroughActive then return end
-		passThroughActive = true
-		lockPlane.CanCollide = false
-		task.delay(1.5, function()
-			if lockPlane and lockPlane.Parent then
-				lockPlane.CanCollide = true
-			end
-			passThroughActive = false
-		end)
-	end)
+	if unlockedFloors >= 2 then
+		local groundWallY = foundTopY + WALL_HEIGHT / 2
+		local floor2WallY = basePos.Y + FLOOR_HEIGHT_STEP + WALL_HEIGHT / 2
+
+		-- 2. Ground floor LEFT wall front gap (player exits to reach floor-2 stairs)
+		addLockPlane(frontFaceX - faceSign * (STAIR_OPENING_W / 2), groundWallY,
+			basePos.Z - halfWidth, STAIR_OPENING_W, WALL_HEIGHT, WALL_THICKNESS)
+
+		-- 3. Floor-2 LEFT wall back gap (player enters floor 2 from stair landing)
+		addLockPlane(backWallX + faceSign * (STAIR_OPENING_W / 2), floor2WallY,
+			basePos.Z - halfWidth, STAIR_OPENING_W, WALL_HEIGHT, WALL_THICKNESS)
+	end
+
+	if unlockedFloors >= 3 then
+		local floor2WallY = basePos.Y + FLOOR_HEIGHT_STEP + WALL_HEIGHT / 2
+		local floor3WallY = basePos.Y + 2 * FLOOR_HEIGHT_STEP + WALL_HEIGHT / 2
+
+		-- 4. Floor-2 RIGHT wall front gap (player exits floor 2 to reach floor-3 stairs)
+		addLockPlane(frontFaceX - faceSign * (STAIR_OPENING_W / 2), floor2WallY,
+			basePos.Z + halfWidth, STAIR_OPENING_W, WALL_HEIGHT, WALL_THICKNESS)
+
+		-- 5. Floor-3 RIGHT wall back gap (player enters floor 3 from stair landing)
+		addLockPlane(backWallX + faceSign * (STAIR_OPENING_W / 2), floor3WallY,
+			basePos.Z + halfWidth, STAIR_OPENING_W, WALL_HEIGHT, WALL_THICKNESS)
+	end
 
 	-- Show red bars as visual indicator
 	local baseFolder = baseData.folder
@@ -771,14 +845,14 @@ function BaseSystem.lockBase(player, playerBases)
 		end
 	end
 
-	baseData.lockShield = lockPlane
-	baseData.isLocked   = true
+	baseData.lockShields = lockPlanes
+	baseData.isLocked    = true
 	player:SetAttribute("BaseIsLocked", true)
 
 	evtNotification:FireClient(player, "Base verrouillée " .. LOCK_SHIELD_DURATION .. " sec ! Les barreaux rouges bloquent les envahisseurs.", Color3.fromRGB(255, 80, 80))
 
 	task.delay(LOCK_SHIELD_DURATION, function()
-		if baseData.lockShield == lockPlane then
+		if baseData.lockShields == lockPlanes then
 			BaseSystem.unlockBase(player, playerBases)
 		end
 	end)
@@ -794,11 +868,13 @@ function BaseSystem.unlockBase(player, playerBases)
 		return
 	end
 
-	if baseData.lockShield and baseData.lockShield.Parent then
-		baseData.lockShield:Destroy()
+	if baseData.lockShields then
+		for _, lp in ipairs(baseData.lockShields) do
+			if lp and lp.Parent then lp:Destroy() end
+		end
 	end
-	baseData.lockShield = nil
-	baseData.isLocked   = false
+	baseData.lockShields = nil
+	baseData.isLocked    = false
 	player:SetAttribute("BaseIsLocked", false)
 
 	-- Hide red bars now that base is unlocked

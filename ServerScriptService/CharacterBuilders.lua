@@ -43,10 +43,6 @@ local function buildFromImportedMesh(pos, model, s, templateName)
 				p2.CFrame = p2.CFrame + delta
 			end
 		end
-		-- Also move the PrimaryPart itself
-		if clone.PrimaryPart then
-			clone.PrimaryPart.CFrame = clone.PrimaryPart.CFrame + delta
-		end
 	end
 	-- Mark this sub-model as FBX so CharacterBuilders.build rotates it correctly
 	clone:SetAttribute("_IsFBX", true)
@@ -175,29 +171,39 @@ local DGRYA  = BrickColor.new("Dark grey")
 -- ============================================================
 local builders = {}
 
--- fraise_jr (Common): custom imported mesh (FraiseSkin)
-builders["fraise_jr"] = function(pos, model, s)
-	return buildFromImportedMesh(pos, model, s, "FraiseSkin")
+-- FraisefSkin (Common): normal fraise pose
+builders["FraisefSkin"] = function(pos, model, s)
+	return buildFromImportedMesh(pos, model, s, "FraisefSkin")
 end
 
--- myrtille_babe (Uncommon): custom imported mesh (MyrtilleSkin)
+-- FraisehSkin (Rare): thumbs-up pose
+builders["FraisehSkin"] = function(pos, model, s)
+	return buildFromImportedMesh(pos, model, s, "FraisehSkin")
+end
+
+-- FraisefFraisehSkin (fusion result): FraisefSkin + FraisehSkin fusion
+builders["FraisefFraisehSkin"] = function(pos, model, s)
+	return buildFromImportedMesh(pos, model, s, "FraisefFraisehSkin")
+end
+
+-- myrtille_babe (Uncommon): custom imported mesh
 builders["myrtille_babe"] = function(pos, model, s)
-	return buildFromImportedMesh(pos, model, s, "MyrtilleSkin")
+	return buildFromImportedMesh(pos, model, s, "MyrtillehSkin")
 end
 
--- noisette_king (Uncommon): custom imported mesh (NoisetteSkin)
+-- noisette_king (Uncommon): custom imported mesh
 builders["noisette_king"] = function(pos, model, s)
-	return buildFromImportedMesh(pos, model, s, "NoisetteSkin")
+	return buildFromImportedMesh(pos, model, s, "NoisettehSkin")
 end
 
--- poire_belle (Uncommon): custom imported mesh (PoireSkin)
+-- poire_belle (Uncommon): custom imported mesh
 builders["poire_belle"] = function(pos, model, s)
-	return buildFromImportedMesh(pos, model, s, "PoireSkin")
+	return buildFromImportedMesh(pos, model, s, "PoirefSkin")
 end
 
--- banane_bro (Common): custom imported mesh (BananeSkin)
+-- banane_bro (Common): custom imported mesh
 builders["banane_bro"] = function(pos, model, s)
-	return buildFromImportedMesh(pos, model, s, "BananeSkin")
+	return buildFromImportedMesh(pos, model, s, "BananehSkin")
 end
 
 -- banane_bro_fallback (procedural, kept for reference)
@@ -462,9 +468,9 @@ builders["papaye_pro"] = function(pos, model, s)
 	return tor
 end
 
--- fraise_supreme (Epic): custom imported mesh (FraiseSkin)
+-- fraise_supreme (Epic): custom imported mesh
 builders["fraise_supreme"] = function(pos, model, s)
-	return buildFromImportedMesh(pos, model, s, "FraiseSkin")
+	return buildFromImportedMesh(pos, model, s, "FraisefSkin")
 end
 
 -- banane_doom (Epic): yellow elongated head, black visor, red slits, shoulder spikes
@@ -587,9 +593,9 @@ builders["mangue_cosmique"] = function(pos, model, s)
 	return tor
 end
 
--- fraise_omega (Legendary): custom imported mesh (FraiseSkin)
+-- fraise_omega (Legendary): custom imported mesh
 builders["fraise_omega"] = function(pos, model, s)
-	return buildFromImportedMesh(pos, model, s, "FraiseSkin")
+	return buildFromImportedMesh(pos, model, s, "FraisefSkin")
 end
 
 -- banane_fantome (Legendary): semi-transparent ghost, wisps, tail chain, blue halo
@@ -771,9 +777,16 @@ function CharacterBuilders.build(skinId, position, model, s, skinData, baseCente
 			-- FBX models import facing -Z; flip them with π for left slots,
 			-- leave at 0 for right slots (π would point them away from the plate).
 			faceAngle = position.Z > baseCenter.Z and 0 or math.pi
-			subModel:SetPrimaryPartCFrame(
-				CFrame.new(torso.Position) * CFrame.Angles(0, faceAngle, 0)
-			)
+			-- Rotate all anchored parts around the torso center (SetPrimaryPartCFrame does NOT move anchored parts)
+			local center = torso.Position
+			local centerCF = CFrame.new(center)
+			local rotCF = CFrame.Angles(0, faceAngle, 0)
+			for _, p2 in ipairs(subModel:GetDescendants()) do
+				if p2:IsA("BasePart") then
+					local relCF = centerCF:Inverse() * p2.CFrame
+					p2.CFrame = centerCF * rotCF * relCF
+				end
+			end
 		else
 			-- Procedural models face +Z by default; only right slots need a π flip.
 			faceAngle = position.Z > baseCenter.Z and math.pi or 0

@@ -609,11 +609,28 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 						dest,
 					}
 				end
-				local segment  = 1
-				local segStart = startPos
-				local segEnd   = waypoints[1]
-				local segLen   = math.max(1, (segEnd - segStart).Magnitude)
-				local t        = 0
+				-- Helper: move every BasePart in the outer model by a delta vector.
+				-- This works for both procedural skins (welded, unanchored) and
+				-- FBX skins (all-anchored), where SetPrimaryPartCFrame would only
+				-- move the PrimaryPart.
+				local function moveModel(delta)
+					local outerM = body.Parent
+					while outerM and outerM.Parent ~= workspace do outerM = outerM.Parent end
+					if outerM and outerM:IsA("Model") then
+						for _, part in ipairs(outerM:GetDescendants()) do
+							if part:IsA("BasePart") then
+								part.CFrame = part.CFrame + delta
+							end
+						end
+					end
+				end
+
+				local segment    = 1
+				local segStart   = startPos
+				local segEnd     = waypoints[1]
+				local segLen     = math.max(1, (segEnd - segStart).Magnitude)
+				local t          = 0
+				local modelPos   = startPos  -- tracks the logical position of the model
 				local conn
 				conn = RunService.Heartbeat:Connect(function(dt)
 					if not body or not body.Parent then
@@ -634,15 +651,15 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 					t = t + (WALK_SPEED * dt) / segLen
 					if t >= 1 then
 						if segment < #waypoints then
-							-- Advance to next segment
 							segment  = segment + 1
 							segStart = waypoints[segment - 1]
 							segEnd   = waypoints[segment]
 							segLen   = math.max(1, (segEnd - segStart).Magnitude)
 							t = 0
-							model:SetPrimaryPartCFrame(CFrame.new(segStart))
+							local snapDelta = segStart - modelPos
+							modelPos = segStart
+							moveModel(snapDelta)
 						else
-							-- Arrived at slot
 							conn:Disconnect(); _flyingBodies[body] = nil
 							if buyer and buyer.Parent then
 								ShopSystem.spawnSkin(skinData, dest, buyer, _skinOwner, slotIndex)
@@ -655,8 +672,10 @@ function ShopSystem.spawnSkin(skinData, position, owner, skinOwner, slotIndex)
 						end
 						return
 					end
-					local walkPos = segStart:Lerp(segEnd, t)
-					model:SetPrimaryPartCFrame(CFrame.new(walkPos) * CFrame.Angles(0, tick() * 2, 0))
+					local newPos = segStart:Lerp(segEnd, t)
+					local delta  = newPos - modelPos
+					modelPos     = newPos
+					moveModel(delta)
 				end)
 			end)
 		end
@@ -835,11 +854,21 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 	local wp1 = Vector3.new(frontFaceX + fs * 2, dest.Y, bp.Z)
 	local wp2 = Vector3.new(frontFaceX - fs * 3, dest.Y, bp.Z)
 	local waypoints   = {wp1, wp2, dest}
+	-- Helper: move all BaseParts in walkModel by a delta vector.
+	local function moveWalkModel(delta)
+		for _, part in ipairs(walkModel:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CFrame = part.CFrame + delta
+			end
+		end
+	end
+
 	local segIdx      = 1
 	local segStartPos = walkStartPos
 	local segEndPos   = waypoints[1]
 	local segLen      = math.max(1, (segEndPos - segStartPos).Magnitude)
 	local walkT       = 0
+	local walkModelPos = walkStartPos  -- logical position of the walk model
 	local WALK_SPEED  = 14
 	local walkConn
 	walkConn = RunService.Heartbeat:Connect(function(dt)
@@ -854,11 +883,12 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 				segEndPos   = waypoints[segIdx]
 				segLen      = math.max(1, (segEndPos - segStartPos).Magnitude)
 				walkT       = 0
-				walkModel:SetPrimaryPartCFrame(CFrame.new(segStartPos))
+				local snapDelta = segStartPos - walkModelPos
+				walkModelPos = segStartPos
+				moveWalkModel(snapDelta)
 			else
 				walkConn:Disconnect(); _flyingBodies[walkBody] = nil
 				walkModel:Destroy()
-				-- Close chest lid
 				if _gachaChestLid and _gachaChestLid.Parent and _gachaChestLidBaseY then
 					TweenService:Create(
 						_gachaChestLid,
@@ -877,7 +907,10 @@ function ShopSystem.spinGacha(player, playerBases, skinOwner, playerCollection)
 			end
 			return
 		end
-		walkModel:SetPrimaryPartCFrame(CFrame.new(segStartPos:Lerp(segEndPos, walkT)))
+		local newPos = segStartPos:Lerp(segEndPos, walkT)
+		local delta  = newPos - walkModelPos
+		walkModelPos = newPos
+		moveWalkModel(delta)
 	end)
 
 	return result
@@ -1051,14 +1084,31 @@ function ShopSystem.createShopPads()
 				conveyorItems[body] = nil
 				continue
 			end
-			local newZ = body.Position.Z + BELT_SPEED * dt
-			body.CFrame = CFrame.new(body.Position.X, body.Position.Y, newZ)
-				* CFrame.Angles(0, tick() * 0.8, 0)
+			local dz   = BELT_SPEED * dt
+			local newZ = body.Position.Z + dz
+
+			-- Move all parts of the outer model by dz along Z so that FBX
+			-- multi-part models (where only the PrimaryPart would move via CFrame)
+			-- scroll correctly as a whole unit.
+			local outerModel = body.Parent
+			while outerModel and outerModel.Parent ~= workspace do
+				outerModel = outerModel.Parent
+			end
+			if outerModel and outerModel:IsA("Model") then
+				for _, part in ipairs(outerModel:GetDescendants()) do
+					if part:IsA("BasePart") then
+						part.CFrame = part.CFrame + Vector3.new(0, 0, dz)
+					end
+				end
+			else
+				body.CFrame = CFrame.new(body.Position.X, body.Position.Y, newZ)
+					* CFrame.Angles(0, tick() * 0.8, 0)
+			end
+
 			if newZ >= DESPAWN_Z then
-				local model = body.Parent
 				conveyorItems[body] = nil
-				if model and model:IsA("Model") then
-					model:Destroy()
+				if outerModel and outerModel.Parent then
+					outerModel:Destroy()
 				elseif body.Parent then
 					body:Destroy()
 				end
@@ -1066,13 +1116,13 @@ function ShopSystem.createShopPads()
 		end
 	end)
 
-	-- Only the 5 imported/FBX brainrots appear on the belt
+	-- Only the imported/FBX brainrots with a buy price appear on the belt
 	local FBX_IDS = {
-		fraise_jr = true,
-		banane_bro = true,
+		FraisefSkin   = true,
+		banane_bro    = true,
 		myrtille_babe = true,
 		noisette_king = true,
-		poire_belle = true,
+		poire_belle   = true,
 	}
 
 	-- Spawn 1 skin every 4 seconds at the start of the belt
@@ -1144,18 +1194,20 @@ function ShopSystem.createShopPads()
 			caisse.PrimaryPart = caisse:FindFirstChildWhichIsA("BasePart", true)
 		end
 
-		-- Place bottom of model at CY
-		if caisse.PrimaryPart then
+		-- Place bottom of model at CY — move ALL parts by delta (SetPrimaryPartCFrame
+		-- does NOT move anchored parts, so we must iterate descendants manually).
+		do
 			local bbCF, bbSize = caisse:GetBoundingBox()
-			local currentBottomY = bbCF.Position.Y - bbSize.Y / 2
-			local pp = caisse.PrimaryPart
-			caisse:SetPrimaryPartCFrame(CFrame.new(
-				CX,
-				pp.Position.Y + (CY - currentBottomY),
-				CZ
-			))
+			local dx = CX - bbCF.Position.X
+			local dy = CY - (bbCF.Position.Y - bbSize.Y / 2)
+			local dz = CZ - bbCF.Position.Z
+			local delta = Vector3.new(dx, dy, dz)
+			for _, p2 in ipairs(caisse:GetDescendants()) do
+				if p2:IsA("BasePart") then
+					p2.CFrame = p2.CFrame + delta
+				end
+			end
 			_gachaChestLidBaseY = CY + bbSize.Y * 0.8  -- approx lid height for open animation
-			-- Look for a part named "Lid" or "Couvercle" for animation
 			local lid = caisse:FindFirstChild("Lid") or caisse:FindFirstChild("Couvercle")
 			_gachaChestLid = lid or caisse.PrimaryPart
 		end
