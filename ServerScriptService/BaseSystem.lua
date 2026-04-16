@@ -359,19 +359,35 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 		CFrame.new(backWallX, wallY, pos.Z),
 		WALL_COLOR, 0, Enum.Material.Concrete, true)
 
-	-- Left wall: 8-stud opening at the BACK end where stairs arrive
+	-- Stairs alternate sides each floor so you can reach each one:
+	--   even floors (2, 4…) → LEFT side   odd floors above 1 (3, 5…) → RIGHT side
 	local STAIR_OPENING_W = 8
-	local leftSegLen = BUILDING_DEPTH - STAIR_OPENING_W  -- 32 studs from front end
-	makePart(folder, "WallLeft" .. floorNum,
-		Vector3.new(leftSegLen, WALL_HEIGHT, WALL_THICKNESS),
-		CFrame.new(frontFaceX - faceSign * leftSegLen / 2, wallY, pos.Z - halfWidth),
-		WALL_COLOR, 0, Enum.Material.Concrete, true)
+	local stairsOnLeft = (floorNum % 2 == 0)
+	local segLen = BUILDING_DEPTH - STAIR_OPENING_W  -- 32 studs
 
-	-- Right wall: full
-	makePart(folder, "WallRight" .. floorNum,
-		Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
-		CFrame.new(bCX, wallY, pos.Z + halfWidth),
-		WALL_COLOR, 0, Enum.Material.Concrete, true)
+	if stairsOnLeft then
+		-- Left wall: opening at BACK end (stairs arrive from front)
+		makePart(folder, "WallLeft" .. floorNum,
+			Vector3.new(segLen, WALL_HEIGHT, WALL_THICKNESS),
+			CFrame.new(frontFaceX - faceSign * segLen / 2, wallY, pos.Z - halfWidth),
+			WALL_COLOR, 0, Enum.Material.Concrete, true)
+		-- Right wall: full
+		makePart(folder, "WallRight" .. floorNum,
+			Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
+			CFrame.new(bCX, wallY, pos.Z + halfWidth),
+			WALL_COLOR, 0, Enum.Material.Concrete, true)
+	else
+		-- Left wall: full
+		makePart(folder, "WallLeft" .. floorNum,
+			Vector3.new(BUILDING_DEPTH, WALL_HEIGHT, WALL_THICKNESS),
+			CFrame.new(bCX, wallY, pos.Z - halfWidth),
+			WALL_COLOR, 0, Enum.Material.Concrete, true)
+		-- Right wall: opening at BACK end (stairs arrive from front)
+		makePart(folder, "WallRight" .. floorNum,
+			Vector3.new(segLen, WALL_HEIGHT, WALL_THICKNESS),
+			CFrame.new(frontFaceX - faceSign * segLen / 2, wallY, pos.Z + halfWidth),
+			WALL_COLOR, 0, Enum.Material.Concrete, true)
+	end
 
 	-- Front wall: full glass (no entrance gap — access via side stairs only)
 	local GLASS_COLOR = Color3.fromRGB(180, 220, 255)
@@ -410,8 +426,9 @@ local function buildUpperFloor(folder, pos, faceSign, floorNum)
 	local stairHeightTotal = floorGroundY - prevFloorSurfaceY
 	local stepH            = stairHeightTotal / STAIR_STEPS
 
-	-- Staircase on the LEFT side. Bottom step at FRONT (entrance side), top at BACK.
-	local stairCenterZ = pos.Z - halfWidth - WALL_THICKNESS / 2 - STAIR_WIDTH / 2
+	-- Stairs alternate sides: even floors = LEFT, odd floors (≥3) = RIGHT
+	local stairSide = stairsOnLeft and -1 or 1   -- -1 = left of Z, +1 = right of Z
+	local stairCenterZ = pos.Z + stairSide * (halfWidth + WALL_THICKNESS / 2 + STAIR_WIDTH / 2)
 
 	for i = 1, STAIR_STEPS do
 		local stepCenterY = prevFloorSurfaceY + (i * stepH) / 2
